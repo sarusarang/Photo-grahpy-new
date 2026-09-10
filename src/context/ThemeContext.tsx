@@ -13,7 +13,7 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [theme, setThemeState] = useState<Theme>(() => {
     const saved = (localStorage.getItem('exstudio_theme') || localStorage.getItem('lumiere_theme')) as Theme | null;
-    return saved === 'light' || saved === 'dark' ? saved : 'light';
+    return saved === 'light' || saved === 'dark' ? saved : 'dark';
   });
 
 
