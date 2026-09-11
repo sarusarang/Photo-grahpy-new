@@ -3,23 +3,24 @@ import { useParams, useSearchParams, Link } from 'react-router-dom';
 import { useGallery } from '../../context/GalleryContext';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../components/ui/Toast';
-import type { GalleryTemplateId } from '../../types';
+import type { GalleryTemplateId, MediaItem } from '../../types';
 import { EditorialLayout } from '../../components/gallery/EditorialLayout';
 import { MasonryLayout } from '../../components/gallery/MasonryLayout';
 import { CinematicLayout } from '../../components/gallery/CinematicLayout';
 import { MinimalLayout } from '../../components/gallery/MinimalLayout';
 import { LightboxModal } from '../../components/gallery/LightboxModal';
+import { SlideshowModal } from '../../components/gallery/SlideshowModal';
+import { SelectionBar } from '../../components/gallery/SelectionBar';
 import {
   Download,
   Share2,
   Lock,
   Layers,
   Sparkles,
-  CheckCircle2,
-  ChevronRight,
   Camera,
   Loader2,
-  Heart,
+  Play,
+  CheckSquare,
   ExternalLink,
 } from 'lucide-react';
 
@@ -49,14 +50,25 @@ export const ClientGalleryPage: React.FC = () => {
   // Lightbox state
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
+  // Multi-Selection state
+  const [selectedMediaIds, setSelectedMediaIds] = useState<Set<string>>(new Set());
+
+  // Slideshow Modal state
+  const [isSlideshowOpen, setIsSlideshowOpen] = useState(false);
+  const [slideshowStartIndex, setSlideshowStartIndex] = useState(0);
+
   // PIN unlock state
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState(false);
 
-  // Bulk ZIP download simulation
+  // Bulk ZIP download simulation for all media
   const [isPreparingZip, setIsPreparingZip] = useState(false);
   const [zipProgress, setZipProgress] = useState(0);
+
+  // Selected ZIP download simulation
+  const [isPreparingSelectedZip, setIsPreparingSelectedZip] = useState(false);
+  const [selectedZipProgress, setSelectedZipProgress] = useState(0);
 
   if (!gallery) {
     return (
@@ -90,6 +102,30 @@ export const ClientGalleryPage: React.FC = () => {
 
   const isLocked = gallery.isPasswordProtected && !isUnlocked;
 
+  // Toggle multi-select for individual item
+  const handleToggleSelectMedia = (mediaId: string) => {
+    setSelectedMediaIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(mediaId)) {
+        next.delete(mediaId);
+      } else {
+        next.add(mediaId);
+      }
+      return next;
+    });
+  };
+
+  // Select all items
+  const handleSelectAll = () => {
+    setSelectedMediaIds(new Set(gallery.media.map((m) => m.id)));
+    showToast('All Selected', `Selected all ${gallery.media.length} photos.`, 'info');
+  };
+
+  // Clear selection
+  const handleClearSelection = () => {
+    setSelectedMediaIds(new Set());
+  };
+
   // Handle "Download All" action
   const handleDownloadAll = () => {
     setIsPreparingZip(true);
@@ -107,7 +143,6 @@ export const ClientGalleryPage: React.FC = () => {
               `Downloaded all ${gallery.media.length} original full-resolution files.`,
               'success'
             );
-            // Trigger sample download anchor
             const a = document.createElement('a');
             a.href = gallery.coverImage;
             a.download = `${gallery.slug}-master-collection.zip`;
@@ -122,10 +157,50 @@ export const ClientGalleryPage: React.FC = () => {
     }, 250);
   };
 
+  // Handle "Download Selected" action
+  const handleDownloadSelected = () => {
+    if (selectedMediaIds.size === 0) return;
+
+    setIsPreparingSelectedZip(true);
+    setSelectedZipProgress(15);
+
+    const interval = setInterval(() => {
+      setSelectedZipProgress((prev) => {
+        if (prev >= 90) {
+          clearInterval(interval);
+          setTimeout(() => {
+            setIsPreparingSelectedZip(false);
+            setSelectedZipProgress(100);
+            showToast(
+              'Selected Archive Ready',
+              `Downloaded ${selectedMediaIds.size} selected high-resolution photographs.`,
+              'success'
+            );
+            const firstSelected = gallery.media.find((m) => selectedMediaIds.has(m.id));
+            const a = document.createElement('a');
+            a.href = firstSelected?.url || gallery.coverImage;
+            a.download = `${gallery.slug}-selected-${selectedMediaIds.size}-photos.zip`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+          }, 400);
+          return 90;
+        }
+        return prev + 25;
+      });
+    }, 200);
+  };
+
+  // Start animated slideshow (if selected items exist, play selected; otherwise play all)
+  const handleStartSlideshow = (startIndex: number = 0) => {
+    setSlideshowStartIndex(startIndex);
+    setIsSlideshowOpen(true);
+  };
+
   const handleSwitchTemplate = (tpl: GalleryTemplateId) => {
     setActiveTemplate(tpl);
     setSearchParams({ previewTemplate: tpl });
-    showToast('Layout Switched', `Rendering through ${tpl.toUpperCase()} design system.`, 'info');
+    showToast('Layout Switched', `Rendering through ${tpl.toUpperCase()} wedding design system.`, 'info');
   };
 
   // Render password screen if locked
@@ -173,10 +248,16 @@ export const ClientGalleryPage: React.FC = () => {
     );
   }
 
+  // Determine which media items go into the slideshow
+  const slideshowItems =
+    selectedMediaIds.size > 0
+      ? gallery.media.filter((m) => selectedMediaIds.has(m.id))
+      : gallery.media;
+
   return (
     <div className="relative min-h-screen">
-      {/* Floating Top Client Bar: Studio Name, Download All Action, Back to Dashboard */}
-      <div className="sticky top-0 z-30 bg-neutral-950/80 backdrop-blur-md border-b border-neutral-800/60 px-4 sm:px-8 py-3 flex items-center justify-between gap-4 text-white text-xs">
+      {/* Floating Top Client Bar: Studio Name, Slideshow CTA, Download All Action */}
+      <header className="sticky top-0 z-30 bg-neutral-950/90 backdrop-blur-md border-b border-neutral-800/80 px-4 sm:px-8 py-3 flex items-center justify-between gap-4 text-white text-xs">
         <div className="flex items-center gap-3">
           <Link
             to="/dashboard/drive"
@@ -189,16 +270,28 @@ export const ClientGalleryPage: React.FC = () => {
             </span>
           </Link>
           <span className="text-neutral-700 hidden sm:inline">/</span>
-          <span className="text-neutral-300 truncate max-w-[180px] sm:max-w-xs">{gallery.title}</span>
+          <span className="text-neutral-300 truncate max-w-[160px] sm:max-w-xs font-medium">
+            {gallery.title}
+          </span>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
+          {/* Quick Slideshow Trigger in Header */}
+          <button
+            onClick={() => handleStartSlideshow(0)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-neutral-300 hover:text-amber-300 transition-colors text-xs font-medium"
+            title="Start Fullscreen Slideshow"
+          >
+            <Play className="w-3.5 h-3.5 fill-current text-amber-400" />
+            <span className="hidden sm:inline">Slideshow</span>
+          </button>
+
           {/* Download All ZIP Action */}
           {gallery.allowDownloads && (
             <button
               onClick={handleDownloadAll}
               disabled={isPreparingZip}
-              className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 text-xs font-bold transition-all shadow-sm disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 text-xs font-bold transition-all shadow-sm disabled:opacity-50"
             >
               {isPreparingZip ? (
                 <>
@@ -218,18 +311,21 @@ export const ClientGalleryPage: React.FC = () => {
             to={`/dashboard/drive/${gallery.id}`}
             className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-neutral-300 hover:text-white transition-colors"
           >
-            <span>Edit in Drive</span>
+            <span>Edit</span>
             <ExternalLink className="w-3 h-3" />
           </Link>
         </div>
-      </div>
+      </header>
 
-      {/* Dynamic Gallery Template Rendering: 1 of 4 genuine designs */}
+      {/* Dynamic Gallery Template Rendering: 1 of 4 genuine bespoke wedding designs */}
       {activeTemplate === 'editorial' && (
         <EditorialLayout
           gallery={gallery}
           onOpenLightbox={(idx) => setLightboxIndex(idx)}
           onToggleFavorite={(mId) => toggleMediaFavorite(gallery.id, mId)}
+          selectedMediaIds={selectedMediaIds}
+          onToggleSelectMedia={handleToggleSelectMedia}
+          onStartSlideshow={handleStartSlideshow}
         />
       )}
 
@@ -238,6 +334,9 @@ export const ClientGalleryPage: React.FC = () => {
           gallery={gallery}
           onOpenLightbox={(idx) => setLightboxIndex(idx)}
           onToggleFavorite={(mId) => toggleMediaFavorite(gallery.id, mId)}
+          selectedMediaIds={selectedMediaIds}
+          onToggleSelectMedia={handleToggleSelectMedia}
+          onStartSlideshow={handleStartSlideshow}
         />
       )}
 
@@ -246,6 +345,9 @@ export const ClientGalleryPage: React.FC = () => {
           gallery={gallery}
           onOpenLightbox={(idx) => setLightboxIndex(idx)}
           onToggleFavorite={(mId) => toggleMediaFavorite(gallery.id, mId)}
+          selectedMediaIds={selectedMediaIds}
+          onToggleSelectMedia={handleToggleSelectMedia}
+          onStartSlideshow={handleStartSlideshow}
         />
       )}
 
@@ -254,28 +356,64 @@ export const ClientGalleryPage: React.FC = () => {
           gallery={gallery}
           onOpenLightbox={(idx) => setLightboxIndex(idx)}
           onToggleFavorite={(mId) => toggleMediaFavorite(gallery.id, mId)}
+          selectedMediaIds={selectedMediaIds}
+          onToggleSelectMedia={handleToggleSelectMedia}
+          onStartSlideshow={handleStartSlideshow}
         />
       )}
 
-      {/* Floating 4-Design Switcher Widget (Bottom Right) */}
-      <div className="fixed bottom-6 left-6 z-40 bg-neutral-950/95 backdrop-blur-md border border-neutral-800 rounded-2xl p-2 shadow-2xl flex items-center gap-1 text-xs">
-        <span className="text-[10px] uppercase font-mono text-neutral-500 px-2 flex items-center gap-1">
-          <Layers className="w-3 h-3 text-amber-400" /> Style:
+      {/* Floating 4-Design Switcher Widget (Bottom Left) */}
+      <nav
+        aria-label="Gallery Template Styles"
+        className="fixed bottom-6 left-4 sm:left-6 z-40 bg-neutral-950/95 backdrop-blur-md border border-neutral-800 rounded-2xl p-1.5 sm:p-2 shadow-2xl flex items-center gap-1 text-xs"
+      >
+        <span className="text-[10px] uppercase font-mono text-neutral-500 px-1.5 sm:px-2 flex items-center gap-1 hidden xs:flex">
+          <Layers className="w-3.5 h-3.5 text-amber-400" />
+          <span className="hidden sm:inline">Theme:</span>
         </span>
-        {(['editorial', 'masonry', 'cinematic', 'minimal'] as GalleryTemplateId[]).map((tpl) => (
+        {(
+          [
+            { id: 'editorial', label: 'Editorial' },
+            { id: 'masonry', label: 'Masonry' },
+            { id: 'cinematic', label: 'Cinematic' },
+            { id: 'minimal', label: 'Minimal' },
+          ] as const
+        ).map((tpl) => (
           <button
-            key={tpl}
-            onClick={() => handleSwitchTemplate(tpl)}
-            className={`px-3 py-1.5 rounded-xl capitalize font-medium transition-all ${
-              activeTemplate === tpl
+            key={tpl.id}
+            onClick={() => handleSwitchTemplate(tpl.id)}
+            className={`px-2.5 sm:px-3 py-1.5 rounded-xl capitalize font-medium text-xs transition-all ${
+              activeTemplate === tpl.id
                 ? 'bg-amber-400 text-neutral-950 font-bold shadow-md'
                 : 'text-neutral-400 hover:text-white hover:bg-neutral-900'
             }`}
           >
-            {tpl}
+            {tpl.label}
           </button>
         ))}
-      </div>
+      </nav>
+
+      {/* Multi-Select Floating Action Toolbar (Appears when photos are selected) */}
+      <SelectionBar
+        selectedCount={selectedMediaIds.size}
+        totalCount={gallery.media.length}
+        onClearSelection={handleClearSelection}
+        onSelectAll={handleSelectAll}
+        onDownloadSelected={handleDownloadSelected}
+        onPlaySlideshow={() => handleStartSlideshow(0)}
+        isDownloading={isPreparingSelectedZip}
+        downloadProgress={selectedZipProgress}
+      />
+
+      {/* Animated Slideshow Modal */}
+      <SlideshowModal
+        isOpen={isSlideshowOpen}
+        onClose={() => setIsSlideshowOpen(false)}
+        items={slideshowItems}
+        initialIndex={slideshowStartIndex}
+        galleryTitle={gallery.title}
+        clientName={gallery.clientName}
+      />
 
       {/* Lightbox Modal */}
       {lightboxIndex !== null && (

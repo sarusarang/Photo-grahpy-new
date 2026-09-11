@@ -872,3 +872,79 @@ img[src=""] { opacity: 0; }
     font-size: 20px;
   }
 }
+
+/* Luxury Wedding & Template Styles */
+@keyframes kenburns-slow {
+  0% {
+    transform: scale(1) translate(0, 0);
+  }
+  50% {
+    transform: scale(1.08) translate(-1%, -1%);
+  }
+  100% {
+    transform: scale(1) translate(0, 0);
+  }
+}
+
+@keyframes kenburns-alt {
+  0% {
+    transform: scale(1.06) translate(-1%, 0);
+  }
+  50% {
+    transform: scale(1) translate(1%, -1%);
+  }
+  100% {
+    transform: scale(1.06) translate(-1%, 0);
+  }
+}
+
+@keyframes gold-shimmer {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+@keyframes gentle-float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+.animate-kenburns {
+  animation: kenburns-slow 22s ease-in-out infinite alternate;
+}
+
+.animate-kenburns-alt {
+  animation: kenburns-alt 25s ease-in-out infinite alternate;
+}
+
+.animate-gentle-float {
+  animation: gentle-float 4s ease-in-out infinite;
+}
+
+.gold-gradient-text {
+  background: linear-gradient(135deg, #f5d77f 0%, #d4af37 50%, #aa7c11 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.rose-gold-gradient-text {
+  background: linear-gradient(135deg, #ffd3b6 0%, #e8a598 50%, #b76e79 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.gold-border-glow {
+  box-shadow: 0 0 25px -5px rgba(212, 175, 55, 0.25);
+}
+
+.film-grain {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 0);
+  background-size: 4px 4px;
+}
