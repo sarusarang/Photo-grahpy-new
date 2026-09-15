@@ -18,7 +18,7 @@ interface ProfileDropdownProps {
 }
 
 export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ isOpen, onClose }) => {
-  const { photographer, logout, isLoggingOut } = useAuth();
+  const { photographer, user, logout, isLoggingOut } = useAuth();
   const { galleries } = useGallery();
   const navigate = useNavigate();
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -78,40 +78,19 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ isOpen, onClos
         >
           <path
             d="M160 0C115 15 65 60 40 120"
-            stroke="url(#profile-gold-1)"
+            stroke="url(#dropdown-gold-grad)"
             strokeWidth="1.5"
+            strokeDasharray="4 4"
           />
           <path
-            d="M160 22C125 36 82 72 65 120"
-            stroke="url(#profile-gold-2)"
-            strokeWidth="2"
-          />
-          <path
-            d="M160 48C132 58 100 85 90 120"
-            stroke="url(#profile-gold-1)"
+            d="M160 20C125 32 80 75 55 120"
+            stroke="url(#dropdown-gold-grad)"
             strokeWidth="1"
+            opacity="0.6"
           />
           <defs>
-            <linearGradient
-              id="profile-gold-1"
-              x1="160"
-              y1="0"
-              x2="40"
-              y2="120"
-              gradientUnits="userSpaceOnUse"
-            >
-              <stop stopColor="#F59E0B" stopOpacity="0.9" />
-              <stop offset="1" stopColor="#D97706" stopOpacity="0" />
-            </linearGradient>
-            <linearGradient
-              id="profile-gold-2"
-              x1="160"
-              y1="22"
-              x2="65"
-              y2="120"
-              gradientUnits="userSpaceOnUse"
-            >
-              <stop stopColor="#FBBF24" stopOpacity="1" />
+            <linearGradient id="dropdown-gold-grad" x1="0" y1="0" x2="160" y2="120">
+              <stop offset="0" stopColor="#F59E0B" stopOpacity="0.8" />
               <stop offset="1" stopColor="#B45309" stopOpacity="0.1" />
             </linearGradient>
           </defs>
@@ -121,15 +100,18 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ isOpen, onClos
         <div className="relative z-10 flex items-center gap-3.5">
           {/* Avatar with Ring & Emerald Online Status Dot */}
           <div className="relative shrink-0">
-            <div className="w-13 h-13 rounded-full overflow-hidden p-0.5 bg-gradient-to-tr from-amber-400 to-amber-200/50 shadow-md">
-              <img
-                src={
-                  photographer.avatarUrl ||
-                  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80'
-                }
-                alt={photographer.fullName || 'User Avatar'}
-                className="w-full h-full rounded-full object-cover bg-neutral-900"
-              />
+            <div className="w-13 h-13 rounded-full overflow-hidden p-0.5 bg-gradient-to-tr from-amber-400 to-amber-200/50 shadow-md flex items-center justify-center">
+              {photographer.avatarUrl ? (
+                <img
+                  src={photographer.avatarUrl}
+                  alt={photographer.fullName || user?.username || 'User Avatar'}
+                  className="w-full h-full rounded-full object-cover bg-neutral-900"
+                />
+              ) : (
+                <div className="w-full h-full rounded-full bg-neutral-900 flex items-center justify-center text-amber-400 font-bold text-base uppercase">
+                  {(photographer.fullName || user?.username || 'U').charAt(0)}
+                </div>
+              )}
             </div>
             {/* Green Online Indicator */}
             <span
@@ -141,10 +123,10 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ isOpen, onClos
           {/* User Details */}
           <div className="flex-1 min-w-0 flex flex-col justify-center">
             <h4 className="text-sm font-bold text-neutral-900 dark:text-white leading-tight truncate">
-              {photographer.fullName || 'Sarang A'}
+              {photographer.fullName || user?.username || 'User'}
             </h4>
             <p className="text-[11px] text-neutral-500 dark:text-neutral-400 font-mono truncate mt-0.5">
-              {photographer.email || 'sarangsaru445@gmail.com'}
+              {photographer.email || user?.email || ''}
             </p>
 
             {/* Pro Member Badge */}

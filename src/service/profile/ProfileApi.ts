@@ -3,6 +3,11 @@ import type {
   OnboardingStateResponse,
   SubmitOnboardingPayload,
   SubmitOnboardingResponse,
+  PhotographerProfileResponse,
+  UpdatePersonalInformationPayload,
+  UpdatePersonalInformationResponse,
+  UploadAvatarResponse,
+  RemoveAvatarResponse,
 } from "./type";
 
 /**
@@ -16,7 +21,6 @@ export const GetOnboardingStateApi = async (): Promise<OnboardingStateResponse> 
 /**
  * Submit Profile Setup & Complete Onboarding
  * POST /api/photographers/onboarding/ or /api/photographers/onboarding/complete/
- * Handles both JSON payload and multipart/form-data when an avatar image file is provided.
  */
 export const SubmitOnboardingApi = async (
   payload: SubmitOnboardingPayload
@@ -70,4 +74,53 @@ export const SubmitOnboardingApi = async (
       jsonBody
     )) as SubmitOnboardingResponse;
   }
+};
+
+/**
+ * 1. GET Current Photographer Profile & Metrics
+ * Endpoint: GET /api/photographers/profiles/me/
+ */
+export const GetPhotographerProfileApi = async (): Promise<PhotographerProfileResponse> => {
+  return (await CommonApi("GET", "/api/photographers/profiles/me/")) as PhotographerProfileResponse;
+};
+
+/**
+ * 2. Update Personal Information (Save Changes)
+ * Endpoint: PATCH /api/photographers/profiles/me/
+ */
+export const UpdatePersonalInformationApi = async (
+  payload: UpdatePersonalInformationPayload
+): Promise<UpdatePersonalInformationResponse> => {
+  return (await CommonApi(
+    "PATCH",
+    "/api/photographers/profiles/me/",
+    payload
+  )) as UpdatePersonalInformationResponse;
+};
+
+/**
+ * 3. Upload / Update Profile Photo (Avatar)
+ * Endpoint: POST /api/photographers/profiles/me/avatar/
+ */
+export const UploadProfileAvatarApi = async (
+  file: File
+): Promise<UploadAvatarResponse> => {
+  const formData = new FormData();
+  formData.append("avatar", file);
+  return (await CommonApi(
+    "POST",
+    "/api/photographers/profiles/me/avatar/",
+    formData
+  )) as UploadAvatarResponse;
+};
+
+/**
+ * 4. Remove Profile Photo
+ * Endpoint: DELETE /api/photographers/profiles/me/avatar/
+ */
+export const RemoveProfileAvatarApi = async (): Promise<RemoveAvatarResponse> => {
+  return (await CommonApi(
+    "DELETE",
+    "/api/photographers/profiles/me/avatar/"
+  )) as RemoveAvatarResponse;
 };

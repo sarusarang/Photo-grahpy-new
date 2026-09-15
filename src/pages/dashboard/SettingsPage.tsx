@@ -4,6 +4,8 @@ import { useAuth } from '../../context/AuthContext';
 import { useGallery } from '../../context/GalleryContext';
 import { useToast } from '../../components/ui/Toast';
 import { UpgradePlanModal } from '../../components/common/UpgradePlanModal';
+import { PersonalInformationSection } from '../../components/settings/PersonalInformationSection';
+import { STUDIO_PLANS, renderPlanFeature } from '../../data/plansData';
 import {
   User,
   CreditCard,
@@ -50,13 +52,6 @@ export const SettingsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'profile' | 'billing' | 'drive' | 'notifications' | 'account'>('profile');
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
 
-  // Personal Information form state
-  const [fullName, setFullName] = useState(photographer.fullName || 'Sarang A');
-  const [email, setEmail] = useState(photographer.email || 'sarangsaru445@gmail.com');
-  const [phone, setPhone] = useState(photographer.phone || '+918129886279');
-  const [occupation, setOccupation] = useState(photographer.occupation || 'Wedding & Editorial Photographer');
-  const [avatarUrl, setAvatarUrl] = useState(photographer.avatarUrl || '/sarang_avatar.jpg');
-
   // Drive settings state
   const [defaultTemplate, setDefaultTemplate] = useState('editorial');
   const [enableWatermark, setEnableWatermark] = useState(photographer.enableWatermark || false);
@@ -66,38 +61,6 @@ export const SettingsPage: React.FC = () => {
   const [notifyVisited, setNotifyVisited] = useState(true);
   const [notifyDownloaded, setNotifyDownloaded] = useState(true);
   const [notifyWeeklyReport, setNotifyWeeklyReport] = useState(true);
-
-  const handleSaveProfile = (e: React.FormEvent) => {
-    e.preventDefault();
-    updateProfile({
-      fullName,
-      email,
-      phone,
-      occupation,
-      avatarUrl,
-      enableWatermark,
-      watermarkText,
-    });
-    showToast('Settings Saved', 'Personal information has been updated.', 'success');
-  };
-
-  const handleUploadAvatar = () => {
-    const newUrl = window.prompt(
-      'Enter image URL for Profile Photo:',
-      avatarUrl || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80'
-    );
-    if (newUrl && newUrl.trim()) {
-      setAvatarUrl(newUrl.trim());
-      updateProfile({ avatarUrl: newUrl.trim() });
-      showToast('Avatar Updated', 'Profile photo has been updated.', 'success');
-    }
-  };
-
-  const handleRemoveAvatar = () => {
-    setAvatarUrl('https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=400&q=80');
-    updateProfile({ avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=400&q=80' });
-    showToast('Avatar Removed', 'Reverted to default profile photo.', 'info');
-  };
 
   const handleResetDemo = () => {
     if (window.confirm('Reset all demo galleries, media, and profile settings to factory defaults?')) {
@@ -182,245 +145,9 @@ export const SettingsPage: React.FC = () => {
 
       {/* 3. Main Content Grid for Profile Tab */}
       {activeTab === 'profile' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start fade-up">
-          {/* LEFT COLUMN: Personal Information (8 Cols) */}
-          <div className="lg:col-span-8">
-            <form
-              onSubmit={handleSaveProfile}
-              className="rounded-3xl bg-white dark:bg-[#121319] border border-neutral-200 dark:border-neutral-800/90 p-6 sm:p-7 shadow-sm dark:shadow-xl space-y-6"
-            >
-              {/* Card Header */}
-              <div className="flex items-center gap-3.5 pb-1">
-                <div className="w-10 h-10 rounded-xl bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 flex items-center justify-center text-neutral-600 dark:text-neutral-400 shrink-0">
-                  <User className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-base font-semibold text-neutral-900 dark:text-white tracking-tight">
-                    Personal Information
-                  </h3>
-                  <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                    Manage your personal details and contact information.
-                  </p>
-                </div>
-              </div>
-
-              {/* Row 1: Name & Phone Number */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-2">
-                    Name
-                  </label>
-                  <div className="relative">
-                    <User className="w-4 h-4 text-neutral-400 dark:text-neutral-500 absolute left-3.5 top-3 pointer-events-none" />
-                    <input
-                      type="text"
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
-                      placeholder="Sarang A"
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-neutral-50 dark:bg-neutral-950/80 border border-neutral-200 dark:border-neutral-800 text-neutral-900 dark:text-white text-xs placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:border-amber-400 font-medium transition-colors"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-2">
-                    Phone Number
-                  </label>
-                  <div className="relative">
-                    <Phone className="w-4 h-4 text-neutral-400 dark:text-neutral-500 absolute left-3.5 top-3 pointer-events-none" />
-                    <input
-                      type="tel"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      placeholder="+918129886279"
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-neutral-50 dark:bg-neutral-950/80 border border-neutral-200 dark:border-neutral-800 text-neutral-900 dark:text-white text-xs placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:border-amber-400 font-medium transition-colors"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Row 2: Email Address & Occupation */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-2">
-                    Email Address
-                  </label>
-                  <div className="relative">
-                    <Mail className="w-4 h-4 text-neutral-400 dark:text-neutral-500 absolute left-3.5 top-3 pointer-events-none" />
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="sarangsaru445@gmail.com"
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-neutral-50 dark:bg-neutral-950/80 border border-neutral-200 dark:border-neutral-800 text-neutral-900 dark:text-white text-xs placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:border-amber-400 font-medium transition-colors"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-2">
-                    Occupation
-                  </label>
-                  <div className="relative">
-                    <Briefcase className="w-4 h-4 text-neutral-400 dark:text-neutral-500 absolute left-3.5 top-3 pointer-events-none" />
-                    <input
-                      type="text"
-                      value={occupation}
-                      onChange={(e) => setOccupation(e.target.value)}
-                      placeholder="Wedding & Editorial Photographer"
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-neutral-50 dark:bg-neutral-950/80 border border-neutral-200 dark:border-neutral-800 text-neutral-900 dark:text-white text-xs placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:border-amber-400 font-medium transition-colors"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Save Changes Button matching bottom-right position */}
-              <div className="flex justify-end pt-2">
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 font-bold text-xs flex items-center gap-2 transition-all shadow-md shadow-amber-500/10 active:scale-[0.98] hover:scale-[1.01] cursor-pointer"
-                >
-                  <Bookmark className="w-4 h-4 stroke-[2.2]" />
-                  <span>Save Changes</span>
-                </button>
-              </div>
-            </form>
-          </div>
-
-          {/* RIGHT COLUMN: Profile Photo & Quick Stats (4 Cols) */}
-          <div className="lg:col-span-4 space-y-6">
-            {/* Card 1: Profile Photo */}
-            <div className="rounded-3xl bg-white dark:bg-[#121319] border border-neutral-200 dark:border-neutral-800/90 p-5 shadow-sm dark:shadow-xl space-y-4">
-              <div>
-                <div className="flex items-center gap-2">
-                  <Camera className="w-4 h-4 text-neutral-500 dark:text-neutral-400" />
-                  <h4 className="text-sm font-semibold text-neutral-900 dark:text-white">Profile Photo</h4>
-                </div>
-                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
-                  This will be used as your profile image.
-                </p>
-              </div>
-
-              <div className="flex items-center gap-4 pt-1">
-                <img
-                  src={avatarUrl || '/sarang_avatar.jpg'}
-                  alt="Sarang Varma"
-                  className="w-20 h-20 rounded-full object-cover ring-2 ring-neutral-300 dark:ring-neutral-700/80 shadow-md shrink-0"
-                />
-                <div className="flex-1 flex flex-col gap-2">
-                  <button
-                    type="button"
-                    onClick={handleUploadAvatar}
-                    className="w-full py-2 px-3 rounded-xl bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700 hover:bg-neutral-200 dark:hover:bg-neutral-800 text-neutral-800 dark:text-neutral-200 text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer"
-                  >
-                    <Upload className="w-3.5 h-3.5" />
-                    <span>Upload Image</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleRemoveAvatar}
-                    className="w-full py-2 px-3 rounded-xl bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700 hover:bg-neutral-200 dark:hover:bg-neutral-800 text-neutral-600 dark:text-neutral-300 text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>Remove</span>
-                  </button>
-                </div>
-              </div>
-
-              <p className="text-[11px] text-neutral-400 dark:text-neutral-500">
-                Recommended: Square image, at least 500x500px
-              </p>
-            </div>
-
-            {/* Card 2: Quick Info */}
-            <div className="rounded-3xl bg-white dark:bg-[#121319] border border-neutral-200 dark:border-neutral-800/90 p-5 shadow-sm dark:shadow-xl space-y-3.5">
-              <div className="flex items-center gap-2">
-                <Info className="w-4 h-4 text-neutral-500 dark:text-neutral-400" />
-                <h4 className="text-sm font-semibold text-neutral-900 dark:text-white">Quick Info</h4>
-              </div>
-
-              <div className="space-y-3 pt-1">
-                <div className="flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-2.5 text-neutral-500 dark:text-neutral-400">
-                    <Calendar className="w-4 h-4 text-neutral-400 dark:text-neutral-500" />
-                    <span>Member Since</span>
-                  </div>
-                  <span className="text-neutral-900 dark:text-neutral-200 font-medium">Aug 14, 2026</span>
-                </div>
-
-                <div className="flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-2.5 text-neutral-500 dark:text-neutral-400">
-                    <LayoutGrid className="w-4 h-4 text-neutral-400 dark:text-neutral-500" />
-                    <span>Galleries Created</span>
-                  </div>
-                  <span className="text-neutral-900 dark:text-neutral-200 font-medium">
-                    {galleries.length || 12}
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-2.5 text-neutral-500 dark:text-neutral-400">
-                    <ImageIcon className="w-4 h-4 text-neutral-400 dark:text-neutral-500" />
-                    <span>Total Photos</span>
-                  </div>
-                  <span className="text-neutral-900 dark:text-neutral-200 font-medium">1,240</span>
-                </div>
-
-                <div className="flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-2.5 text-neutral-500 dark:text-neutral-400">
-                    <Film className="w-4 h-4 text-neutral-400 dark:text-neutral-500" />
-                    <span>Total Videos</span>
-                  </div>
-                  <span className="text-neutral-900 dark:text-neutral-200 font-medium">48</span>
-                </div>
-
-                <div
-                  onClick={() => setIsUpgradeModalOpen(true)}
-                  className="flex items-center justify-between text-xs cursor-pointer group pt-1"
-                >
-                  <div className="flex items-center gap-2.5 text-neutral-500 dark:text-neutral-400">
-                    <Cloud className="w-4 h-4 text-neutral-400 dark:text-neutral-500 group-hover:text-amber-500 transition-colors" />
-                    <span>Storage Used</span>
-                  </div>
-                  <div className="flex items-center gap-1 text-neutral-900 dark:text-neutral-200 font-medium group-hover:text-amber-500 transition-colors">
-                    <span>28.7 GB / 120 GB</span>
-                    <ChevronRight className="w-3.5 h-3.5 text-neutral-400 group-hover:text-amber-500" />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Card 3: You're on Pro Studio Annual */}
-            <div className="rounded-3xl bg-gradient-to-r from-neutral-900 via-[#181510] to-[#261d0b] dark:from-[#12141a] dark:via-[#171510] dark:to-[#241c0e] border border-amber-500/20 p-5 shadow-sm dark:shadow-xl relative overflow-hidden">
-              {/* Golden Geometric Mountain Graphic */}
-              <div className="absolute right-0 bottom-0 pointer-events-none opacity-50 select-none">
-                <svg width="150" height="90" viewBox="0 0 150 90" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <polygon points="120,10 150,90 90,90" fill="#eab308" opacity="0.6" />
-                  <polygon points="120,10 90,90 70,90" fill="#ca8a04" opacity="0.8" />
-                  <polygon points="80,35 110,90 50,90" fill="#facc15" opacity="0.4" />
-                  <polygon points="80,35 50,90 35,90" fill="#a16207" opacity="0.7" />
-                </svg>
-              </div>
-
-              <div className="relative z-10">
-                <Crown className="w-4 h-4 text-amber-400 mb-2" />
-                <h4 className="text-sm font-semibold text-white">You're on Pro Studio Annual</h4>
-                <p className="text-xs text-neutral-400 mt-1 mb-4">
-                  Unlock more storage and premium features.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setIsUpgradeModalOpen(true)}
-                  className="px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 font-bold text-xs flex items-center gap-1.5 transition-all shadow-md active:scale-[0.98] hover:scale-[1.02]"
-                >
-                  <span>Manage Plan</span>
-                  <span>→</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <PersonalInformationSection
+          onManagePlan={() => setActiveTab('billing')}
+        />
       )}
 
       {/* Tab 2: Plan & Billing */}
@@ -487,66 +214,8 @@ export const SettingsPage: React.FC = () => {
 
           {/* 2. Pricing Plan Cards Grid (Exact matching modal cards) */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            {[
-              {
-                id: 'plan-starter',
-                name: 'Starter Photographer',
-                subtitle: 'Perfect for individuals getting started.',
-                price: 19,
-                billing: 'Billed monthly • 50 GB NVMe',
-                icon: Sprout,
-                tag: 'GET STARTED',
-                tagType: 'default',
-                features: [
-                  '50 GB Cloud Storage',
-                  'Up to 10 Active Client Galleries',
-                  '2 Layout Themes',
-                  'Client Proofing & Lightbox',
-                  'Email Support',
-                ],
-                ctaText: 'Choose Starter',
-              },
-              {
-                id: 'plan-pro',
-                name: 'Pro Studio',
-                subtitle: 'Everything you need to grow.',
-                price: 39,
-                billing: 'Billed annually • 120 GB NVMe',
-                icon: Crown,
-                tag: 'MOST POPULAR',
-                tagType: 'popular',
-                features: [
-                  '120 GB NVMe Storage',
-                  'Unlimited Client Galleries',
-                  'All 4 Layout Templates (Editorial, Masonry, Cinematic, Minimal)',
-                  '4K Video Delivery & Streaming',
-                  'PIN Security & Watermark Suite',
-                  'Priority Delivery Speeds',
-                ],
-                ctaText: 'Choose Pro',
-              },
-              {
-                id: 'plan-studio-master',
-                name: 'Master Atelier',
-                subtitle: 'For professionals who demand more.',
-                price: 79,
-                billing: 'Billed annually • 500 GB NVMe',
-                icon: Gem,
-                tag: 'YOUR PLAN',
-                tagType: 'current',
-                features: [
-                  '500 GB Ultra Storage',
-                  'Unlimited Galleries & Sub-Folders',
-                  'All Gallery Templates & Custom CSS',
-                  'Direct Cloud RAW Backup & Archive',
-                  'White-label Custom Domain (e.g. photos.yourname.com)',
-                  'Dedicated 24/7 Account Support',
-                  'Early Access to New Features',
-                ],
-                ctaText: 'Choose Master',
-              },
-            ].map((plan) => {
-              const isCurrent = (subscription?.id || 'plan-studio-master') === plan.id;
+            {STUDIO_PLANS.map((plan) => {
+              const isCurrent = (subscription?.id || 'plan-standard-1y') === plan.id;
               const Icon = plan.icon;
 
               return (
@@ -596,13 +265,25 @@ export const SettingsPage: React.FC = () => {
 
                     {/* Price Block */}
                     <div className="mt-3 pb-4 border-b border-neutral-200 dark:border-neutral-800/80">
-                      <div className="flex items-baseline gap-1">
-                        <span className="text-3xl font-serif font-bold text-neutral-900 dark:text-white">
-                          ${plan.price}
-                        </span>
-                        <span className="text-xs text-neutral-500 dark:text-neutral-400">/ month</span>
+                      <div className="flex items-center gap-2.5 flex-wrap">
+                        {plan.originalPrice && (
+                          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-500/15 dark:bg-rose-500/20 border border-rose-500/30 dark:border-rose-500/40 text-rose-700 dark:text-rose-200 shadow-xs">
+                            <span className="text-sm font-serif font-bold line-through decoration-rose-500 dark:decoration-rose-400 decoration-[2.5px]">
+                              ₹{plan.originalPrice.toLocaleString('en-IN')}/-
+                            </span>
+                            <span className="text-[10px] font-black uppercase tracking-wider text-rose-600 dark:text-rose-300 bg-rose-500/20 px-1.5 py-0.5 rounded">
+                              {Math.round(((plan.originalPrice - plan.price) / plan.originalPrice) * 100)}% OFF
+                            </span>
+                          </div>
+                        )}
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-3xl sm:text-4xl font-serif font-black text-amber-500 dark:text-amber-400 tracking-tight drop-shadow-[0_2px_8px_rgba(251,191,36,0.25)]">
+                            ₹{plan.price.toLocaleString('en-IN')}
+                          </span>
+                          <span className="text-xs font-bold text-neutral-500 dark:text-neutral-400">/ Month</span>
+                        </div>
                       </div>
-                      <p className="text-xs text-neutral-500 font-mono mt-1">
+                      <p className="text-xs text-neutral-500 dark:text-neutral-400 font-mono mt-1.5">
                         {plan.billing}
                       </p>
                     </div>
@@ -612,7 +293,7 @@ export const SettingsPage: React.FC = () => {
                       {plan.features.map((feat, idx) => (
                         <li key={idx} className="flex items-start gap-2.5">
                           <Check className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
-                          <span className="leading-snug">{feat}</span>
+                          <span className="leading-snug">{renderPlanFeature(feat)}</span>
                         </li>
                       ))}
                     </ul>
@@ -751,7 +432,13 @@ export const SettingsPage: React.FC = () => {
             </div>
 
             <button
-              onClick={handleSaveProfile}
+              onClick={() => {
+                updateProfile({
+                  enableWatermark,
+                  watermarkText,
+                });
+                showToast('Settings Saved', 'Drive and watermark preferences updated.', 'success');
+              }}
               className="px-6 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 font-bold text-xs uppercase tracking-wider shadow-sm"
             >
               Save Drive Settings

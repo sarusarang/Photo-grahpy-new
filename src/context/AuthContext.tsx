@@ -23,15 +23,15 @@ const PROFILE_KEY = 'photo_saas_profile_v2';
 const USER_KEY = 'photo_saas_user_v2';
 
 const createEmptyProfile = (u?: Partial<AuthUser> | null): PhotographerProfile => ({
-  id: u?.id?.toString() || '1',
-  studioName: u?.fullname ? `${u.fullname} Studio` : 'Ex Studio',
-  fullName: u?.fullname || 'Sarang A',
-  email: u?.email || 'sarangsaru445@gmail.com',
+  id: u?.id?.toString() || '',
+  studioName: u?.fullname ? `${u.fullname} Studio` : '',
+  fullName: u?.fullname || u?.username || '',
+  email: u?.email || '',
   phone: u?.phone || '',
   location: '',
   occupation: '',
   bio: '',
-  avatarUrl: u?.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
+  avatarUrl: u?.avatar_url || '',
   enableWatermark: false,
   isOnboarded: false,
 });

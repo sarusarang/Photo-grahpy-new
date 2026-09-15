@@ -17,19 +17,9 @@ import {
   Headphones,
   ArrowRight,
 } from 'lucide-react';
+import { STUDIO_PLANS, renderPlanFeature, type PlanItem } from '../../data/plansData';
 
-export interface PlanItem {
-  id: string;
-  name: string;
-  subtitle: string;
-  price: number;
-  billing: string;
-  icon: React.ComponentType<{ className?: string }>;
-  tag?: string;
-  tagType?: 'default' | 'popular' | 'current';
-  features: string[];
-  ctaText?: string;
-}
+export type { PlanItem };
 
 interface UpgradePlanModalProps {
   isOpen: boolean;
@@ -92,65 +82,7 @@ export const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({
   if (!isRendered) return null;
 
   // Exact 3 Plans matching the reference UI
-  const defaultPlans: PlanItem[] = [
-    {
-      id: 'plan-starter',
-      name: 'Starter Photographer',
-      subtitle: 'Perfect for individuals getting started.',
-      price: 19,
-      billing: 'Billed monthly • 50 GB NVMe',
-      icon: Sprout,
-      tag: 'GET STARTED',
-      tagType: 'default',
-      features: [
-        '50 GB Cloud Storage',
-        'Up to 10 Active Client Galleries',
-        '2 Layout Themes',
-        'Client Proofing & Lightbox',
-        'Email Support',
-      ],
-      ctaText: 'Choose Starter',
-    },
-    {
-      id: 'plan-pro',
-      name: 'Pro Studio',
-      subtitle: 'Everything you need to grow.',
-      price: 39,
-      billing: 'Billed annually • 120 GB NVMe',
-      icon: Crown,
-      tag: 'MOST POPULAR',
-      tagType: 'popular',
-      features: [
-        '120 GB NVMe Storage',
-        'Unlimited Client Galleries',
-        'All 4 Layout Templates (Editorial, Masonry, Cinematic, Minimal)',
-        '4K Video Delivery & Streaming',
-        'PIN Security & Watermark Suite',
-        'Priority Delivery Speeds',
-      ],
-      ctaText: 'Choose Pro',
-    },
-    {
-      id: 'plan-studio-master',
-      name: 'Master Atelier',
-      subtitle: 'For professionals who demand more.',
-      price: 79,
-      billing: 'Billed annually • 500 GB NVMe',
-      icon: Gem,
-      tag: 'YOUR PLAN',
-      tagType: 'current',
-      features: [
-        '500 GB Ultra Storage',
-        'Unlimited Galleries & Sub-Folders',
-        'All Gallery Templates & Custom CSS',
-        'Direct Cloud RAW Backup & Archive',
-        'White-label Custom Domain (e.g. photos.yourname.com)',
-        'Dedicated 24/7 Account Support',
-        'Early Access to New Features',
-      ],
-      ctaText: 'Choose Master',
-    },
-  ];
+  const defaultPlans: PlanItem[] = STUDIO_PLANS;
 
   const plans = customPlans || defaultPlans;
 
@@ -343,13 +275,25 @@ export const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({
 
                   {/* Price Block */}
                   <div className="mt-3 pb-4 border-b border-neutral-800/80">
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-3xl font-serif font-bold text-white">
-                        ${plan.price}
-                      </span>
-                      <span className="text-xs text-neutral-400">/ month</span>
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                      {plan.originalPrice && (
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-500/20 border border-rose-500/40 text-rose-200 shadow-sm">
+                          <span className="text-sm font-serif font-bold line-through decoration-rose-400 decoration-[2.5px]">
+                            ₹{plan.originalPrice.toLocaleString('en-IN')}/-
+                          </span>
+                          <span className="text-[10px] font-black uppercase tracking-wider text-rose-300 bg-rose-500/30 px-1.5 py-0.5 rounded">
+                            {Math.round(((plan.originalPrice - plan.price) / plan.originalPrice) * 100)}% OFF
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-3xl sm:text-4xl font-serif font-black text-amber-400 tracking-tight drop-shadow-[0_2px_8px_rgba(251,191,36,0.25)]">
+                          ₹{plan.price.toLocaleString('en-IN')}
+                        </span>
+                        <span className="text-xs font-bold text-neutral-400">/ Month</span>
+                      </div>
                     </div>
-                    <p className="text-xs text-neutral-500 font-mono mt-1">
+                    <p className="text-xs text-neutral-400 font-mono mt-1.5">
                       {plan.billing}
                     </p>
                   </div>
@@ -359,7 +303,7 @@ export const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({
                     {plan.features.map((feat, idx) => (
                       <li key={idx} className="flex items-start gap-2.5">
                         <Check className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
-                        <span className="leading-snug">{feat}</span>
+                        <span className="leading-snug">{renderPlanFeature(feat)}</span>
                       </li>
                     ))}
                   </ul>

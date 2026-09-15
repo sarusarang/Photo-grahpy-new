@@ -17,7 +17,7 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
-  const { photographer } = useAuth();
+  const { photographer, user } = useAuth();
   const { galleries } = useGallery();
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
 
@@ -79,16 +79,19 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
             onClick={() => setProfileDropdownOpen((prev) => !prev)}
             className="flex items-center gap-2.5 pl-1.5 pr-2 py-1 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-900 transition-colors cursor-pointer"
           >
-            <img
-              src={
-                photographer.avatarUrl ||
-                'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80'
-              }
-              alt={photographer.fullName || 'Sarang A'}
-              className="w-8 h-8 rounded-full object-cover ring-2 ring-amber-400/60"
-            />
+            {photographer.avatarUrl ? (
+              <img
+                src={photographer.avatarUrl}
+                alt={photographer.fullName || user?.username || 'User'}
+                className="w-8 h-8 rounded-full object-cover ring-2 ring-amber-400/60"
+              />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-amber-400/20 text-amber-500 font-bold text-xs flex items-center justify-center ring-2 ring-amber-400/60 uppercase">
+                {(photographer.fullName || user?.username || 'U').charAt(0)}
+              </div>
+            )}
             <span className="hidden sm:inline text-xs font-semibold text-neutral-900 dark:text-white">
-              {photographer.fullName || 'Sarang A'}
+              {photographer.fullName || user?.username || 'User'}
             </span>
             <ChevronDown
               className={`w-3.5 h-3.5 text-neutral-500 dark:text-neutral-400 transition-transform duration-200 ${
