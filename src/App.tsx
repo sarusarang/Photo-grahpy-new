@@ -1,10 +1,10 @@
-import React, { Suspense, lazy } from 'react';
+import { Suspense, lazy } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
-import { GalleryProvider } from './context/GalleryContext';
-import { ToastProvider } from './components/ui/Toast';
+import { Toaster } from 'sonner';
 import { DashboardLayout } from './layouts/DashboardLayout';
 import { LandingLayout } from './layouts/LandingLayout';
+
+import { ProtectedRoute } from './components/auth/ProtectedRoute';
 
 // Lazy loaded page components for optimal production performance
 const LandingPlaceholder = lazy(() =>
@@ -47,46 +47,58 @@ function LoadingScreen() {
   );
 }
 
-import { ThemeProvider } from './context/ThemeContext';
-
 export default function App() {
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        <GalleryProvider>
-          <ToastProvider>
-            <Suspense fallback={<LoadingScreen />}>
-              <Routes>
-                {/* Public Landing Page Layout & Placeholder */}
-                <Route element={<LandingLayout />}>
-                  <Route path="/" element={<LandingPlaceholder />} />
-                </Route>
+    <>
+      <Toaster
+        position="bottom-right"
+        richColors
+        theme="dark"
+        toastOptions={{
+          style: {
+            background: '#141419',
+            borderColor: '#262626',
+            color: '#ffffff',
+          },
+        }}
+      />
+      <Suspense fallback={<LoadingScreen />}>
+        <Routes>
+          {/* Public Landing Page Layout & Placeholder */}
+          <Route element={<LandingLayout />}>
+            <Route path="/" element={<LandingPlaceholder />} />
+          </Route>
 
-                {/* Authentication & Onboarding Routes */}
-                <Route path="/login" element={<LoginPage />} />
-                <Route path="/onboarding" element={<OnboardingPage />} />
+          {/* Authentication & Onboarding Routes */}
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/signup" element={<OnboardingPage />} />
+          <Route path="/register" element={<OnboardingPage />} />
+          <Route path="/onboarding" element={<OnboardingPage />} />
 
-                {/* Authenticated Photographer Dashboard Routes (Outlet based) */}
-                <Route path="/dashboard" element={<DashboardLayout />}>
-                  <Route index element={<Navigate to="/dashboard/home" replace />} />
-                  <Route path="home" element={<DrivePage />} />
-                  <Route path="drive" element={<DrivePage />} />
-                  <Route path="drive/:galleryId" element={<GalleryDetailPage />} />
-                  <Route path="tutorials" element={<TutorialPage />} />
-                  <Route path="settings" element={<SettingsPage />} />
-                </Route>
+          {/* Authenticated Photographer Dashboard Routes (Outlet based, Protected) */}
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <DashboardLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<Navigate to="/dashboard/home" replace />} />
+            <Route path="home" element={<DrivePage />} />
+            <Route path="drive" element={<DrivePage />} />
+            <Route path="drive/:galleryId" element={<GalleryDetailPage />} />
+            <Route path="tutorials" element={<TutorialPage />} />
+            <Route path="settings" element={<SettingsPage />} />
+          </Route>
 
-                {/* Public Client Gallery Route (Separate Layout) */}
-                <Route path="/gallery/:galleryId" element={<ClientGalleryPage />} />
+          {/* Public Client Gallery Route (Separate Layout) */}
+          <Route path="/gallery/:galleryId" element={<ClientGalleryPage />} />
 
-                {/* Catch all fallback */}
-                <Route path="*" element={<Navigate to="/dashboard/home" replace />} />
-              </Routes>
-            </Suspense>
-          </ToastProvider>
-        </GalleryProvider>
-      </AuthProvider>
-    </ThemeProvider>
+          {/* Catch all fallback */}
+          <Route path="*" element={<Navigate to="/dashboard/home" replace />} />
+        </Routes>
+      </Suspense>
+    </>
   );
 }
-

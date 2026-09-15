@@ -170,7 +170,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, gallery
               className={`flex items-center justify-center gap-2 p-3 rounded-xl border text-xs font-medium transition-all group ${
                 showQR
                   ? 'bg-amber-400/15 border-amber-400 text-amber-700 dark:text-amber-300'
-                  : 'bg-neutral-50 dark:bg-neutral-900 hover:bg-neutral-100 dark:hover:bg-neutral-850 border-neutral-200 dark:border-neutral-800 text-neutral-800 dark:text-neutral-200'
+                  : 'bg-neutral-50 dark:bg-neutral-900 hover:bg-neutral-100 dark:hover:bg-neutral-800 border-neutral-200 dark:border-neutral-800 text-neutral-800 dark:text-neutral-200'
               }`}
             >
               <QrCode className="w-4 h-4 text-amber-500 group-hover:scale-110 transition-transform" />
@@ -209,7 +209,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, gallery
 
           <button
             onClick={onClose}
-            className="px-5 py-2 rounded-xl bg-neutral-100 dark:bg-neutral-850 hover:bg-neutral-200 dark:hover:bg-neutral-800 text-neutral-800 dark:text-neutral-200 text-xs font-semibold transition-colors"
+            className="px-5 py-2 rounded-xl bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 text-xs font-semibold transition-colors"
           >
             Done
           </button>

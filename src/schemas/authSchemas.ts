@@ -1,0 +1,48 @@
+import { z } from 'zod';
+
+export const emailSchema = z.object({
+  email: z
+    .string()
+    .trim()
+    .min(1, 'Email address is required')
+    .email('Please enter a valid email address (e.g. name@studio.com)'),
+});
+
+export type EmailFormData = z.infer<typeof emailSchema>;
+
+export const otpSchema = z.object({
+  otp: z
+    .string()
+    .trim()
+    .length(6, 'Verification code must be 6 digits')
+    .regex(/^\d{6}$/, 'Verification code must contain digits only'),
+});
+
+export type OtpFormData = z.infer<typeof otpSchema>;
+
+export const profileSetupSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(1, 'Your name is required')
+    .min(2, 'Name must be at least 2 characters')
+    .max(80, 'Name is too long (max 80 characters)'),
+  phone: z
+    .string()
+    .trim()
+    .optional()
+    .refine((val) => {
+      if (!val || val.trim() === '') return true;
+      const clean = val.replace(/[\s\-().]/g, '');
+      return clean.length >= 7 && clean.length <= 18 && /^(\+)?[0-9]+$/.test(clean);
+    }, {
+      message: 'Please enter a valid phone number with country code',
+    }),
+  occupation: z
+    .string()
+    .trim()
+    .max(80, 'Occupation is too long')
+    .optional(),
+});
+
+export type ProfileSetupFormData = z.infer<typeof profileSetupSchema>;

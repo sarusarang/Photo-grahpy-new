@@ -7,6 +7,7 @@ import type { GalleryTemplateId, MediaItem } from '../../types';
 import { UploadMediaModal } from '../../components/gallery/UploadMediaModal';
 import { ShareModal } from '../../components/gallery/ShareModal';
 import { LightboxModal } from '../../components/gallery/LightboxModal';
+import { ConfirmDeleteModal } from '../../components/common/ConfirmDeleteModal';
 import {
   ArrowLeft,
   UploadCloud,
@@ -27,6 +28,7 @@ import {
   Square,
   Settings,
   ShieldAlert,
+  X,
 } from 'lucide-react';
 
 export const GalleryDetailPage: React.FC = () => {
@@ -54,6 +56,14 @@ export const GalleryDetailPage: React.FC = () => {
 
   // Bulk selection state
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+  // Delete modal state
+  const [itemToDelete, setItemToDelete] = useState<MediaItem | null>(null);
+  const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
+  const [isDeleteGalleryOpen, setIsDeleteGalleryOpen] = useState(false);
+
+  // Selected media items for bulk deletion preview
+  const selectedMediaItems = gallery?.media.filter((m) => selectedIds.includes(m.id)) || [];
 
   // Editing gallery details
   const [editTitle, setEditTitle] = useState(gallery?.title || '');
@@ -92,16 +102,21 @@ export const GalleryDetailPage: React.FC = () => {
     }
   };
 
-  const handleBulkDelete = () => {
-    if (
-      window.confirm(
-        `Remove ${selectedIds.length} selected media item(s) from this gallery?`
-      )
-    ) {
-      selectedIds.forEach((id) => removeMediaFromGallery(gallery.id, id));
-      setSelectedIds([]);
-      showToast('Media Removed', `Deleted ${selectedIds.length} items.`, 'info');
-    }
+  const handleConfirmSingleDelete = () => {
+    if (!itemToDelete) return;
+    const title = itemToDelete.title;
+    removeMediaFromGallery(gallery.id, itemToDelete.id);
+    setSelectedIds((prev) => prev.filter((id) => id !== itemToDelete.id));
+    setItemToDelete(null);
+    showToast('Photo Removed', `"${title}" was removed from gallery.`, 'info');
+  };
+
+  const handleConfirmBulkDelete = () => {
+    const count = selectedIds.length;
+    selectedIds.forEach((id) => removeMediaFromGallery(gallery.id, id));
+    setSelectedIds([]);
+    setIsBulkDeleteOpen(false);
+    showToast('Photos Removed', `Deleted ${count} selected items.`, 'info');
   };
 
   const handleMoveMedia = (index: number, direction: 'up' | 'down') => {
@@ -129,20 +144,15 @@ export const GalleryDetailPage: React.FC = () => {
     showToast('Saved', 'Gallery settings updated successfully.', 'success');
   };
 
-  const handleDeleteGallery = () => {
-    if (
-      window.confirm(
-        `Permanently delete gallery "${gallery.title}"? All media will be erased.`
-      )
-    ) {
-      deleteGallery(gallery.id);
-      showToast('Deleted', 'Gallery deleted from drive.', 'info');
-      navigate('/dashboard/drive');
-    }
+  const handleConfirmDeleteGallery = () => {
+    deleteGallery(gallery.id);
+    setIsDeleteGalleryOpen(false);
+    showToast('Gallery Deleted', `"${gallery.title}" was permanently removed.`, 'info');
+    navigate('/dashboard/drive');
   };
 
   return (
-    <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-6 text-neutral-900 dark:text-neutral-100 transition-colors">
+    <div className="dashboard-container p-4 sm:p-8 max-w-7xl mx-auto space-y-6 text-neutral-900 dark:text-neutral-100 transition-colors">
       {/* Top Breadcrumb & Actions Bar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-neutral-200 dark:border-neutral-800">
         <div className="flex items-center gap-3">
@@ -179,7 +189,7 @@ export const GalleryDetailPage: React.FC = () => {
 
           <button
             onClick={() => setIsShareModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white dark:bg-neutral-900 hover:bg-neutral-100 dark:hover:bg-neutral-850 border border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-200 text-xs font-medium transition-colors"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white dark:bg-neutral-900 hover:bg-neutral-100 dark:hover:bg-neutral-800 border border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-200 text-xs font-medium transition-colors cursor-pointer"
           >
             <Share2 className="w-3.5 h-3.5" />
             <span>Share</span>
@@ -188,7 +198,7 @@ export const GalleryDetailPage: React.FC = () => {
           <Link
             to={`/gallery/${gallery.slug || gallery.id}`}
             target="_blank"
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white dark:bg-neutral-900 hover:bg-neutral-100 dark:hover:bg-neutral-850 border border-neutral-200 dark:border-neutral-800 text-amber-600 dark:text-amber-400 text-xs font-medium transition-colors"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white dark:bg-neutral-900 hover:bg-neutral-100 dark:hover:bg-neutral-800 border border-neutral-200 dark:border-neutral-800 text-amber-600 dark:text-amber-400 text-xs font-medium transition-colors cursor-pointer"
           >
             <ExternalLink className="w-3.5 h-3.5" />
             <span>Client View</span>
@@ -200,9 +210,9 @@ export const GalleryDetailPage: React.FC = () => {
       <div className="flex items-center gap-2 border-b border-neutral-200 dark:border-neutral-800/80 pb-2">
         <button
           onClick={() => setActiveTab('media')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
             activeTab === 'media'
-              ? 'bg-amber-500/15 dark:bg-neutral-850 text-amber-700 dark:text-white border border-amber-500/30 dark:border-neutral-700 shadow-sm'
+              ? 'bg-amber-500/15 dark:bg-neutral-800 text-amber-700 dark:text-white border border-amber-500/30 dark:border-neutral-700 shadow-sm'
               : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-900'
           }`}
         >
@@ -212,9 +222,9 @@ export const GalleryDetailPage: React.FC = () => {
 
         <button
           onClick={() => setActiveTab('design')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
             activeTab === 'design'
-              ? 'bg-amber-500/15 dark:bg-neutral-850 text-amber-700 dark:text-white border border-amber-500/30 dark:border-neutral-700 shadow-sm'
+              ? 'bg-amber-500/15 dark:bg-neutral-800 text-amber-700 dark:text-white border border-amber-500/30 dark:border-neutral-700 shadow-sm'
               : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-900'
           }`}
         >
@@ -224,9 +234,9 @@ export const GalleryDetailPage: React.FC = () => {
 
         <button
           onClick={() => setActiveTab('settings')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
             activeTab === 'settings'
-              ? 'bg-amber-500/15 dark:bg-neutral-850 text-amber-700 dark:text-white border border-amber-500/30 dark:border-neutral-700 shadow-sm'
+              ? 'bg-amber-500/15 dark:bg-neutral-800 text-amber-700 dark:text-white border border-amber-500/30 dark:border-neutral-700 shadow-sm'
               : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-900'
           }`}
         >
@@ -238,24 +248,62 @@ export const GalleryDetailPage: React.FC = () => {
       {/* Tab 1: Photos & Videos Management */}
       {activeTab === 'media' && (
         <div className="space-y-6">
-          {/* Bulk Action Bar if items selected */}
+          {/* Rich, Premium Floating Selection Action Bar */}
           {selectedIds.length > 0 && (
-            <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between text-xs text-amber-300 animate-in fade-in">
-              <span className="font-semibold">
-                {selectedIds.length} item(s) selected
-              </span>
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={handleBulkDelete}
-                  className="px-3 py-1.5 rounded-xl bg-rose-500 hover:bg-rose-600 text-white font-semibold transition-colors flex items-center gap-1.5"
-                >
-                  <Trash2 className="w-3.5 h-3.5" /> Delete Selected
-                </button>
+            <div className="relative rounded-2xl bg-white/95 dark:bg-[#13141c]/95 border border-amber-500/30 shadow-xl shadow-amber-500/5 dark:shadow-black/50 p-3 sm:px-5 sm:py-3.5 flex flex-col sm:flex-row items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2 duration-300 backdrop-blur-xl">
+              {/* Glowing amber accent highlight line */}
+              <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-amber-400 to-transparent rounded-t-2xl" />
+
+              {/* Left: Count & Meta */}
+              <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
+                <div className="flex items-center gap-2.5">
+                  <div className="min-w-[28px] h-7 px-2 rounded-full bg-gradient-to-r from-amber-400 to-amber-500 text-neutral-950 font-mono font-bold text-xs flex items-center justify-center shadow-md shadow-amber-500/20">
+                    {selectedIds.length}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-xs sm:text-sm text-neutral-900 dark:text-neutral-100">
+                        {selectedIds.length === 1 ? '1 Photo' : `${selectedIds.length} Photos`} Selected
+                      </span>
+                      <span className="text-[11px] text-neutral-400 dark:text-neutral-500 font-mono hidden md:inline">
+                        ({selectedIds.length} of {gallery.media.length})
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Mobile Clear Button */}
                 <button
                   onClick={() => setSelectedIds([])}
-                  className="text-neutral-400 hover:text-white"
+                  className="sm:hidden text-xs text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
                 >
-                  Deselect All
+                  Clear
+                </button>
+              </div>
+
+              {/* Right: Actions */}
+              <div className="flex items-center gap-2 sm:gap-2.5 w-full sm:w-auto justify-end">
+                <button
+                  onClick={selectAll}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold border transition-all duration-200 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 border-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 dark:text-neutral-100 dark:border-neutral-700 shadow-sm active:scale-[0.98]"
+                >
+                  {selectedIds.length === gallery.media.length ? 'Deselect All' : 'Select All'}
+                </button>
+
+                <button
+                  onClick={() => setIsBulkDeleteOpen(true)}
+                  className="group inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-red-600 via-rose-600 to-rose-700 hover:from-red-500 hover:to-rose-600 text-white text-xs font-bold shadow-lg shadow-rose-600/25 active:scale-[0.98] transition-all"
+                >
+                  <Trash2 className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
+                  <span>Delete Selected ({selectedIds.length})</span>
+                </button>
+
+                <button
+                  onClick={() => setSelectedIds([])}
+                  className="hidden sm:flex p-2 rounded-xl text-neutral-400 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+                  title="Deselect All"
+                >
+                  <X className="w-4 h-4" />
                 </button>
               </div>
             </div>
@@ -283,7 +331,7 @@ export const GalleryDetailPage: React.FC = () => {
             </div>
           ) : (
             <div>
-              <div className="flex items-center justify-between mb-4 text-xs text-neutral-400">
+              <div className="flex items-center justify-between mb-5 text-xs text-neutral-400">
                 <button
                   onClick={selectAll}
                   className="flex items-center gap-2 hover:text-white transition-colors"
@@ -298,7 +346,8 @@ export const GalleryDetailPage: React.FC = () => {
                 <span>Reorder with arrows or click to preview in lightbox</span>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 stagger">
+              {/* 4 Cards on a Row with extra height & width */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5 sm:gap-6 stagger">
                 {gallery.media.map((item, idx) => {
                   const isSelected = selectedIds.includes(item.id);
                   const isCover = gallery.coverImage === item.url;
@@ -306,16 +355,16 @@ export const GalleryDetailPage: React.FC = () => {
                   return (
                     <div
                       key={item.id}
-                      className={`group relative rounded-2xl bg-white dark:bg-[#121319] border overflow-hidden card-lift fade-up transition-all duration-200 ${
+                      className={`group relative rounded-3xl bg-white dark:bg-[#121319] border overflow-hidden card-lift fade-up transition-all duration-200 ${
                         isSelected
-                          ? 'border-amber-500 ring-2 ring-amber-500/40 shadow-md'
-                          : 'border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700'
+                          ? 'ring-2 ring-amber-400 dark:ring-amber-400 border-transparent shadow-xl shadow-amber-500/10 dark:shadow-amber-400/20 scale-[1.01]'
+                          : 'border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700 shadow-sm'
                       }`}
                     >
-                      {/* Thumbnail Container */}
+                      {/* Thumbnail Container with Portrait aspect ratio 4:5 for taller, richer display */}
                       <div
                         onClick={() => setLightboxIndex(idx)}
-                        className="relative aspect-square w-full overflow-hidden cursor-pointer bg-neutral-100 dark:bg-neutral-950"
+                        className="relative aspect-[4/5] w-full overflow-hidden cursor-pointer bg-neutral-100 dark:bg-neutral-950"
                       >
                         <img
                           src={item.thumbnailUrl || item.url}
@@ -325,31 +374,40 @@ export const GalleryDetailPage: React.FC = () => {
                         />
 
                         {/* Top Action Row */}
-                        <div className="absolute top-2 left-2 right-2 flex items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div
+                          className={`absolute top-2 left-2 right-2 flex items-center justify-between transition-opacity duration-200 ${
+                            isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                          }`}
+                        >
                           {/* Selection Checkbox */}
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               toggleSelect(item.id);
                             }}
-                            className="p-1 rounded-md bg-black/70 text-white"
+                            className={`p-1.5 rounded-lg transition-all shadow-md backdrop-blur-md ${
+                              isSelected
+                                ? 'bg-amber-400 text-neutral-950 scale-105 ring-2 ring-amber-300'
+                                : 'bg-black/60 hover:bg-black/80 text-white border border-white/20 hover:scale-105'
+                            }`}
+                            title={isSelected ? 'Deselect photo' : 'Select photo'}
                           >
                             {isSelected ? (
-                              <CheckSquare className="w-4 h-4 text-amber-400" />
+                              <CheckSquare className="w-4 h-4 stroke-[2.5]" />
                             ) : (
-                              <Square className="w-4 h-4" />
+                              <Square className="w-4 h-4 stroke-[1.8]" />
                             )}
                           </button>
 
                           {/* Reorder Arrows */}
-                          <div className="flex items-center gap-1 bg-black/70 rounded-md p-0.5">
+                          <div className="flex items-center gap-1 bg-black/70 backdrop-blur-md rounded-lg p-0.5 border border-white/10">
                             <button
                               disabled={idx === 0}
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleMoveMedia(idx, 'up');
                               }}
-                              className="p-1 text-white hover:text-amber-400 disabled:opacity-30"
+                              className="p-1 text-white hover:text-amber-400 disabled:opacity-30 transition-colors"
                               title="Move left/up"
                             >
                               <ArrowUp className="w-3.5 h-3.5" />
@@ -360,7 +418,7 @@ export const GalleryDetailPage: React.FC = () => {
                                 e.stopPropagation();
                                 handleMoveMedia(idx, 'down');
                               }}
-                              className="p-1 text-white hover:text-amber-400 disabled:opacity-30"
+                              className="p-1 text-white hover:text-amber-400 disabled:opacity-30 transition-colors"
                               title="Move right/down"
                             >
                               <ArrowDown className="w-3.5 h-3.5" />
@@ -371,12 +429,12 @@ export const GalleryDetailPage: React.FC = () => {
                         {/* Badges: Cover, Video, Favorite */}
                         <div className="absolute bottom-2 left-2 flex items-center gap-1">
                           {isCover && (
-                            <span className="px-1.5 py-0.5 rounded bg-amber-400 text-neutral-950 text-[9px] font-bold uppercase">
+                            <span className="px-1.5 py-0.5 rounded-md bg-amber-400 text-neutral-950 text-[9px] font-bold uppercase shadow-sm">
                               Cover
                             </span>
                           )}
                           {item.type === 'video' && (
-                            <span className="px-1.5 py-0.5 rounded bg-black/70 text-amber-400 text-[9px] font-mono flex items-center gap-1">
+                            <span className="px-1.5 py-0.5 rounded-md bg-black/70 backdrop-blur-sm text-amber-400 text-[9px] font-mono flex items-center gap-1 border border-white/10">
                               <Film className="w-2.5 h-2.5" /> Reel
                             </span>
                           )}
@@ -388,9 +446,9 @@ export const GalleryDetailPage: React.FC = () => {
                             e.stopPropagation();
                             toggleMediaFavorite(gallery.id, item.id);
                           }}
-                          className={`absolute bottom-2 right-2 p-1.5 rounded-full backdrop-blur-md transition-opacity ${
+                          className={`absolute bottom-2 right-2 p-1.5 rounded-full backdrop-blur-md transition-all ${
                             item.isFavorite
-                              ? 'bg-rose-500 text-white opacity-100'
+                              ? 'bg-rose-500 text-white opacity-100 shadow-md shadow-rose-500/30'
                               : 'bg-black/60 text-white/70 hover:text-white opacity-0 group-hover:opacity-100'
                           }`}
                         >
@@ -411,21 +469,18 @@ export const GalleryDetailPage: React.FC = () => {
                                 setCoverImage(gallery.id, item.url);
                                 showToast('Cover Set', 'Cover image updated.', 'success');
                               }}
-                              className="text-[10px] text-neutral-400 dark:text-neutral-500 hover:text-amber-500 dark:hover:text-amber-400 font-medium"
+                              className="px-1.5 py-0.5 rounded text-[10px] text-neutral-400 dark:text-neutral-500 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 font-medium transition-colors"
                               title="Set as Gallery Cover"
                             >
                               Cover
                             </button>
                           )}
                           <button
-                            onClick={() => {
-                              removeMediaFromGallery(gallery.id, item.id);
-                              showToast('Removed', 'File removed from gallery.', 'info');
-                            }}
-                            className="p-1 text-neutral-400 dark:text-neutral-500 hover:text-rose-500"
-                            title="Delete"
+                            onClick={() => setItemToDelete(item)}
+                            className="p-1.5 rounded-lg text-neutral-400 dark:text-neutral-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                            title="Delete photo"
                           >
-                            <Trash2 className="w-3 h-3" />
+                            <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       </div>
@@ -520,7 +575,7 @@ export const GalleryDetailPage: React.FC = () => {
                     <Link
                       to={`/gallery/${gallery.slug || gallery.id}?previewTemplate=${tpl.id}`}
                       target="_blank"
-                      className="px-3 py-2.5 rounded-xl bg-neutral-100 dark:bg-neutral-850 hover:bg-neutral-200 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white text-xs font-medium flex items-center gap-1.5 transition-colors"
+                      className="px-3 py-2.5 rounded-xl bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
                       title="Preview this design live"
                     >
                       <Eye className="w-3.5 h-3.5" />
@@ -568,7 +623,7 @@ export const GalleryDetailPage: React.FC = () => {
             </div>
 
             {/* Password Protection */}
-            <div className="p-4 rounded-2xl bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-850 space-y-3">
+            <div className="p-4 rounded-2xl bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 space-y-3">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs font-semibold text-neutral-900 dark:text-white">Require PIN Password</p>
@@ -594,7 +649,7 @@ export const GalleryDetailPage: React.FC = () => {
             </div>
 
             {/* Downloads Toggle */}
-            <div className="flex items-center justify-between p-4 rounded-2xl bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-850">
+            <div className="flex items-center justify-between p-4 rounded-2xl bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800">
               <div>
                 <p className="text-xs font-semibold text-neutral-900 dark:text-white">Allow Client Downloads</p>
                 <p className="text-[11px] text-neutral-500 dark:text-neutral-400">Permit downloading single files or full-gallery ZIPs</p>
@@ -625,7 +680,7 @@ export const GalleryDetailPage: React.FC = () => {
               Permanently delete this gallery and all {gallery.media.length} associated media files.
             </p>
             <button
-              onClick={handleDeleteGallery}
+              onClick={() => setIsDeleteGalleryOpen(true)}
               className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-colors"
             >
               Delete This Gallery
@@ -657,9 +712,46 @@ export const GalleryDetailPage: React.FC = () => {
           currentIndex={lightboxIndex}
           onNavigate={(newIdx) => setLightboxIndex(newIdx)}
           onToggleFavorite={(mId) => toggleMediaFavorite(gallery.id, mId)}
+          onDelete={(mId) => {
+            removeMediaFromGallery(gallery.id, mId);
+          }}
           allowDownloads={gallery.allowDownloads}
         />
       )}
+
+      {/* Confirm Delete Single Media Item Modal */}
+      <ConfirmDeleteModal
+        isOpen={itemToDelete !== null}
+        onClose={() => setItemToDelete(null)}
+        onConfirm={handleConfirmSingleDelete}
+        title="Delete Photo"
+        description="Are you sure you want to delete this photo? This will permanently remove it from the gallery."
+        confirmLabel="Delete Photo"
+        item={itemToDelete}
+      />
+
+      {/* Confirm Delete Bulk Selected Media Items Modal */}
+      <ConfirmDeleteModal
+        isOpen={isBulkDeleteOpen}
+        onClose={() => setIsBulkDeleteOpen(false)}
+        onConfirm={handleConfirmBulkDelete}
+        title={`Delete ${selectedIds.length} Photos`}
+        description={`Are you sure you want to delete ${selectedIds.length} selected photos? This action cannot be undone.`}
+        confirmLabel={`Delete ${selectedIds.length} Photos`}
+        items={selectedMediaItems}
+        itemCount={selectedIds.length}
+      />
+
+      {/* Confirm Delete Whole Gallery Modal */}
+      <ConfirmDeleteModal
+        isOpen={isDeleteGalleryOpen}
+        onClose={() => setIsDeleteGalleryOpen(false)}
+        onConfirm={handleConfirmDeleteGallery}
+        title={`Delete "${gallery.title}"`}
+        description={`Are you sure you want to permanently delete gallery "${gallery.title}" and all its ${gallery.media.length} photos? This cannot be recovered.`}
+        confirmLabel="Delete Gallery"
+        itemCount={gallery.media.length}
+      />
     </div>
   );
 };

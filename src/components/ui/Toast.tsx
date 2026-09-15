@@ -1,80 +1,33 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
-import { CheckCircle2, AlertCircle, Info, X } from 'lucide-react';
+import React from 'react';
+import { toast } from 'sonner';
 
-type ToastType = 'success' | 'error' | 'info';
+export { toast };
 
-interface ToastItem {
-  id: string;
-  type: ToastType;
-  title: string;
-  message?: string;
-}
+export type ToastType = 'success' | 'error' | 'info' | 'warning';
 
-interface ToastContextType {
+export interface ToastContextType {
   showToast: (title: string, message?: string, type?: ToastType) => void;
 }
 
-const ToastContext = createContext<ToastContextType | undefined>(undefined);
-
-export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [toasts, setToasts] = useState<ToastItem[]>([]);
-
-  const showToast = useCallback((title: string, message?: string, type: ToastType = 'success') => {
-    const id = Math.random().toString(36).substring(2, 9);
-    setToasts((prev) => [...prev, { id, title, message, type }]);
-
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 4000);
-  }, []);
-
-  const removeToast = (id: string) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
+/**
+ * Sonner unified toast hook supporting title and description
+ */
+export const useToast = (): ToastContextType => {
+  return {
+    showToast: (title: string, message?: string, type: ToastType = 'success') => {
+      if (type === 'error') {
+        toast.error(title, { description: message });
+      } else if (type === 'info') {
+        toast.info(title, { description: message });
+      } else if (type === 'warning') {
+        toast.warning(title, { description: message });
+      } else {
+        toast.success(title, { description: message });
+      }
+    },
   };
-
-  return (
-    <ToastContext.Provider value={{ showToast }}>
-      {children}
-      <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-2 max-w-sm pointer-events-none">
-        {toasts.map((toast) => (
-          <div
-            key={toast.id}
-            className={`pointer-events-auto flex items-start gap-3 p-4 rounded-xl shadow-2xl backdrop-blur-md border transition-all duration-300 animate-in fade-in slide-in-from-bottom-3 ${
-              toast.type === 'success'
-                ? 'bg-neutral-900/95 text-white border-neutral-700/60'
-                : toast.type === 'error'
-                ? 'bg-red-950/95 text-red-100 border-red-800/60'
-                : 'bg-neutral-900/95 text-neutral-100 border-neutral-700/60'
-            }`}
-          >
-            {toast.type === 'success' && <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />}
-            {toast.type === 'error' && <AlertCircle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />}
-            {toast.type === 'info' && <Info className="w-5 h-5 text-sky-400 shrink-0 mt-0.5" />}
-
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold tracking-wide leading-tight">{toast.title}</p>
-              {toast.message && (
-                <p className="text-xs text-neutral-400 mt-1 leading-normal">{toast.message}</p>
-              )}
-            </div>
-
-            <button
-              onClick={() => removeToast(toast.id)}
-              className="text-neutral-400 hover:text-white transition-colors p-1"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        ))}
-      </div>
-    </ToastContext.Provider>
-  );
 };
 
-export const useToast = (): ToastContextType => {
-  const context = useContext(ToastContext);
-  if (!context) {
-    throw new Error('useToast must be used within ToastProvider');
-  }
-  return context;
+export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  return <>{children}</>;
 };

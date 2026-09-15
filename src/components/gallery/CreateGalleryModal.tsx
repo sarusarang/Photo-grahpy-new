@@ -169,7 +169,7 @@ export const CreateGalleryModal: React.FC<CreateGalleryModalProps> = ({
                   onClick={() => setTemplateId(tpl.id)}
                   className={`relative p-3 rounded-2xl border text-left transition-all ${
                     templateId === tpl.id
-                      ? 'bg-amber-500/10 dark:bg-neutral-850 border-amber-500 ring-1 ring-amber-500 shadow-md shadow-amber-500/10'
+                      ? 'bg-amber-500/10 dark:bg-neutral-800 border-amber-500 ring-1 ring-amber-500 shadow-md shadow-amber-500/10'
                       : 'bg-neutral-50 dark:bg-neutral-900/80 border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700'
                   }`}
                 >

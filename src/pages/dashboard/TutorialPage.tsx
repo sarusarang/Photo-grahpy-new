@@ -43,7 +43,7 @@ export const TutorialPage: React.FC = () => {
   const currentStep = TUTORIAL_STEPS.find((s) => s.id === activeStepId) || TUTORIAL_STEPS[0];
 
   return (
-    <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-8 text-neutral-900 dark:text-neutral-100 transition-colors">
+    <div className="dashboard-container p-4 sm:p-8 max-w-7xl mx-auto space-y-8 text-neutral-900 dark:text-neutral-100 transition-colors">
       {/* Header Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-neutral-200 dark:border-neutral-800">
         <div>
@@ -64,7 +64,7 @@ export const TutorialPage: React.FC = () => {
           <Link
             to="/gallery/sarang-wedding-editorial"
             target="_blank"
-            className="px-4 py-2 rounded-xl bg-white dark:bg-neutral-900 hover:bg-neutral-100 dark:hover:bg-neutral-850 border border-neutral-200 dark:border-neutral-800 text-neutral-800 dark:text-neutral-200 text-xs font-semibold transition-colors flex items-center gap-2 shadow-xs"
+            className="px-4 py-2 rounded-xl bg-white dark:bg-neutral-900 hover:bg-neutral-100 dark:hover:bg-neutral-800 border border-neutral-200 dark:border-neutral-800 text-neutral-800 dark:text-neutral-200 text-xs font-semibold transition-colors flex items-center gap-2 shadow-xs"
           >
             <ExternalLink className="w-3.5 h-3.5" />
             <span>Preview Client View</span>

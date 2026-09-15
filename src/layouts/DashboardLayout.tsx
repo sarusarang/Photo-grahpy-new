@@ -13,6 +13,23 @@ export const DashboardLayout: React.FC = () => {
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('photo_saas_sidebar_collapsed');
+      return saved !== null ? JSON.parse(saved) : false;
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleSidebar = () => {
+    setIsSidebarCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem('photo_saas_sidebar_collapsed', JSON.stringify(next));
+      return next;
+    });
+  };
+
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -45,10 +62,18 @@ export const DashboardLayout: React.FC = () => {
       />
 
       {/* 2. Main App Body with Sidebar and Scrollable Content */}
-      <div className="flex-1 flex min-h-0 overflow-hidden">
-        {/* Desktop Left Sidebar — fixed width, independent scroll */}
-        <div className="hidden md:flex flex-col flex-shrink-0 h-full overflow-y-auto">
-          <Sidebar onOpenUpgradeModal={() => setIsUpgradeModalOpen(true)} />
+      <div
+        className={`flex-1 flex min-h-0 overflow-hidden ${
+          isSidebarCollapsed ? 'sidebar-collapsed-layout' : 'sidebar-expanded-layout'
+        }`}
+      >
+        {/* Desktop Left Sidebar — animated width container */}
+        <div className="hidden md:flex flex-col flex-shrink-0 h-full transition-[width] duration-300 ease-[cubic-bezier(0.2,0,0,1)]">
+          <Sidebar
+            isCollapsed={isSidebarCollapsed}
+            onToggleCollapse={toggleSidebar}
+            onOpenUpgradeModal={() => setIsUpgradeModalOpen(true)}
+          />
         </div>
 
         {/* Mobile Sidebar Drawer */}
@@ -78,10 +103,13 @@ export const DashboardLayout: React.FC = () => {
           </div>
         )}
 
-        {/* Main Center Stage — animated on every route change */}
-        <div className="flex-1 flex flex-col min-w-0 overflow-y-auto pb-20 md:pb-8">
-          <main key={location.pathname} className="flex-1 page-animate">
-            <Outlet />
+        {/* Main Center Stage — smoothly expanding and adapting to available width */}
+        <div className="flex-1 flex flex-col min-w-0 overflow-y-auto pb-20 md:pb-8 transition-all duration-300 ease-[cubic-bezier(0.2,0,0,1)]">
+          <main
+            key={location.pathname}
+            className="flex-1 page-animate transition-all duration-300 ease-[cubic-bezier(0.2,0,0,1)]"
+          >
+            <Outlet context={{ isSidebarCollapsed }} />
           </main>
         </div>
       </div>

@@ -329,7 +329,7 @@ export const UploadMediaModal: React.FC<UploadMediaModalProps> = ({
             </div>
 
             {/* Or add custom image URL */}
-            <form onSubmit={handleCustomPhotoSubmit} className="pt-4 border-t border-neutral-200 dark:border-neutral-850">
+            <form onSubmit={handleCustomPhotoSubmit} className="pt-4 border-t border-neutral-200 dark:border-neutral-800">
               <p className="text-xs font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-400 mb-2">
                 Or Add Custom Photo URL
               </p>

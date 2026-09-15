@@ -7,6 +7,7 @@ export interface PhotographerProfile {
   email: string;
   phone: string;
   location: string;
+  occupation?: string;
   bio: string;
   avatarUrl: string;
   websiteUrl?: string;

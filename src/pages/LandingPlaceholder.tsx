@@ -33,7 +33,7 @@ export const LandingPlaceholder: React.FC = () => {
         </Link>
         <Link
           to="/login"
-          className="px-6 py-3.5 rounded-2xl bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 text-neutral-200 text-xs font-bold uppercase tracking-widest transition-colors"
+          className="px-6 py-3.5 rounded-2xl bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-neutral-200 text-xs font-bold uppercase tracking-widest transition-colors"
         >
           Photographer Login
         </Link>

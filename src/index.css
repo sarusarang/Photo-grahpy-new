@@ -27,15 +27,12 @@ body {
   text-rendering: optimizeLegibility;
 }
 
-
 #root {
   width: 100%;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
 }
-
-
 
 @custom-variant dark (&:is(.dark *));
 
@@ -47,6 +44,9 @@ body {
   font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
 }
 
+.font-script {
+  font-family: 'Alex Brush', 'Caveat', cursive, sans-serif;
+}
 
 :root {
   --text: #374151;
@@ -76,8 +76,6 @@ body {
 
   --background: oklch(0.975 0 0);
   --foreground: oklch(0.145 0 0);
-
-
 
   --card: oklch(1 0 0);
 
@@ -164,7 +162,6 @@ body {
   box-sizing: border-box;
 }
 
-
 body {
   margin: 0;
 }
@@ -209,7 +206,7 @@ body {
   --radius-xl: calc(var(--radius) * 1.4);
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+  --color-neutral-850: #1a1c24;
 }
 
 .dark {
@@ -404,474 +401,7 @@ img {
 }
 img[src=""] { opacity: 0; }
 
-/* =========================================================
-   AUTH PAGES — Login / Register / OTP
-   ========================================================= */
 
-.auth-root {
-  display: flex;
-  min-height: 100vh;
-  background: #0d0d0d;
-  overflow: hidden;
-}
-
-/* --- LEFT PANEL --- */
-.auth-left {
-  display: flex;
-  flex-direction: column;
-  width: 50%;
-  min-width: 460px;
-  max-width: 640px;
-  padding: 40px 60px;
-  background: #141414;
-  position: relative;
-  z-index: 2;
-}
-
-/* Top brand nav */
-.auth-nav {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 0;
-}
-
-.auth-brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.auth-logo-box {
-  width: 36px;
-  height: 36px;
-  background: #f5c518;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.auth-logo-icon {
-  width: 18px;
-  height: 18px;
-  color: #000;
-  stroke-width: 2.2;
-}
-
-.auth-brand-text {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.1;
-}
-
-.auth-brand-name {
-  font-size: 13px;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  color: #ffffff;
-}
-
-.auth-brand-sub {
-  font-size: 9px;
-  letter-spacing: 0.14em;
-  color: #888;
-  font-weight: 500;
-}
-
-.auth-nav-links {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 11px;
-  color: #888;
-  letter-spacing: 0.04em;
-}
-
-.auth-nav-dot {
-  color: #555;
-}
-
-/* Form area */
-.auth-form-area {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  padding: 40px 0 20px;
-}
-
-.auth-platform-tag {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.18em;
-  color: #f5c518;
-  margin-bottom: 14px;
-  display: block;
-}
-
-.auth-heading {
-  font-size: 38px;
-  font-weight: 700;
-  color: #ffffff;
-  line-height: 1.1;
-  margin: 0 0 10px;
-  letter-spacing: -0.02em;
-}
-
-.auth-subheading {
-  font-size: 13px;
-  color: #888;
-  line-height: 1.6;
-  margin: 0 0 32px;
-}
-
-.auth-email-highlight {
-  color: #f5c518;
-  font-weight: 600;
-}
-
-/* Form */
-.auth-form {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.auth-field {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.auth-label {
-  font-size: 11px;
-  font-weight: 600;
-  color: #ccc;
-  letter-spacing: 0.04em;
-}
-
-.auth-input-wrapper {
-  position: relative;
-}
-
-.auth-input-icon {
-  position: absolute;
-  left: 14px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 15px;
-  height: 15px;
-  color: #666;
-  pointer-events: none;
-}
-
-.auth-input {
-  width: 100%;
-  padding: 13px 16px 13px 42px;
-  background: #1f1f1f;
-  border: 1.5px solid #2e2e2e;
-  border-radius: 10px;
-  color: #ffffff;
-  font-size: 13px;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
-  outline: none;
-}
-
-.auth-input::placeholder {
-  color: #555;
-}
-
-.auth-input:focus {
-  border-color: #f5c518;
-  box-shadow: 0 0 0 3px rgba(245, 197, 24, 0.1);
-}
-
-/* Primary button */
-.auth-btn-primary {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  width: 100%;
-  padding: 14px 20px;
-  background: #f5c518;
-  color: #000;
-  font-size: 13px;
-  font-weight: 700;
-  border: none;
-  border-radius: 10px;
-  cursor: pointer;
-  transition: background 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
-  letter-spacing: 0.02em;
-}
-
-.auth-btn-primary:hover:not(:disabled) {
-  background: #ffd84d;
-  transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(245, 197, 24, 0.3);
-}
-
-.auth-btn-primary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.auth-btn-icon {
-  width: 16px;
-  height: 16px;
-}
-
-.auth-spinner {
-  width: 18px;
-  height: 18px;
-  border: 2px solid rgba(0,0,0,0.3);
-  border-top-color: #000;
-  border-radius: 50%;
-  animation: spin 0.7s linear infinite;
-  display: inline-block;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-/* Switch text */
-.auth-switch-text {
-  font-size: 12px;
-  color: #666;
-  text-align: center;
-  margin: 0;
-}
-
-.auth-link {
-  color: #f5c518;
-  font-weight: 600;
-  text-decoration: none;
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 0;
-  font-size: inherit;
-  transition: color 0.2s;
-}
-
-.auth-link:hover {
-  color: #ffd84d;
-}
-
-/* OTP boxes */
-.auth-otp-row {
-  display: flex;
-  gap: 10px;
-  justify-content: flex-start;
-}
-
-.auth-otp-box {
-  width: 58px;
-  height: 66px;
-  background: #1f1f1f;
-  border: 1.5px solid #2e2e2e;
-  border-radius: 10px;
-  font-size: 24px;
-  font-weight: 700;
-  color: #ffffff;
-  text-align: center;
-  outline: none;
-  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
-  caret-color: #f5c518;
-}
-
-.auth-otp-box:focus {
-  border-color: #f5c518;
-  box-shadow: 0 0 0 3px rgba(245,197,24,0.12);
-}
-
-.auth-otp-filled {
-  background: #1e1a09;
-  border-color: #f5c518;
-}
-
-/* Profile form grid */
-.auth-form-profile {
-  gap: 14px;
-}
-
-.auth-field-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-
-.auth-avatar-row {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-
-.auth-avatar-preview {
-  width: 60px;
-  height: 60px;
-  border-radius: 12px;
-  object-fit: cover;
-  border: 2px solid #f5c518;
-  flex-shrink: 0;
-}
-
-.auth-avatar-presets {
-  display: flex;
-  gap: 8px;
-}
-
-.auth-avatar-preset-btn {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  overflow: hidden;
-  border: 2px solid transparent;
-  cursor: pointer;
-  padding: 0;
-  transition: border-color 0.2s, transform 0.2s;
-  background: none;
-}
-
-.auth-avatar-preset-btn img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.auth-avatar-preset-btn.active {
-  border-color: #f5c518;
-  transform: scale(1.1);
-}
-
-.auth-avatar-preset-btn:not(.active) {
-  opacity: 0.55;
-}
-
-.auth-avatar-preset-btn:hover {
-  opacity: 1;
-}
-
-/* Footer */
-.auth-footer {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  padding-top: 24px;
-  border-top: 1px solid #222;
-}
-
-.auth-footer-brand {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.auth-footer-line {
-  width: 24px;
-  height: 2px;
-  background: #f5c518;
-  margin-bottom: 4px;
-}
-
-.auth-footer-tag {
-  font-size: 9px;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  color: #555;
-  display: block;
-}
-
-.auth-footer-links {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 10px;
-  letter-spacing: 0.1em;
-  color: #555;
-  font-weight: 600;
-}
-
-/* --- RIGHT PANEL --- */
-.auth-right {
-  flex: 1;
-  position: relative;
-  overflow: hidden;
-  background: #0a0a0a;
-}
-
-.auth-right-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center;
-  display: block;
-}
-
-.auth-right-overlay {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    to top,
-    rgba(0,0,0,0.85) 0%,
-    rgba(0,0,0,0.1) 50%,
-    rgba(0,0,0,0.0) 100%
-  );
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  padding: 40px;
-}
-
-.auth-features {
-  display: flex;
-  gap: 48px;
-  justify-content: center;
-}
-
-.auth-feature-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  text-align: center;
-  color: rgba(255,255,255,0.8);
-  font-size: 12px;
-  font-weight: 500;
-  line-height: 1.4;
-}
-
-.auth-feature-icon {
-  width: 28px;
-  height: 28px;
-  color: rgba(255,255,255,0.9);
-}
-
-@media (max-width: 900px) {
-  .auth-root {
-    flex-direction: column;
-  }
-  .auth-left {
-    width: 100%;
-    max-width: 100%;
-    min-width: unset;
-    padding: 32px 28px;
-  }
-  .auth-right {
-    min-height: 300px;
-    flex: none;
-  }
-  .auth-field-grid {
-    grid-template-columns: 1fr;
-  }
-  .auth-otp-box {
-    width: 46px;
-    height: 54px;
-    font-size: 20px;
-  }
-}
 
 /* Luxury Wedding & Template Styles */
 @keyframes kenburns-slow {
@@ -947,4 +477,176 @@ img[src=""] { opacity: 0; }
 .film-grain {
   background-image: radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 0);
   background-size: 4px 4px;
+}
+
+::view-transition-old(root), ::view-transition-new(root) {
+    animation: none;
+    mix-blend-mode: normal;
+}
+
+/* Silky buttery smooth transitions for Lightbox Single Photo View */
+@keyframes butter-slide-next {
+  0% {
+    opacity: 0;
+    transform: translate3d(55px, 0, 0) scale(0.965);
+    filter: blur(4px);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+    filter: blur(0px);
+  }
+}
+
+@keyframes butter-slide-prev {
+  0% {
+    opacity: 0;
+    transform: translate3d(-55px, 0, 0) scale(0.965);
+    filter: blur(4px);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+    filter: blur(0px);
+  }
+}
+
+@keyframes butter-fade {
+  0% {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-butter-next {
+  animation: butter-slide-next 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-butter-prev {
+  animation: butter-slide-prev 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-butter-fade {
+  animation: butter-fade 350ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* =========================================================
+   Custom International Phone Input (react-phone-number-input)
+   ========================================================= */
+.custom-phone-input.PhoneInput {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 2.375rem; /* ~38px matching py-2 */
+  padding: 0 0.75rem;
+  background-color: #171717; /* neutral-900 */
+  border: 1px solid #262626; /* neutral-800 */
+  border-radius: 0.75rem; /* rounded-xl */
+  transition: border-color 0.2s, box-shadow 0.2s;
+  box-sizing: border-box;
+}
+
+.custom-phone-input.PhoneInput:focus-within {
+  border-color: #fbbf24; /* amber-400 */
+  box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.4);
+}
+
+.custom-phone-input.is-error {
+  border-color: rgba(244, 63, 94, 0.8) !important;
+}
+
+.custom-phone-input.is-error:focus-within {
+  box-shadow: 0 0 0 1px rgba(244, 63, 94, 0.4) !important;
+}
+
+.custom-phone-input .PhoneInputCountry {
+  display: flex;
+  align-items: center;
+  position: relative;
+  margin-right: 0.625rem;
+  padding-right: 0.5rem;
+  border-right: 1px solid #2e2e2e;
+}
+
+.custom-phone-input .PhoneInputCountrySelect {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 100%;
+  z-index: 10;
+  border: 0;
+  opacity: 0;
+  cursor: pointer;
+  background-color: #171717;
+  color: #ffffff;
+}
+
+.custom-phone-input .PhoneInputCountrySelect option {
+  background-color: #171717;
+  color: #ffffff;
+  padding: 4px;
+}
+
+.custom-phone-input .PhoneInputCountryIcon {
+  width: 1.25rem;
+  height: 0.9rem;
+  border-radius: 2px;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.custom-phone-input .PhoneInputCountryIcon--border {
+  border: none;
+  box-shadow: none;
+}
+
+.custom-phone-input .PhoneInputCountrySelectArrow {
+  display: inline-block;
+  content: '';
+  width: 0.3rem;
+  height: 0.3rem;
+  margin-left: 0.35rem;
+  border-style: solid;
+  border-color: #a3a3a3;
+  border-top-width: 0;
+  border-bottom-width: 1.5px;
+  border-left-width: 0;
+  border-right-width: 1.5px;
+  transform: rotate(45deg);
+  opacity: 0.8;
+}
+
+.custom-phone-input .PhoneInputInput {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #ffffff;
+  font-size: 0.8125rem; /* ~13px matching text-xs/sm */
+  line-height: normal;
+  padding: 0;
+}
+
+.custom-phone-input .PhoneInputInput::placeholder {
+  color: #525252; /* neutral-600 */
+}
+
+/* Smooth Content Width Expansion when Sidebar Collapses */
+.dashboard-container {
+  width: 100%;
+  transition: max-width 350ms cubic-bezier(0.2, 0, 0, 1), padding 350ms cubic-bezier(0.2, 0, 0, 1) !important;
+}
+
+.sidebar-collapsed-layout .dashboard-container {
+  max-width: 1680px !important;
+}
+
+.sidebar-expanded-layout .dashboard-container {
+  max-width: 80rem !important; /* 1280px / max-w-7xl */
 }

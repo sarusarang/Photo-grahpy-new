@@ -31,10 +31,17 @@ import {
   LogOut,
   Sparkles,
   Lock,
+  Loader2,
+  Sprout,
+  Gem,
+  Globe,
+  Headphones,
+  ArrowRight,
+  Sliders,
 } from 'lucide-react';
 
 export const SettingsPage: React.FC = () => {
-  const { photographer, updateProfile, logout, resetProfile } = useAuth();
+  const { photographer, updateProfile, logout, resetProfile, isLoggingOut } = useAuth();
   const { subscription, availablePlans, upgradeSubscription, resetAllDemoData, galleries } = useGallery();
   const { showToast } = useToast();
   const navigate = useNavigate();
@@ -106,13 +113,16 @@ export const SettingsPage: React.FC = () => {
     }
   };
 
-  const handleSignOut = () => {
-    logout();
-    navigate('/login');
+  const handleSignOut = async () => {
+    try {
+      await logout();
+    } finally {
+      navigate('/login');
+    }
   };
 
   return (
-    <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-6 text-neutral-900 dark:text-neutral-100 transition-colors">
+    <div className="dashboard-container p-4 sm:p-8 max-w-7xl mx-auto space-y-6 text-neutral-900 dark:text-neutral-100 transition-colors">
       {/* 1. Hero Banner matching exact screenshot */}
       <div className="relative rounded-3xl overflow-hidden border border-neutral-200 dark:border-neutral-800/80 bg-neutral-900 dark:bg-[#0c0d12] p-6 sm:p-8 min-h-[160px] sm:min-h-[175px] flex items-center justify-between shadow-lg">
         {/* Background Image: Sony Alpha Camera Body & Lens on Right */}
@@ -340,7 +350,7 @@ export const SettingsPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={handleUploadAvatar}
-                    className="w-full py-2 px-3 rounded-xl bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700 hover:bg-neutral-200 dark:hover:bg-neutral-850 text-neutral-800 dark:text-neutral-200 text-xs font-semibold flex items-center justify-center gap-2 transition-colors"
+                    className="w-full py-2 px-3 rounded-xl bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700 hover:bg-neutral-200 dark:hover:bg-neutral-800 text-neutral-800 dark:text-neutral-200 text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer"
                   >
                     <Upload className="w-3.5 h-3.5" />
                     <span>Upload Image</span>
@@ -349,7 +359,7 @@ export const SettingsPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={handleRemoveAvatar}
-                    className="w-full py-2 px-3 rounded-xl bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700 hover:bg-neutral-200 dark:hover:bg-neutral-850 text-neutral-600 dark:text-neutral-300 text-xs font-semibold flex items-center justify-center gap-2 transition-colors"
+                    className="w-full py-2 px-3 rounded-xl bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700 hover:bg-neutral-200 dark:hover:bg-neutral-800 text-neutral-600 dark:text-neutral-300 text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                     <span>Remove</span>
@@ -455,116 +465,271 @@ export const SettingsPage: React.FC = () => {
       {/* Tab 2: Plan & Billing */}
       {activeTab === 'billing' && (
         <div className="space-y-6 fade-up">
-          {/* Active Plan Overview Card */}
-          <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-[#121319] border border-neutral-200 dark:border-neutral-800/80 shadow-sm dark:shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <span className="px-2.5 py-0.5 rounded-full bg-amber-400/20 text-amber-700 dark:text-amber-300 border border-amber-400/30 text-[10px] uppercase font-mono font-bold">
-                  Active Paid Plan
-                </span>
-                <span className="text-xs text-neutral-500 dark:text-neutral-400 font-mono">Billed annually</span>
+          {/* 1. Currently Active Storage Status Bar */}
+          <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#13141b]/95 border border-neutral-200 dark:border-neutral-800/90 flex flex-wrap items-center justify-between gap-4 shadow-sm dark:shadow-inner">
+            {/* Active Plan Info */}
+            <div className="flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-xl bg-neutral-100 dark:bg-neutral-900/90 border border-neutral-200 dark:border-neutral-700/70 flex items-center justify-center text-amber-500 dark:text-amber-400 shrink-0 shadow-sm">
+                <Cloud className="w-5 h-5" />
               </div>
-              <h3 className="text-2xl font-serif text-neutral-900 dark:text-white font-bold">{subscription.name}</h3>
-              <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-1">
-                Expires on <strong className="text-neutral-900 dark:text-white">{subscription.expiryDate}</strong> ({subscription.daysRemaining} days remaining in current cycle)
+              <div>
+                <p className="text-[11px] text-neutral-500 dark:text-neutral-400 font-semibold uppercase tracking-wider">
+                  Currently Active
+                </p>
+                <p className="text-sm sm:text-base font-bold text-neutral-900 dark:text-white tracking-tight">
+                  {subscription?.name?.replace(/\s*\(.*?\)/, '') || 'Master Atelier'} • {subscription?.storageLimitGB || 500} GB Limit
+                </p>
+              </div>
+            </div>
+
+            {/* Storage Meter */}
+            <div className="flex flex-col sm:items-center">
+              <div className="flex items-center gap-3">
+                <div className="w-44 sm:w-60 md:w-72 h-2 rounded-full bg-neutral-200 dark:bg-neutral-800/90 overflow-hidden ring-1 ring-neutral-300 dark:ring-neutral-700/50">
+                  <div
+                    className="h-full rounded-full bg-amber-400 transition-all duration-700 ease-out"
+                    style={{
+                      width: `${Math.max(
+                        1,
+                        Math.min(
+                          100,
+                          Math.round(((subscription?.storageUsedGB || 28.7) / (subscription?.storageLimitGB || 500)) * 100)
+                        )
+                      )}%`,
+                    }}
+                  />
+                </div>
+                <span className="text-xs font-mono font-bold text-amber-600 dark:text-amber-400 shrink-0">
+                  {Math.max(
+                    1,
+                    Math.min(
+                      100,
+                      Math.round(((subscription?.storageUsedGB || 28.7) / (subscription?.storageLimitGB || 500)) * 100)
+                    )
+                  )}% Used
+                </span>
+              </div>
+              <p className="text-[11px] text-neutral-500 dark:text-neutral-400 font-mono mt-1">
+                {subscription?.storageUsedGB || 28.7} GB of {subscription?.storageLimitGB || 500} GB used
               </p>
             </div>
 
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => setIsUpgradeModalOpen(true)}
-                className="px-5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 font-bold text-xs uppercase tracking-wider shadow-lg shadow-amber-500/10 flex items-center gap-1.5"
-              >
-                <Zap className="w-4 h-4 fill-current" />
-                <span>Switch / Upgrade Tier</span>
-              </button>
-            </div>
+            {/* Upgrade Studio Modal Trigger */}
+            <button
+              onClick={() => setIsUpgradeModalOpen(true)}
+              className="px-4 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-700/80 bg-neutral-100 dark:bg-neutral-900/80 hover:bg-neutral-200 dark:hover:bg-neutral-800 text-neutral-800 dark:text-neutral-200 text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer shadow-sm active:scale-95"
+            >
+              <Zap className="w-3.5 h-3.5 fill-current text-amber-500" />
+              <span>Upgrade Studio Modal</span>
+            </button>
           </div>
 
-          {/* Storage Allowance Breakdown */}
-          <div className="p-6 rounded-3xl bg-white dark:bg-[#121319] border border-neutral-200 dark:border-neutral-800/80 shadow-sm space-y-4">
-            <h4 className="text-sm font-semibold text-neutral-900 dark:text-white uppercase tracking-wider">
-              Cloud Storage Allowance
-            </h4>
-            <div className="flex justify-between text-xs text-neutral-600 dark:text-neutral-300 font-mono">
-              <span>
-                Used: <strong className="text-neutral-900 dark:text-white">{subscription.storageUsedGB} GB</strong>
-              </span>
-              <span>
-                Total Limit: <strong className="text-neutral-900 dark:text-white">{subscription.storageLimitGB} GB</strong>
-              </span>
-            </div>
-            <div className="h-3 w-full bg-neutral-100 dark:bg-neutral-950 rounded-full overflow-hidden p-0.5 border border-neutral-200 dark:border-neutral-800">
-              <div
-                className="h-full bg-amber-400 rounded-full"
-                style={{
-                  width: `${Math.min(
-                    100,
-                    Math.round((subscription.storageUsedGB / subscription.storageLimitGB) * 100)
-                  )}%`,
-                }}
-              />
-            </div>
-          </div>
+          {/* 2. Pricing Plan Cards Grid (Exact matching modal cards) */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {[
+              {
+                id: 'plan-starter',
+                name: 'Starter Photographer',
+                subtitle: 'Perfect for individuals getting started.',
+                price: 19,
+                billing: 'Billed monthly • 50 GB NVMe',
+                icon: Sprout,
+                tag: 'GET STARTED',
+                tagType: 'default',
+                features: [
+                  '50 GB Cloud Storage',
+                  'Up to 10 Active Client Galleries',
+                  '2 Layout Themes',
+                  'Client Proofing & Lightbox',
+                  'Email Support',
+                ],
+                ctaText: 'Choose Starter',
+              },
+              {
+                id: 'plan-pro',
+                name: 'Pro Studio',
+                subtitle: 'Everything you need to grow.',
+                price: 39,
+                billing: 'Billed annually • 120 GB NVMe',
+                icon: Crown,
+                tag: 'MOST POPULAR',
+                tagType: 'popular',
+                features: [
+                  '120 GB NVMe Storage',
+                  'Unlimited Client Galleries',
+                  'All 4 Layout Templates (Editorial, Masonry, Cinematic, Minimal)',
+                  '4K Video Delivery & Streaming',
+                  'PIN Security & Watermark Suite',
+                  'Priority Delivery Speeds',
+                ],
+                ctaText: 'Choose Pro',
+              },
+              {
+                id: 'plan-studio-master',
+                name: 'Master Atelier',
+                subtitle: 'For professionals who demand more.',
+                price: 79,
+                billing: 'Billed annually • 500 GB NVMe',
+                icon: Gem,
+                tag: 'YOUR PLAN',
+                tagType: 'current',
+                features: [
+                  '500 GB Ultra Storage',
+                  'Unlimited Galleries & Sub-Folders',
+                  'All Gallery Templates & Custom CSS',
+                  'Direct Cloud RAW Backup & Archive',
+                  'White-label Custom Domain (e.g. photos.yourname.com)',
+                  'Dedicated 24/7 Account Support',
+                  'Early Access to New Features',
+                ],
+                ctaText: 'Choose Master',
+              },
+            ].map((plan) => {
+              const isCurrent = (subscription?.id || 'plan-studio-master') === plan.id;
+              const Icon = plan.icon;
 
-          {/* Pricing Tiers Table */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4 stagger">
-            {availablePlans.map((plan) => {
-              const isCurrent = subscription.id === plan.id;
               return (
                 <div
                   key={plan.id}
-                  className={`p-6 rounded-3xl border flex flex-col justify-between transition-all card-lift fade-up ${
+                  className={`rounded-2xl p-6 flex flex-col justify-between transition-all duration-300 relative ${
                     isCurrent
-                      ? 'bg-white dark:bg-[#121319] border-amber-400 shadow-xl ring-1 ring-amber-400'
-                      : 'bg-white dark:bg-[#121319] border-neutral-200 dark:border-neutral-800/80 shadow-sm'
+                      ? 'bg-neutral-50 dark:bg-[#151419] border-2 border-amber-400/90 shadow-xl dark:shadow-2xl shadow-amber-500/10 ring-1 ring-amber-400/30 scale-[1.01]'
+                      : 'bg-white dark:bg-[#121319]/90 border border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700 hover:bg-neutral-50/50 dark:hover:bg-[#151620]'
                   }`}
                 >
                   <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-xs font-mono uppercase tracking-wider text-amber-600 dark:text-amber-400 font-semibold">
-                        {plan.tier}
-                      </span>
-                      {isCurrent && (
-                        <span className="px-2 py-0.5 rounded-full bg-amber-400 text-neutral-950 text-[10px] font-bold">
-                          Current
+                    {/* Card Header: Icon & Badge */}
+                    <div className="flex items-center justify-between">
+                      <div
+                        className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                          isCurrent
+                            ? 'bg-amber-500/15 border border-amber-500/30 text-amber-500 dark:text-amber-400'
+                            : plan.tagType === 'popular'
+                            ? 'bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-amber-500 dark:text-amber-400'
+                            : 'bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-300'
+                        }`}
+                      >
+                        <Icon className="w-5 h-5" />
+                      </div>
+
+                      {isCurrent ? (
+                        <span className="px-3 py-1 rounded-full bg-amber-400 text-neutral-950 font-bold text-[10px] uppercase tracking-wider shadow-sm">
+                          YOUR PLAN
                         </span>
-                      )}
+                      ) : plan.tagType === 'popular' ? (
+                        <span className="px-3 py-1 rounded-full bg-amber-400 text-neutral-950 font-bold text-[10px] uppercase tracking-wider shadow-sm">
+                          MOST POPULAR
+                        </span>
+                      ) : plan.tag ? (
+                        <span className="px-2.5 py-0.5 rounded-full bg-neutral-100 dark:bg-neutral-800/80 border border-neutral-200 dark:border-neutral-700/60 text-[10px] uppercase font-bold text-neutral-600 dark:text-neutral-400 tracking-wider">
+                          {plan.tag}
+                        </span>
+                      ) : null}
                     </div>
 
-                    <h4 className="text-xl font-serif text-neutral-900 dark:text-white font-bold">{plan.name}</h4>
-                    <div className="mt-4 mb-6 flex items-baseline gap-1">
-                      <span className="text-3xl font-bold text-neutral-900 dark:text-white">${plan.priceMonthly}</span>
-                      <span className="text-xs text-neutral-500 dark:text-neutral-400 font-mono">/ month</span>
+                    {/* Title & Subtitle */}
+                    <h3 className="text-base font-bold text-neutral-900 dark:text-white mt-4">{plan.name}</h3>
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 min-h-[32px]">
+                      {plan.subtitle}
+                    </p>
+
+                    {/* Price Block */}
+                    <div className="mt-3 pb-4 border-b border-neutral-200 dark:border-neutral-800/80">
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-3xl font-serif font-bold text-neutral-900 dark:text-white">
+                          ${plan.price}
+                        </span>
+                        <span className="text-xs text-neutral-500 dark:text-neutral-400">/ month</span>
+                      </div>
+                      <p className="text-xs text-neutral-500 font-mono mt-1">
+                        {plan.billing}
+                      </p>
                     </div>
 
-                    <ul className="space-y-3 border-t border-neutral-200 dark:border-neutral-800/80 pt-4 mb-6">
-                      {plan.features.map((feat, i) => (
-                        <li key={i} className="flex items-center gap-2.5 text-xs text-neutral-700 dark:text-neutral-300">
-                          <Check className="w-4 h-4 text-amber-500 shrink-0" />
-                          <span>{feat}</span>
+                    {/* Features List with Amber Checkmarks */}
+                    <ul className="space-y-3 my-5 text-xs text-neutral-700 dark:text-neutral-300">
+                      {plan.features.map((feat, idx) => (
+                        <li key={idx} className="flex items-start gap-2.5">
+                          <Check className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
+                          <span className="leading-snug">{feat}</span>
                         </li>
                       ))}
                     </ul>
                   </div>
 
+                  {/* Bottom Action CTA Button */}
                   <button
-                    disabled={isCurrent}
                     onClick={() => {
-                      upgradeSubscription(plan.id);
-                      showToast('Tier Changed', `Switched to ${plan.name}.`, 'success');
+                      if (!isCurrent) {
+                        upgradeSubscription(plan.id);
+                        showToast('Subscription Updated', `Switched to ${plan.name} successfully!`, 'success');
+                      }
                     }}
-                    className={`w-full py-2.5 rounded-xl text-xs font-bold transition-all ${
+                    disabled={isCurrent}
+                    className={`w-full py-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                       isCurrent
-                        ? 'bg-neutral-200 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400 cursor-default'
-                        : 'bg-amber-400 hover:bg-amber-300 text-neutral-950 shadow-md shadow-amber-500/10'
+                        ? 'bg-amber-400 hover:bg-amber-300 text-neutral-950 shadow-lg shadow-amber-500/20 active:scale-98'
+                        : 'bg-neutral-900 dark:bg-neutral-900/90 hover:bg-neutral-800 border border-neutral-800 hover:border-neutral-700 text-white active:scale-98'
                     }`}
                   >
-                    {isCurrent ? 'Current Tier' : `Select ${plan.name}`}
+                    {isCurrent ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                        <span>Current Plan</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>{plan.ctaText || `Choose ${plan.name}`}</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </>
+                    )}
                   </button>
                 </div>
               );
             })}
+          </div>
+
+          {/* 3. Footer Trust Badges */}
+          <div className="pt-6 border-t border-neutral-200 dark:border-neutral-800/80 grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 flex items-center justify-center text-neutral-700 dark:text-neutral-300 shrink-0">
+                <Shield className="w-4 h-4" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-neutral-900 dark:text-white">Secure & Encrypted</p>
+                <p className="text-[11px] text-neutral-500 dark:text-neutral-400">Your data is always safe</p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 flex items-center justify-center text-neutral-700 dark:text-neutral-300 shrink-0">
+                <Zap className="w-4 h-4" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-neutral-900 dark:text-white">Blazing Fast</p>
+                <p className="text-[11px] text-neutral-500 dark:text-neutral-400">NVMe powered storage</p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 flex items-center justify-center text-neutral-700 dark:text-neutral-300 shrink-0">
+                <Globe className="w-4 h-4" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-neutral-900 dark:text-white">Access Anywhere</p>
+                <p className="text-[11px] text-neutral-500 dark:text-neutral-400">Your studio, worldwide</p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 flex items-center justify-center text-neutral-700 dark:text-neutral-300 shrink-0">
+                <Headphones className="w-4 h-4" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-neutral-900 dark:text-white">24/7 Support</p>
+                <p className="text-[11px] text-neutral-500 dark:text-neutral-400">We're here for you</p>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -717,10 +882,15 @@ export const SettingsPage: React.FC = () => {
             </p>
             <button
               onClick={handleSignOut}
-              className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-all flex items-center gap-2 shadow-sm"
+              disabled={isLoggingOut}
+              className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-all flex items-center gap-2 shadow-sm disabled:opacity-50 cursor-pointer"
             >
-              <LogOut className="w-4 h-4" />
-              <span>Sign Out of Photographer Session</span>
+              {isLoggingOut ? (
+                <Loader2 className="w-4 h-4 animate-spin text-white" />
+              ) : (
+                <LogOut className="w-4 h-4" />
+              )}
+              <span>{isLoggingOut ? 'Signing out...' : 'Sign Out of Photographer Session'}</span>
             </button>
           </div>
         </div>

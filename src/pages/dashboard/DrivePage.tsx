@@ -2,7 +2,6 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useGallery } from '../../context/GalleryContext';
 import { useToast } from '../../components/ui/Toast';
-import { useTheme } from '../../context/ThemeContext';
 import type { Gallery } from '../../types';
 import { CreateGalleryModal } from '../../components/gallery/CreateGalleryModal';
 import { ShareModal } from '../../components/gallery/ShareModal';
@@ -30,7 +29,6 @@ export const DrivePage: React.FC = () => {
     setStatusFilter,
   } = useGallery();
   const { showToast } = useToast();
-  const { theme } = useTheme();
   const navigate = useNavigate();
 
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
@@ -89,24 +87,23 @@ export const DrivePage: React.FC = () => {
   };
 
   return (
-    <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-6 text-neutral-900 dark:text-neutral-100 transition-colors">
+    <div className="dashboard-container p-4 sm:p-8 max-w-7xl mx-auto space-y-6 text-neutral-900 dark:text-neutral-100 transition-colors">
       {/* 1. Master Cloud Drive Hero Banner (Exact match to screenshot) */}
       <div className="relative rounded-3xl overflow-hidden border border-neutral-200/90 dark:border-neutral-800/80 shadow-sm dark:shadow-lg transition-all min-h-[175px] sm:min-h-[195px] flex items-center bg-gradient-to-r from-[#faf8f5] via-[#f7f4ec] to-[#f2ebde] dark:bg-[#13151b]">
-        {/* Background Image: Dark Sony camera vs Light warm aesthetic Sony camera */}
+        {/* Background Image: Light warm aesthetic Sony camera */}
         <div className="absolute inset-0 z-0">
           <img
-            src={theme === 'dark' ? '/sony_camera_dark.jpg' : '/sony_camera_light.jpg'}
+            src="/sony_camera_light.jpg"
             alt="Studio Camera Banner"
-            className="w-full h-full object-cover object-right opacity-95 dark:opacity-85"
+            className="w-full h-full object-cover object-right opacity-95 dark:hidden block"
+          />
+          <img
+            src="/sony_camera_dark.jpg"
+            alt="Studio Camera Banner"
+            className="w-full h-full object-cover object-right opacity-85 hidden dark:block"
           />
           {/* Gradient Overlay to ensure text readability */}
-          <div
-            className={`absolute inset-0 ${
-              theme === 'dark'
-                ? 'bg-gradient-to-r from-[#0c0d12] via-[#0e1016]/95 to-transparent'
-                : 'bg-gradient-to-r from-[#faf8f5] via-[#faf8f5]/92 to-transparent'
-            }`}
-          />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#faf8f5] via-[#faf8f5]/92 to-transparent dark:from-[#0c0d12] dark:via-[#0e1016]/95" />
         </div>
 
         {/* Banner Content Container */}
@@ -125,11 +122,9 @@ export const DrivePage: React.FC = () => {
 
           {/* Right Action CTA: Create New Gallery */}
           <div className="flex items-center gap-4 shrink-0">
-            {theme === 'light' && (
-              <span className="hidden xl:inline text-sm font-serif italic text-neutral-800 tracking-wide font-medium">
-                Good Photos Better Stories
-              </span>
-            )}
+            <span className="hidden xl:inline dark:hidden text-sm font-serif italic text-neutral-800 tracking-wide font-medium">
+              Good Photos Better Stories
+            </span>
             <button
               onClick={() => setIsCreateModalOpen(true)}
               className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 text-xs font-bold tracking-wide transition-all shadow-md shadow-amber-500/15 active:scale-95"
@@ -424,44 +419,50 @@ export const DrivePage: React.FC = () => {
                   <tr
                     key={gal.id}
                     onClick={() => navigate(`/dashboard/drive/${gal.id}`)}
-                    className="hover:bg-neutral-50 dark:hover:bg-neutral-850/60 cursor-pointer transition-colors"
+                    className="group hover:bg-neutral-100/80 dark:hover:bg-[#1a1c24] cursor-pointer transition-all duration-200"
                   >
                     <td className="py-4 px-6 flex items-center gap-3">
-                      <img
-                        src={gal.coverImage}
-                        alt={gal.title}
-                        className="w-12 h-9 rounded-lg object-cover ring-1 ring-neutral-200 dark:ring-neutral-700 shrink-0"
-                      />
-                      <div>
-                        <p className="font-bold text-neutral-900 dark:text-white text-sm truncate max-w-[200px]">
+                      <div className="relative overflow-hidden rounded-lg w-12 h-9 shrink-0 ring-1 ring-neutral-200 dark:ring-neutral-700/80 group-hover:ring-amber-400/50 transition-all">
+                        <img
+                          src={gal.coverImage}
+                          alt={gal.title}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-bold text-neutral-900 dark:text-white text-sm truncate max-w-[200px] group-hover:text-amber-500 dark:group-hover:text-amber-400 transition-colors">
                           {gal.title}
                         </p>
-                        <p className="text-[11px] text-neutral-500 font-mono">/gallery/{gal.slug}</p>
+                        <p className="text-[11px] text-neutral-500 dark:text-neutral-400 font-mono truncate">
+                          /gallery/{gal.slug}
+                        </p>
                       </div>
                     </td>
-                    <td className="py-4 px-4 font-semibold text-neutral-800 dark:text-neutral-200">
+                    <td className="py-4 px-4 font-semibold text-neutral-800 dark:text-neutral-200 group-hover:text-neutral-950 dark:group-hover:text-white transition-colors">
                       {gal.clientName}
                     </td>
-                    <td className="py-4 px-4 text-neutral-500 dark:text-neutral-400 font-mono">{gal.eventDate}</td>
-                    <td className="py-4 px-4 font-mono text-neutral-700 dark:text-neutral-300">
+                    <td className="py-4 px-4 text-neutral-500 dark:text-neutral-400 group-hover:text-neutral-700 dark:group-hover:text-neutral-200 font-mono text-xs transition-colors">
+                      {gal.eventDate}
+                    </td>
+                    <td className="py-4 px-4 font-mono text-xs text-neutral-700 dark:text-neutral-300 group-hover:text-neutral-900 dark:group-hover:text-neutral-100 transition-colors">
                       {photos} photos, {videos} videos
                     </td>
-                    <td className="py-4 px-4 font-mono text-amber-600 dark:text-amber-400 font-bold">
+                    <td className="py-4 px-4 font-mono text-amber-600 dark:text-amber-400 group-hover:text-amber-500 font-bold text-xs transition-colors">
                       {sizeMB} MB
                     </td>
                     <td className="py-4 px-4">
-                      <span className="px-2.5 py-0.5 rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-300 text-[10px] uppercase font-mono font-semibold">
+                      <span className="px-2.5 py-1 rounded-full bg-neutral-100 dark:bg-neutral-800/90 text-neutral-700 dark:text-neutral-300 text-[10px] uppercase font-mono font-semibold border border-transparent group-hover:border-amber-400/40 group-hover:bg-neutral-200/80 dark:group-hover:bg-neutral-700/60 transition-all">
                         {gal.templateId}
                       </span>
                     </td>
                     <td className="py-4 px-6 text-right">
-                      <div className="inline-flex items-center gap-2">
+                      <div className="inline-flex items-center gap-1.5">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             setShareGallery(gal);
                           }}
-                          className="p-1.5 rounded-lg text-neutral-500 dark:text-neutral-400 hover:text-amber-500 dark:hover:text-amber-400 hover:bg-neutral-100 dark:hover:bg-neutral-800/50"
+                          className="p-1.5 rounded-lg text-neutral-400 group-hover:text-neutral-600 dark:text-neutral-500 dark:group-hover:text-neutral-300 hover:!text-amber-500 dark:hover:!text-amber-400 hover:bg-neutral-200/60 dark:hover:bg-neutral-700/60 transition-colors cursor-pointer"
                           title="Share Link"
                         >
                           <Share2 className="w-4 h-4" />
@@ -470,14 +471,14 @@ export const DrivePage: React.FC = () => {
                           to={`/gallery/${gal.slug || gal.id}`}
                           target="_blank"
                           onClick={(e) => e.stopPropagation()}
-                          className="p-1.5 rounded-lg text-neutral-500 dark:text-neutral-400 hover:text-black dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800/50"
+                          className="p-1.5 rounded-lg text-neutral-400 group-hover:text-neutral-600 dark:text-neutral-500 dark:group-hover:text-neutral-300 hover:!text-black dark:hover:!text-white hover:bg-neutral-200/60 dark:hover:bg-neutral-700/60 transition-colors cursor-pointer"
                           title="Client View"
                         >
                           <ExternalLink className="w-4 h-4" />
                         </Link>
                         <button
                           onClick={(e) => handleDelete(e, gal)}
-                          className="p-1.5 rounded-lg text-neutral-500 dark:text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-neutral-100 dark:hover:bg-neutral-800/50"
+                          className="p-1.5 rounded-lg text-neutral-400 group-hover:text-neutral-600 dark:text-neutral-500 dark:group-hover:text-neutral-300 hover:!text-rose-600 dark:hover:!text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
                           title="Delete"
                         >
                           <Trash2 className="w-4 h-4" />
