@@ -475,6 +475,7 @@ export const OnboardingPage: React.FC = () => {
                       <span className="text-xs font-semibold text-white tracking-wide">
                         Profile Picture
                       </span>
+                      <span className="text-neutral-500 font-normal text-[10px]">(optional)</span>
                       {avatarPreview && (
                         <span className="inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded-md bg-emerald-500/15 text-emerald-400 font-medium border border-emerald-500/30">
                           <CheckCircle2 className="w-2.5 h-2.5" />
@@ -550,7 +551,7 @@ export const OnboardingPage: React.FC = () => {
                 {/* Phone Number with Country Code Dropdown */}
                 <div className="flex flex-col gap-1">
                   <label className="text-[11px] font-medium text-neutral-300 tracking-wide">
-                    Phone Number <span className="text-neutral-500 font-normal text-[10px]">(optional)</span>
+                    Phone Number <span className="text-amber-400">*</span>
                   </label>
                   <div className="relative">
                     <Controller
@@ -581,7 +582,7 @@ export const OnboardingPage: React.FC = () => {
                 {/* Occupation */}
                 <div className="flex flex-col gap-1">
                   <label className="text-[11px] font-medium text-neutral-300 tracking-wide">
-                    Occupation <span className="text-neutral-500 font-normal text-[10px]">(optional)</span>
+                    Occupation <span className="text-amber-400">*</span>
                   </label>
                   <div className="relative flex items-center">
                     <Briefcase className="w-3.5 h-3.5 text-neutral-500 absolute left-3 pointer-events-none" />

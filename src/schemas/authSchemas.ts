@@ -30,9 +30,9 @@ export const profileSetupSchema = z.object({
   phone: z
     .string()
     .trim()
-    .optional()
+    .min(1, 'Phone number is required')
     .refine((val) => {
-      if (!val || val.trim() === '') return true;
+      if (!val || val.trim() === '') return false;
       const clean = val.replace(/[\s\-().]/g, '');
       return clean.length >= 7 && clean.length <= 18 && /^(\+)?[0-9]+$/.test(clean);
     }, {
@@ -41,8 +41,9 @@ export const profileSetupSchema = z.object({
   occupation: z
     .string()
     .trim()
-    .max(80, 'Occupation is too long')
-    .optional(),
+    .min(1, 'Occupation is required')
+    .min(2, 'Occupation must be at least 2 characters')
+    .max(80, 'Occupation is too long (max 80 characters)'),
 });
 
 export type ProfileSetupFormData = z.infer<typeof profileSetupSchema>;

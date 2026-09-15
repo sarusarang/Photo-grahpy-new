@@ -38,6 +38,7 @@ import {
   Headphones,
   ArrowRight,
   Sliders,
+  Briefcase,
 } from 'lucide-react';
 
 export const SettingsPage: React.FC = () => {
@@ -49,16 +50,11 @@ export const SettingsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'profile' | 'billing' | 'drive' | 'notifications' | 'account'>('profile');
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
 
-  // Profile form state matching screenshot defaults
-  const [studioName, setStudioName] = useState(photographer.studioName || 'LUMIÈRE STUDIO & ATELIER');
-  const [fullName, setFullName] = useState(photographer.fullName || 'Sarang Varma');
-  const [email, setEmail] = useState(photographer.email || 'sarang@lumiere.gallery');
-  const [phone, setPhone] = useState(photographer.phone || '+1 (555) 389-4491');
-  const [location, setLocation] = useState(photographer.location || 'Milan & San Francisco');
-  const [bio, setBio] = useState(
-    photographer.bio ||
-      'Specializing in fine-art wedding storytelling, editorial haute couture, and architectural documentation. Capturing light and timeless intimacy worldwide.'
-  );
+  // Personal Information form state
+  const [fullName, setFullName] = useState(photographer.fullName || 'Sarang A');
+  const [email, setEmail] = useState(photographer.email || 'sarangsaru445@gmail.com');
+  const [phone, setPhone] = useState(photographer.phone || '+918129886279');
+  const [occupation, setOccupation] = useState(photographer.occupation || 'Wedding & Editorial Photographer');
   const [avatarUrl, setAvatarUrl] = useState(photographer.avatarUrl || '/sarang_avatar.jpg');
 
   // Drive settings state
@@ -74,35 +70,33 @@ export const SettingsPage: React.FC = () => {
   const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();
     updateProfile({
-      studioName,
       fullName,
       email,
       phone,
-      location,
-      bio,
+      occupation,
       avatarUrl,
       enableWatermark,
       watermarkText,
     });
-    showToast('Settings Saved', 'Photographer profile has been updated.', 'success');
+    showToast('Settings Saved', 'Personal information has been updated.', 'success');
   };
 
   const handleUploadAvatar = () => {
     const newUrl = window.prompt(
-      'Enter image URL for Studio Avatar:',
+      'Enter image URL for Profile Photo:',
       avatarUrl || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80'
     );
     if (newUrl && newUrl.trim()) {
       setAvatarUrl(newUrl.trim());
       updateProfile({ avatarUrl: newUrl.trim() });
-      showToast('Avatar Updated', 'Studio avatar photo has been updated.', 'success');
+      showToast('Avatar Updated', 'Profile photo has been updated.', 'success');
     }
   };
 
   const handleRemoveAvatar = () => {
     setAvatarUrl('https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=400&q=80');
     updateProfile({ avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=400&q=80' });
-    showToast('Avatar Removed', 'Reverted to default studio avatar.', 'info');
+    showToast('Avatar Removed', 'Reverted to default profile photo.', 'info');
   };
 
   const handleResetDemo = () => {
@@ -189,7 +183,7 @@ export const SettingsPage: React.FC = () => {
       {/* 3. Main Content Grid for Profile Tab */}
       {activeTab === 'profile' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start fade-up">
-          {/* LEFT COLUMN: Studio Information (8 Cols) */}
+          {/* LEFT COLUMN: Personal Information (8 Cols) */}
           <div className="lg:col-span-8">
             <form
               onSubmit={handleSaveProfile}
@@ -202,56 +196,27 @@ export const SettingsPage: React.FC = () => {
                 </div>
                 <div>
                   <h3 className="text-base font-semibold text-neutral-900 dark:text-white tracking-tight">
-                    Studio Information
+                    Personal Information
                   </h3>
                   <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                    This information will be used across your galleries and client pages.
+                    Manage your personal details and contact information.
                   </p>
                 </div>
               </div>
 
-              {/* Row 1: Studio Name & Lead Photographer */}
+              {/* Row 1: Name & Phone Number */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-2">
-                    Studio Name
-                  </label>
-                  <input
-                    type="text"
-                    value={studioName}
-                    onChange={(e) => setStudioName(e.target.value)}
-                    placeholder="LUMIÈRE STUDIO & ATELIER"
-                    className="w-full px-4 py-2.5 rounded-xl bg-neutral-50 dark:bg-neutral-950/80 border border-neutral-200 dark:border-neutral-800 text-neutral-900 dark:text-white text-xs placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:border-amber-400 font-medium transition-colors"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-2">
-                    Lead Photogrpher
-                  </label>
-                  <input
-                    type="text"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    placeholder="Sarang Varma"
-                    className="w-full px-4 py-2.5 rounded-xl bg-neutral-50 dark:bg-neutral-950/80 border border-neutral-200 dark:border-neutral-800 text-neutral-900 dark:text-white text-xs placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:border-amber-400 font-medium transition-colors"
-                  />
-                </div>
-              </div>
-
-              {/* Row 2: Email Address & Phone Number */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-2">
-                    Email Address
+                    Name
                   </label>
                   <div className="relative">
-                    <Mail className="w-4 h-4 text-neutral-400 dark:text-neutral-500 absolute left-3.5 top-3 pointer-events-none" />
+                    <User className="w-4 h-4 text-neutral-400 dark:text-neutral-500 absolute left-3.5 top-3 pointer-events-none" />
                     <input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="sarang@lumiere.gallery"
+                      type="text"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      placeholder="Sarang A"
                       className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-neutral-50 dark:bg-neutral-950/80 border border-neutral-200 dark:border-neutral-800 text-neutral-900 dark:text-white text-xs placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:border-amber-400 font-medium transition-colors"
                     />
                   </div>
@@ -267,49 +232,45 @@ export const SettingsPage: React.FC = () => {
                       type="tel"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
-                      placeholder="+1 (555) 389-4491"
+                      placeholder="+918129886279"
                       className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-neutral-50 dark:bg-neutral-950/80 border border-neutral-200 dark:border-neutral-800 text-neutral-900 dark:text-white text-xs placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:border-amber-400 font-medium transition-colors"
                     />
                   </div>
                 </div>
               </div>
 
-              {/* Row 3: Studio Location */}
-              <div>
-                <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-2">
-                  Studio Location
-                </label>
-                <div className="relative">
-                  <MapPin className="w-4 h-4 text-neutral-400 dark:text-neutral-500 absolute left-3.5 top-3 pointer-events-none" />
-                  <input
-                    type="text"
-                    value={location}
-                    onChange={(e) => setLocation(e.target.value)}
-                    placeholder="Milan & San Francisco"
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-neutral-50 dark:bg-neutral-950/80 border border-neutral-200 dark:border-neutral-800 text-neutral-900 dark:text-white text-xs placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:border-amber-400 font-medium transition-colors"
-                  />
-                </div>
-              </div>
-
-              {/* Row 4: Artist Bio / Colophon */}
-              <div>
-                <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-2">
-                  Artist Bio / Colophon
-                </label>
-                <div className="rounded-xl bg-neutral-50 dark:bg-neutral-950/80 border border-neutral-200 dark:border-neutral-800 p-3 relative focus-within:border-amber-400 transition-colors">
-                  <div className="flex items-start gap-2.5">
-                    <FileText className="w-4 h-4 text-neutral-400 dark:text-neutral-500 shrink-0 mt-0.5" />
-                    <textarea
-                      rows={3}
-                      value={bio}
-                      onChange={(e) => setBio(e.target.value)}
-                      maxLength={500}
-                      className="w-full bg-transparent text-neutral-900 dark:text-white text-xs focus:outline-none resize-none leading-relaxed"
+              {/* Row 2: Email Address & Occupation */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-2">
+                    Email Address
+                  </label>
+                  <div className="relative">
+                    <Mail className="w-4 h-4 text-neutral-400 dark:text-neutral-500 absolute left-3.5 top-3 pointer-events-none" />
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="sarangsaru445@gmail.com"
+                      className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-neutral-50 dark:bg-neutral-950/80 border border-neutral-200 dark:border-neutral-800 text-neutral-900 dark:text-white text-xs placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:border-amber-400 font-medium transition-colors"
                     />
                   </div>
                 </div>
-                <div className="text-right text-[11px] text-neutral-500 font-mono mt-1">
-                  {bio.length}/500
+
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-2">
+                    Occupation
+                  </label>
+                  <div className="relative">
+                    <Briefcase className="w-4 h-4 text-neutral-400 dark:text-neutral-500 absolute left-3.5 top-3 pointer-events-none" />
+                    <input
+                      type="text"
+                      value={occupation}
+                      onChange={(e) => setOccupation(e.target.value)}
+                      placeholder="Wedding & Editorial Photographer"
+                      className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-neutral-50 dark:bg-neutral-950/80 border border-neutral-200 dark:border-neutral-800 text-neutral-900 dark:text-white text-xs placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:border-amber-400 font-medium transition-colors"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -317,7 +278,7 @@ export const SettingsPage: React.FC = () => {
               <div className="flex justify-end pt-2">
                 <button
                   type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 font-bold text-xs flex items-center gap-2 transition-all shadow-md shadow-amber-500/10 active:scale-[0.98] hover:scale-[1.01]"
+                  className="px-5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 font-bold text-xs flex items-center gap-2 transition-all shadow-md shadow-amber-500/10 active:scale-[0.98] hover:scale-[1.01] cursor-pointer"
                 >
                   <Bookmark className="w-4 h-4 stroke-[2.2]" />
                   <span>Save Changes</span>
@@ -326,17 +287,17 @@ export const SettingsPage: React.FC = () => {
             </form>
           </div>
 
-          {/* RIGHT COLUMN: 3 Stacked Cards (4 Cols) */}
+          {/* RIGHT COLUMN: Profile Photo & Quick Stats (4 Cols) */}
           <div className="lg:col-span-4 space-y-6">
-            {/* Card 1: Studio Avatar */}
+            {/* Card 1: Profile Photo */}
             <div className="rounded-3xl bg-white dark:bg-[#121319] border border-neutral-200 dark:border-neutral-800/90 p-5 shadow-sm dark:shadow-xl space-y-4">
               <div>
                 <div className="flex items-center gap-2">
                   <Camera className="w-4 h-4 text-neutral-500 dark:text-neutral-400" />
-                  <h4 className="text-sm font-semibold text-neutral-900 dark:text-white">Studio Avatar</h4>
+                  <h4 className="text-sm font-semibold text-neutral-900 dark:text-white">Profile Photo</h4>
                 </div>
                 <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
-                  This will be used as your logo or profile image.
+                  This will be used as your profile image.
                 </p>
               </div>
 

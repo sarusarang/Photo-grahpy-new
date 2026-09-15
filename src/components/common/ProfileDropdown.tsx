@@ -160,7 +160,7 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ isOpen, onClos
 
       {/* Menu List */}
       <div className="p-2 space-y-1">
-        {/* 1. Studio Settings */}
+        {/* 1. Personal Settings */}
         <Link
           to="/dashboard/settings"
           onClick={onClose}
@@ -172,10 +172,10 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ isOpen, onClos
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-xs font-semibold text-neutral-900 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
-                Studio Settings
+                Personal Settings
               </p>
               <p className="text-[11px] text-neutral-500 dark:text-neutral-400 leading-tight truncate mt-0.5">
-                Manage your profile, workspace and preferences
+                Manage your personal info and preferences
               </p>
             </div>
           </div>
