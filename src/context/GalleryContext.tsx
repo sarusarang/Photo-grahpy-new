@@ -18,14 +18,17 @@ interface GalleryContextType {
   reorderMediaInGallery: (galleryId: string, reorderedList: MediaItem[]) => void;
   toggleMediaFavorite: (galleryId: string, mediaId: string) => void;
   setCoverImage: (galleryId: string, mediaUrl: string) => void;
+  setTemplateBannerImage: (galleryId: string, templateId: GalleryTemplateId, mediaUrl: string) => void;
+  setMasonryBannerImage: (galleryId: string, slotIndex: number, mediaUrl: string) => void;
+  addSectionToGallery: (galleryId: string, sectionTitle: string) => void;
   updateGalleryTemplate: (galleryId: string, templateId: GalleryTemplateId) => void;
   upgradeSubscription: (planId: string) => void;
   getGalleryByIdOrSlug: (idOrSlug: string) => Gallery | undefined;
   resetAllDemoData: () => void;
 }
 
-const GALLERIES_STORAGE_KEY = 'photo_saas_galleries_v2';
-const SUBSCRIPTION_STORAGE_KEY = 'photo_saas_subscription_v2';
+const GALLERIES_STORAGE_KEY = 'photo_saas_galleries_v3';
+const SUBSCRIPTION_STORAGE_KEY = 'photo_saas_subscription_v3';
 
 const GalleryContext = createContext<GalleryContextType | undefined>(undefined);
 
@@ -125,8 +128,18 @@ export const GalleryProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setGalleries((prev) =>
       prev.map((gal) => {
         if (gal.id !== galleryId) return gal;
+
+        // Collect newly introduced section titles
+        const existingSections = new Set(gal.sections || []);
+        newItems.forEach((it) => {
+          if (it.sectionTitle && it.sectionTitle.trim()) {
+            existingSections.add(it.sectionTitle.trim());
+          }
+        });
+
         return {
           ...gal,
+          sections: Array.from(existingSections),
           media: [...gal.media, ...newItems],
           coverImage: gal.coverImage || (newItems[0]?.url ?? gal.coverImage),
         };
@@ -173,6 +186,10 @@ export const GalleryProvider: React.FC<{ children: React.ReactNode }> = ({ child
         return {
           ...gal,
           coverImage: mediaUrl,
+          templateBanners: {
+            ...(gal.templateBanners || {}),
+            [gal.templateId]: mediaUrl,
+          },
           media: gal.media.map((m) => ({
             ...m,
             isCover: m.url === mediaUrl,
@@ -182,9 +199,107 @@ export const GalleryProvider: React.FC<{ children: React.ReactNode }> = ({ child
     );
   };
 
+  const setTemplateBannerImage = (galleryId: string, templateId: GalleryTemplateId, mediaUrl: string) => {
+    setGalleries((prev) =>
+      prev.map((gal) => {
+        if (gal.id !== galleryId) return gal;
+        const updatedBanners = {
+          ...(gal.templateBanners || {}),
+          [templateId]: mediaUrl,
+        };
+        const isActiveTemplate = gal.templateId === templateId;
+        const updatedMasonryBanners = templateId === 'masonry'
+          ? [
+              mediaUrl,
+              gal.masonryBannerImages?.[1] || gal.media[1]?.url || gal.media[0]?.url || '',
+              gal.masonryBannerImages?.[2] || gal.media[2]?.url || gal.media[0]?.url || '',
+              gal.masonryBannerImages?.[3] || gal.media[3]?.url || gal.media[0]?.url || '',
+            ]
+          : gal.masonryBannerImages;
+
+        return {
+          ...gal,
+          templateBanners: updatedBanners,
+          masonryBannerImages: updatedMasonryBanners,
+          ...(isActiveTemplate ? {
+            coverImage: mediaUrl,
+            media: gal.media.map((m) => ({
+              ...m,
+              isCover: m.url === mediaUrl,
+            })),
+          } : {}),
+        };
+      })
+    );
+  };
+
+  const setMasonryBannerImage = (galleryId: string, slotIndex: number, mediaUrl: string) => {
+    setGalleries((prev) =>
+      prev.map((gal) => {
+        if (gal.id !== galleryId) return gal;
+        const currentBanners = gal.masonryBannerImages && gal.masonryBannerImages.length >= 4
+          ? [...gal.masonryBannerImages]
+          : [
+              gal.templateBanners?.['masonry'] || gal.coverImage || gal.media[0]?.url || '',
+              gal.media[1]?.url || gal.media[0]?.url || '',
+              gal.media[2]?.url || gal.media[0]?.url || '',
+              gal.media[3]?.url || gal.media[0]?.url || '',
+            ];
+        currentBanners[slotIndex] = mediaUrl;
+
+        const isSlot0 = slotIndex === 0;
+        return {
+          ...gal,
+          masonryBannerImages: currentBanners,
+          ...(isSlot0 ? {
+            templateBanners: {
+              ...(gal.templateBanners || {}),
+              masonry: mediaUrl,
+            },
+            ...(gal.templateId === 'masonry' ? {
+              coverImage: mediaUrl,
+              media: gal.media.map((m) => ({
+                ...m,
+                isCover: m.url === mediaUrl,
+              })),
+            } : {}),
+          } : {}),
+        };
+      })
+    );
+  };
+
   const updateGalleryTemplate = (galleryId: string, templateId: GalleryTemplateId) => {
     setGalleries((prev) =>
-      prev.map((gal) => (gal.id === galleryId ? { ...gal, templateId } : gal))
+      prev.map((gal) => {
+        if (gal.id !== galleryId) return gal;
+        const templateCover = gal.templateBanners?.[templateId] || gal.coverImage;
+        return {
+          ...gal,
+          templateId,
+          coverImage: templateCover,
+          media: gal.media.map((m) => ({
+            ...m,
+            isCover: m.url === templateCover,
+          })),
+        };
+      })
+    );
+  };
+
+  const addSectionToGallery = (galleryId: string, sectionTitle: string) => {
+    const trimmed = sectionTitle.trim();
+    if (!trimmed) return;
+    setGalleries((prev) =>
+      prev.map((gal) => {
+        if (gal.id !== galleryId) return gal;
+        const existing = gal.sections || [];
+        if (existing.includes(trimmed)) return gal;
+        return {
+          ...gal,
+          sections: [...existing, trimmed],
+        };
+      })
     );
   };
 
@@ -230,6 +345,9 @@ export const GalleryProvider: React.FC<{ children: React.ReactNode }> = ({ child
         reorderMediaInGallery,
         toggleMediaFavorite,
         setCoverImage,
+        setTemplateBannerImage,
+        setMasonryBannerImage,
+        addSectionToGallery,
         updateGalleryTemplate,
         upgradeSubscription,
         getGalleryByIdOrSlug,

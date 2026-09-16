@@ -39,6 +39,7 @@ export interface MediaItem {
   thumbnailUrl?: string;
   title: string;
   caption?: string;
+  sectionTitle?: string; // e.g. "BEGRUTA EDITED", "HALDI EDITED", "CEREMONY", "RECEPTION"
   aspectRatio: number; // width / height
   width: number;
   height: number;
@@ -61,12 +62,15 @@ export interface Gallery {
   expiresAt?: string;
   coverImage: string;
   templateId: GalleryTemplateId;
+  templateBanners?: Partial<Record<GalleryTemplateId, string>>;
+  masonryBannerImages?: string[];
   status: 'active' | 'delivered' | 'draft' | 'archived';
   isPasswordProtected: boolean;
   password?: string;
   allowDownloads: boolean;
   allowFavorites: boolean;
   media: MediaItem[];
+  sections?: string[]; // Custom section titles created by photographer e.g. ["BEGRUTA EDITED", "HALDI EDITED", "CEREMONY"]
   viewsCount: number;
   downloadsCount: number;
 }

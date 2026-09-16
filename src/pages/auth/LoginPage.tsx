@@ -4,7 +4,6 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useAuth } from '../../context/AuthContext';
 import {
-  Camera,
   Mail,
   ArrowRight,
   FolderOpen,
@@ -13,6 +12,7 @@ import {
   AlertCircle,
   Loader2,
 } from 'lucide-react';
+import { Logo } from '../../components/common/Logo';
 import {
   emailSchema,
   otpSchema,
@@ -121,22 +121,14 @@ export const LoginPage: React.FC = () => {
   const isOtpLoading = verifyOtpMutation.isPending;
 
   return (
-    <div className="h-screen max-h-screen w-full flex overflow-hidden bg-neutral-950 text-white font-sans select-none">
+    <div className="min-h-screen min-h-[100dvh] w-full flex overflow-x-hidden bg-neutral-950 text-white font-sans select-none">
       {/* LEFT PANEL */}
-      <div className="w-full lg:w-[48%] xl:w-[44%] 2xl:w-[40%] h-full flex flex-col justify-between p-4 sm:p-6 lg:p-8 bg-neutral-950 border-r border-neutral-800/80 z-10 overflow-hidden">
+      <div className="w-full lg:w-[48%] xl:w-[44%] 2xl:w-[40%] min-h-screen min-h-[100dvh] flex flex-col justify-between p-4 sm:p-6 lg:p-8 bg-neutral-950 border-r border-neutral-800/80 z-10 overflow-y-auto">
         {/* Top Brand Nav */}
         <header className="flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-amber-400 flex items-center justify-center shadow-sm shadow-amber-500/20">
-              <Camera className="w-4 h-4 text-neutral-950 stroke-[2.2]" />
-            </div>
-            <div className="flex flex-col leading-none">
-              <span className="text-xs font-black tracking-wider text-white">EX STUDIO</span>
-              <span className="text-[9px] tracking-widest text-neutral-400 font-medium mt-0.5">
-                PHOTOGRAPHY
-              </span>
-            </div>
-          </div>
+          <Link to="/" className="flex items-center group py-1" title="EX SHARE">
+            <Logo variant="dark" className="h-6 sm:h-7 w-auto object-contain transition-transform group-hover:scale-105" />
+          </Link>
           <div className="flex items-center gap-2 text-[11px] text-neutral-400 font-medium tracking-wide">
             <span>Capture</span>
             <span className="text-neutral-600">•</span>
@@ -320,7 +312,7 @@ export const LoginPage: React.FC = () => {
       <div className="hidden lg:block flex-1 h-full relative overflow-hidden bg-neutral-950 select-none">
         <img
           src="/auth_side_panel.jpg"
-          alt="Ex Studio Photography Platform"
+          alt="EX SHARE Photography Platform"
           className="w-full h-full object-cover object-center"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-neutral-950/90 via-neutral-950/20 to-transparent flex flex-col justify-end p-8">

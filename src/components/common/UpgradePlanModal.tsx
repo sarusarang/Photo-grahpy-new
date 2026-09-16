@@ -109,19 +109,21 @@ export const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({
   return createPortal(
     <div
       onClick={handleClose}
-      className={`fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 lg:p-8 bg-black/85 backdrop-blur-md transition-opacity duration-240 ease-out ${
+      className={`fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6 lg:p-8 bg-black/85 backdrop-blur-md transition-opacity duration-240 ease-out ${
         isClosing ? 'opacity-0 pointer-events-none' : 'opacity-100'
       }`}
     >
       {/* Modal Container */}
       <div
         onClick={(e) => e.stopPropagation()}
-        className={`relative w-full max-w-[1140px] max-h-[94vh] rounded-[28px] sm:rounded-3xl bg-[#0c0d12] border border-neutral-800/90 shadow-2xl overflow-y-auto overflow-x-hidden text-neutral-100 flex flex-col p-5 sm:p-8 lg:p-9 space-y-6 sm:space-y-7 transition-all duration-240 ease-out transform custom-scrollbar ${
+        className={`relative w-full sm:max-w-[1140px] max-h-[92vh] sm:max-h-[94vh] rounded-t-[28px] sm:rounded-3xl bg-[#0c0d12] border-t sm:border border-neutral-800/90 shadow-2xl overflow-y-auto overflow-x-hidden text-neutral-100 flex flex-col p-5 sm:p-8 lg:p-9 pb-safe space-y-6 sm:space-y-7 transition-all duration-240 ease-out transform custom-scrollbar ${
           isClosing
             ? 'opacity-0 scale-[0.96] translate-y-3'
             : 'opacity-100 scale-100 translate-y-0'
         }`}
       >
+        {/* Mobile Grab Handle */}
+        <div className="w-10 h-1 rounded-full bg-neutral-700 mx-auto -mt-1 mb-2 sm:hidden" />
         {/* Close Button at top right */}
         <button
           onClick={handleClose}

@@ -55,7 +55,7 @@ export const SettingsPage: React.FC = () => {
   // Drive settings state
   const [defaultTemplate, setDefaultTemplate] = useState('editorial');
   const [enableWatermark, setEnableWatermark] = useState(photographer.enableWatermark || false);
-  const [watermarkText, setWatermarkText] = useState(photographer.watermarkText || '© Ex Studio');
+  const [watermarkText, setWatermarkText] = useState(photographer.watermarkText || '© EX SHARE');
 
   // Notifications state
   const [notifyVisited, setNotifyVisited] = useState(true);
@@ -115,8 +115,8 @@ export const SettingsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* 2. Navigation Tabs Bar */}
-      <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-white dark:bg-[#121319] border border-neutral-200 dark:border-neutral-800/90 w-fit flex-wrap shadow-xs">
+      {/* 2. Navigation Tabs Bar (Smooth Horizontal Swipe on Mobile) */}
+      <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-white dark:bg-[#121319] border border-neutral-200 dark:border-neutral-800/90 w-full sm:w-fit overflow-x-auto no-scrollbar flex-nowrap shadow-xs -mx-4 px-4 sm:mx-0 sm:px-1">
         {[
           { id: 'profile', label: 'Profile', icon: User },
           { id: 'billing', label: 'Plan & Billing', icon: CreditCard },
@@ -130,7 +130,7 @@ export const SettingsPage: React.FC = () => {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+              className={`flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all shrink-0 cursor-pointer active:scale-95 ${
                 isActive
                   ? 'bg-amber-400 text-neutral-950 font-bold shadow-sm shadow-amber-500/10'
                   : 'text-neutral-600 dark:text-neutral-400 hover:text-black dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800/60'
@@ -511,7 +511,7 @@ export const SettingsPage: React.FC = () => {
           <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-[#121319] border border-neutral-200 dark:border-neutral-800/80 shadow-sm space-y-4">
             <h3 className="text-lg font-serif text-neutral-900 dark:text-white font-bold">Demo Data Management</h3>
             <p className="text-xs text-neutral-600 dark:text-neutral-400">
-              You are running the Ex Studio client demonstration suite. If you have added or deleted galleries and want to restore the pristine initial demo galleries and photos, click below.
+              You are running the EX SHARE client demonstration suite. If you have added or deleted galleries and want to restore the pristine initial demo galleries and photos, click below.
             </p>
             <button
               onClick={handleResetDemo}

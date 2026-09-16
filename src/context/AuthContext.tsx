@@ -22,18 +22,17 @@ const STORAGE_KEY = 'photo_saas_auth_v2';
 const PROFILE_KEY = 'photo_saas_profile_v2';
 const USER_KEY = 'photo_saas_user_v2';
 
+import { INITIAL_PHOTOGRAPHER } from '../data/demoData';
+
 const createEmptyProfile = (u?: Partial<AuthUser> | null): PhotographerProfile => ({
-  id: u?.id?.toString() || '',
-  studioName: u?.fullname ? `${u.fullname} Studio` : '',
-  fullName: u?.fullname || u?.username || '',
-  email: u?.email || '',
-  phone: u?.phone || '',
-  location: '',
-  occupation: '',
-  bio: '',
-  avatarUrl: u?.avatar_url || '',
-  enableWatermark: false,
-  isOnboarded: false,
+  ...INITIAL_PHOTOGRAPHER,
+  id: u?.id?.toString() || INITIAL_PHOTOGRAPHER.id,
+  studioName: u?.fullname ? `${u.fullname} Studio` : INITIAL_PHOTOGRAPHER.studioName,
+  fullName: u?.fullname || u?.username || INITIAL_PHOTOGRAPHER.fullName,
+  email: u?.email || INITIAL_PHOTOGRAPHER.email,
+  phone: u?.phone || INITIAL_PHOTOGRAPHER.phone,
+  avatarUrl: u?.avatar_url || INITIAL_PHOTOGRAPHER.avatarUrl,
+  isOnboarded: true,
 });
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -41,7 +40,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
-    return saved !== null ? JSON.parse(saved) : false;
+    return saved !== null ? JSON.parse(saved) : true;
   });
 
   const [user, setUser] = useState<AuthUser | null>(() => {
@@ -58,7 +57,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return createEmptyProfile();
       }
     }
-    return createEmptyProfile();
+    return INITIAL_PHOTOGRAPHER;
   });
 
   // Query check-login API
@@ -188,7 +187,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [user]);
 
   // Only consider loading on initial check if there is no cached auth
-  const isLoading = isCheckingLogin && !checkLoginData;
+  const isLoading = isCheckingLogin && !checkLoginData && !isAuthenticated;
 
   return (
     <AuthContext.Provider

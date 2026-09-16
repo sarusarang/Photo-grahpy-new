@@ -4,14 +4,13 @@ import {
   Heart,
   Play,
   Check,
+  Film,
   Sparkles,
-  Calendar,
-  MapPin,
-  Tag,
-  Filter,
-  Layers,
-  ZoomIn,
+  Flower2,
 } from 'lucide-react';
+import { GalleryHeroBanner } from './GalleryHeroBanner';
+import { ClientSectionFilterBar, type FilterSelection } from './ClientSectionFilterBar';
+import { AIFaceSearchBox } from './AIFaceSearchBox';
 
 interface MasonryLayoutProps {
   gallery: Gallery;
@@ -30,167 +29,175 @@ export const MasonryLayout: React.FC<MasonryLayoutProps> = ({
   onToggleSelectMedia,
   onStartSlideshow,
 }) => {
-  const [activeFilter, setActiveFilter] = useState<'all' | 'portraits' | 'details' | 'favorites'>('all');
+  // Derive gallery sections
+  const gallerySections = (gallery.sections && gallery.sections.length > 0)
+    ? gallery.sections
+    : Array.from(new Set(gallery.media.map((m) => m.sectionTitle).filter(Boolean) as string[]));
 
-  // Filter categorization based on titles or tags
+  const [activeFilter, setActiveFilter] = useState<FilterSelection>({ type: 'all' });
+  const [searchQuery, setSearchQuery] = useState('');
+  const [aiMatchedIds, setAiMatchedIds] = useState<string[] | null>(null);
+
+  const coverImage = gallery.templateBanners?.['masonry'] || gallery.coverImage || gallery.media[0]?.url;
+  const shootDate = (gallery as any).shootDate || gallery.eventDate;
+
+  // Filter media items
   const filteredMedia = gallery.media.filter((item) => {
-    if (activeFilter === 'favorites') return item.isFavorite;
-    if (activeFilter === 'portraits') {
-      const lower = (item.title + ' ' + (item.caption || '')).toLowerCase();
-      return lower.includes('veil') || lower.includes('portrait') || lower.includes('arrival') || lower.includes('vow');
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      const matchTitle = item.title?.toLowerCase().includes(q);
+      const matchCaption = item.caption?.toLowerCase().includes(q);
+      const matchSection = item.sectionTitle?.toLowerCase().includes(q);
+      if (!matchTitle && !matchCaption && !matchSection) return false;
     }
-    if (activeFilter === 'details') {
-      const lower = (item.title + ' ' + (item.caption || '')).toLowerCase();
-      return lower.includes('table') || lower.includes('lace') || lower.includes('ring') || lower.includes('garden') || lower.includes('flower');
+
+    if (activeFilter.type === 'ai-face') {
+      if (!aiMatchedIds) return false;
+      return aiMatchedIds.includes(item.id);
     }
+    if (activeFilter.type === 'favorites') {
+      return item.isFavorite;
+    }
+    if (activeFilter.type === 'videos') {
+      return item.type === 'video';
+    }
+    if (activeFilter.type === 'section') {
+      return (item.sectionTitle || '').toLowerCase() === activeFilter.title.toLowerCase();
+    }
+
     return true;
   });
 
+  const favoritesCount = gallery.media.filter((m) => m.isFavorite).length;
+  const photosCount = gallery.media.filter((m) => m.type !== 'video').length;
+  const videosCount = gallery.media.filter((m) => m.type === 'video').length;
+
+  const masonryBanners = gallery.masonryBannerImages && gallery.masonryBannerImages.length >= 4
+    ? gallery.masonryBannerImages
+    : [
+        coverImage,
+        gallery.media[1]?.url || gallery.media[0]?.url || coverImage,
+        gallery.media[2]?.url || gallery.media[0]?.url || coverImage,
+        gallery.media[3]?.url || gallery.media[0]?.url || coverImage,
+      ];
+
   return (
-    <div className="bg-[#0C1311] text-neutral-100 min-h-screen selection:bg-emerald-800 selection:text-white font-sans antialiased">
-      {/* ─── BOTANICAL GARDEN ROMANCE HERO BANNER ─── */}
-      <header className="relative border-b border-emerald-950/80 overflow-hidden">
-        {/* Background Atmosphere */}
-        <div className="absolute inset-0 bg-radial from-emerald-950/40 via-[#0C1311] to-[#0C1311] pointer-events-none" />
-        <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
+    <div className="bg-[#09110E] text-neutral-100 min-h-screen selection:bg-emerald-500 selection:text-neutral-950 font-sans antialiased">
+      {/* ─── BESPOKE BOTANICAL ROMANCE 4-PHOTO HERO BANNER ─── */}
+      <GalleryHeroBanner
+        template="masonry"
+        title={gallery.title}
+        shootDate={shootDate}
+        coverImage={masonryBanners[0]}
+        additionalImages={[masonryBanners[1], masonryBanners[2], masonryBanners[3]]}
+      />
 
-        <div className="relative max-w-7xl mx-auto px-6 sm:px-12 pt-14 pb-14">
-          {/* Couple Monogram Crest */}
-          <div className="flex flex-col items-center text-center space-y-5">
-            <div className="w-14 h-14 rounded-full border border-emerald-500/30 bg-emerald-950/60 flex items-center justify-center text-emerald-300 font-serif text-lg tracking-widest shadow-inner shadow-emerald-500/20">
-              <span>E & J</span>
-            </div>
+      {/* ─── FLOATING CLIENT SECTION FILTER BAR (DOCKS FIXED DIRECTLY UNDER NAVBAR ON SCROLL) ─── */}
+      <ClientSectionFilterBar
+        sections={gallerySections}
+        activeFilter={activeFilter}
+        onSelectFilter={setActiveFilter}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        favoritesCount={favoritesCount}
+        totalPhotosCount={photosCount}
+        totalVideosCount={videosCount}
+        theme="masonry"
+      />
 
-            <div className="space-y-3 max-w-3xl">
-              <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-emerald-950/80 border border-emerald-800/40 text-emerald-300 text-[11px] font-mono uppercase tracking-[0.25em]">
-                <Sparkles className="w-3 h-3 text-emerald-400 animate-pulse" />
-                Garden Romance Masonry Exhibition
-              </div>
+      {/* ─── AI FACE SEARCH BOX ─── */}
+      {activeFilter.type === 'ai-face' && (
+        <section className="max-w-4xl mx-auto px-4 mb-4">
+          <AIFaceSearchBox
+            mediaItems={gallery.media}
+            onMatchesFound={(matchedIds) => setAiMatchedIds(matchedIds)}
+            onClose={() => setActiveFilter({ type: 'all' })}
+            theme="masonry"
+          />
+        </section>
+      )}
 
-              <h1 className="text-4xl sm:text-6xl lg:text-7xl font-serif font-normal tracking-tight text-white leading-tight">
-                {gallery.title}
-              </h1>
-
-              <p className="text-sm sm:text-base text-emerald-200/70 font-serif italic max-w-xl mx-auto">
-                "Amidst hundred-year-old olive groves and glistening lake waters, a celebration carved into memory."
+      {/* ─── 4-COLUMN LUSH ORGANIC BOTANICAL MASONRY (MINIMAL GAP, SLEEK ORGANIC ELEVATIONS) ─── */}
+      <main className="max-w-[1780px] mx-auto px-2 sm:px-4 pt-1 sm:pt-2 pb-16">
+        {filteredMedia.length === 0 ? (
+          activeFilter.type === 'ai-face' && aiMatchedIds === null ? null : (
+            <div className="py-24 text-center space-y-3 bg-neutral-900/40 rounded-3xl border border-emerald-950/80 p-8 max-w-md mx-auto">
+              <Heart className="w-8 h-8 text-emerald-400/60 mx-auto stroke-[1.5]" />
+              <p className="font-serif italic text-xl text-neutral-200">
+                {activeFilter.type === 'favorites'
+                  ? 'No starred photographs yet'
+                  : activeFilter.type === 'ai-face'
+                  ? 'No matching photographs found for this face'
+                  : 'No photographs in this section'}
               </p>
-
-              <div className="flex flex-wrap items-center justify-center gap-4 text-xs font-mono text-neutral-400 pt-2">
-                <span className="flex items-center gap-1.5 text-neutral-300">
-                  <Calendar className="w-3.5 h-3.5 text-emerald-400" />
-                  {gallery.eventDate}
-                </span>
-                <span>•</span>
-                <span className="flex items-center gap-1.5 text-neutral-300">
-                  <MapPin className="w-3.5 h-3.5 text-emerald-400" />
-                  Villa Balbiano, Lake Como
-                </span>
-                <span>•</span>
-                <span className="text-emerald-400 font-semibold">
-                  {gallery.media.length} Master Plates
-                </span>
-              </div>
+              <p className="text-xs text-neutral-400 font-mono">
+                {activeFilter.type === 'favorites'
+                  ? 'Click the heart icon on any photograph to save it to your starred collection.'
+                  : activeFilter.type === 'ai-face'
+                  ? 'Try uploading or taking another selfie with clear facial lighting.'
+                  : 'Try selecting All Photos to view the complete collection.'}
+              </p>
             </div>
+          )
+        ) : (
+          <div className="columns-1 sm:columns-2 md:columns-3 lg:columns-4 gap-2.5 sm:gap-3 space-y-2.5 sm:space-y-3">
+            {filteredMedia.map((item) => {
+              const originalIndex = gallery.media.findIndex((m) => m.id === item.id);
+              const actualIndex = originalIndex >= 0 ? originalIndex : 0;
+              const isSelected = selectedMediaIds.has(item.id);
+              const isFav = item.isFavorite;
+              const imgSrc = item.thumbnailUrl || (item.type === 'video' ? 'https://images.unsplash.com/photo-1606800052052-a08af7148866?auto=format&fit=crop&w=800&q=80' : item.url);
 
-            {/* Quick Actions in Banner */}
-            <div className="pt-4 flex flex-wrap items-center justify-center gap-3">
-              {onStartSlideshow && (
-                <button
-                  onClick={() => onStartSlideshow(0)}
-                  className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-neutral-950 font-bold text-xs uppercase tracking-wider shadow-lg shadow-emerald-500/20 transition-all hover:scale-105"
-                >
-                  <Play className="w-3.5 h-3.5 fill-current" />
-                  <span>Start Garden Slideshow</span>
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Category Filter Pills & Selection Counter Sub-bar */}
-        <div className="border-t border-emerald-950 bg-[#090F0D]/90 backdrop-blur-md px-6 py-3">
-          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
-            <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto py-1">
-              <span className="text-[10px] font-mono uppercase tracking-widest text-neutral-500 mr-2 flex items-center gap-1">
-                <Filter className="w-3 h-3 text-emerald-400" /> Filter:
-              </span>
-
-              {[
-                { id: 'all', label: `All (${gallery.media.length})` },
-                { id: 'portraits', label: 'Portraits & Vows' },
-                { id: 'details', label: 'Styling & Details' },
-                { id: 'favorites', label: `Starred (${gallery.media.filter((m) => m.isFavorite).length})` },
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveFilter(tab.id as typeof activeFilter)}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-mono transition-all shrink-0 ${
-                    activeFilter === tab.id
-                      ? 'bg-emerald-500 text-neutral-950 font-bold shadow-md'
-                      : 'text-neutral-400 hover:text-white hover:bg-neutral-900'
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-
-            <div className="text-xs font-mono text-neutral-400 hidden md:block">
-              {selectedMediaIds.size > 0 ? (
-                <span className="text-emerald-300 font-semibold">
-                  {selectedMediaIds.size} photo{selectedMediaIds.size > 1 ? 's' : ''} checked for actions
-                </span>
-              ) : (
-                <span>Tap checkbox to select photos</span>
-              )}
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* ─── FLUID PINTEREST-STYLE MASONRY WATERFALL GRID ─── */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-8 py-10 sm:py-14">
-        <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-6 space-y-6">
-          {filteredMedia.map((item) => {
-            const originalIndex = gallery.media.findIndex((m) => m.id === item.id);
-            const isSelected = selectedMediaIds.has(item.id);
-            const isFav = item.isFavorite;
-
-            return (
-              <div
-                key={item.id}
-                className={`break-inside-avoid relative rounded-2xl overflow-hidden group bg-neutral-900/60 border transition-all duration-300 ${
-                  isSelected
-                    ? 'border-emerald-400 ring-2 ring-emerald-400/40 shadow-xl shadow-emerald-950/50'
-                    : 'border-emerald-950/80 hover:border-emerald-700/60 shadow-lg'
-                }`}
-              >
-                {/* Photo Image */}
+              return (
                 <div
-                  className="relative overflow-hidden cursor-pointer"
-                  onClick={() => onOpenLightbox(originalIndex >= 0 ? originalIndex : 0)}
+                  key={item.id}
+                  className={`break-inside-avoid relative overflow-hidden group cursor-pointer rounded-xl sm:rounded-2xl border transition-all duration-500 bg-[#0C1512] ${
+                    isSelected
+                      ? 'border-emerald-400 ring-2 ring-emerald-400/50 shadow-2xl shadow-emerald-500/20'
+                      : 'border-emerald-900/40 hover:border-emerald-500/60 shadow-xl hover:shadow-2xl hover:shadow-emerald-950/80'
+                  }`}
+                  onClick={() => onOpenLightbox(actualIndex)}
                 >
                   <img
-                    src={item.url}
-                    alt={item.title}
+                    src={imgSrc}
+                    alt={item.title || 'Photograph'}
                     loading="lazy"
-                    className="w-full h-auto object-cover group-hover:scale-104 transition-transform duration-700 ease-out"
+                    className="w-full h-auto object-cover group-hover:scale-[1.03] transition-transform duration-700 ease-out block"
                   />
 
-                  {/* Gradient Overlay on Hover */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-neutral-950/90 via-transparent to-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                  {/* Lush Botanical Velvet Vignette on Hover */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-emerald-950/90 via-emerald-950/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
 
-                  {/* Checkbox for Multi-Select in Top-Left */}
+                  {/* Soft Botanical Title Reveal Bottom Left */}
+                  <div className="absolute bottom-4 left-4 right-4 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none flex items-end justify-between">
+                    <div>
+                      <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-emerald-400 block">
+                        {item.sectionTitle || 'Botanical Still'}
+                      </span>
+                      <p className="font-serif italic text-sm text-white drop-shadow truncate max-w-[200px]">
+                        {item.title}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Video Reel Badge */}
+                  {item.type === 'video' && (
+                    <div className="absolute bottom-4 left-4 z-10 px-2.5 py-1 rounded-full bg-emerald-950/90 backdrop-blur-md text-emerald-300 text-[10px] font-mono flex items-center gap-1.5 border border-emerald-700/50 shadow-lg">
+                      <Film className="w-3 h-3" /> Reel
+                    </div>
+                  )}
+
+                  {/* Multi-Select Checkbox (Top Left) */}
                   {onToggleSelectMedia && (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         onToggleSelectMedia(item.id);
                       }}
-                      className={`absolute top-3 left-3 z-20 w-7 h-7 rounded-full border flex items-center justify-center transition-all ${
+                      className={`absolute top-4 left-4 z-20 w-7 h-7 rounded-full border flex items-center justify-center transition-all ${
                         isSelected
-                          ? 'bg-emerald-400 border-emerald-400 text-neutral-950 scale-110 shadow-lg'
-                          : 'bg-neutral-950/60 border-white/60 text-white opacity-80 sm:opacity-0 group-hover:opacity-100 hover:scale-105'
+                          ? 'bg-emerald-400 border-emerald-400 text-neutral-950 scale-110 shadow-lg shadow-emerald-500/30'
+                          : 'bg-black/50 border-white/60 text-white opacity-80 sm:opacity-0 group-hover:opacity-100 hover:scale-105'
                       }`}
                       title={isSelected ? 'Deselect photo' : 'Select photo'}
                     >
@@ -202,60 +209,38 @@ export const MasonryLayout: React.FC<MasonryLayoutProps> = ({
                     </button>
                   )}
 
-                  {/* Favorite Heart Button in Top-Right */}
+                  {/* Favorite Heart Button (Top Right) */}
                   {onToggleFavorite && (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         onToggleFavorite(item.id);
                       }}
-                      className={`absolute top-3 right-3 z-20 p-2 rounded-full backdrop-blur-md transition-all ${
+                      className={`absolute top-4 right-4 z-20 p-2 rounded-full backdrop-blur-md transition-all ${
                         isFav
-                          ? 'bg-rose-500 text-white shadow-md'
-                          : 'bg-neutral-950/60 text-white opacity-80 sm:opacity-0 group-hover:opacity-100 hover:bg-neutral-900'
+                          ? 'bg-rose-500 text-white shadow-lg'
+                          : 'bg-black/50 text-white/80 opacity-80 sm:opacity-0 group-hover:opacity-100 hover:bg-black/80 hover:text-white'
                       }`}
-                      title="Favorite"
+                      title="Favorite photo"
                     >
                       <Heart className={`w-3.5 h-3.5 ${isFav ? 'fill-current' : ''}`} />
                     </button>
                   )}
-
-                  {/* Hover Details Card Bottom */}
-                  <div className="absolute bottom-0 left-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 text-xs">
-                    <p className="font-serif text-white font-medium text-sm leading-snug">
-                      {item.title}
-                    </p>
-                    {item.caption && (
-                      <p className="text-[11px] text-neutral-300 font-serif italic mt-0.5 line-clamp-2">
-                        {item.caption}
-                      </p>
-                    )}
-                    <div className="flex items-center justify-between text-[10px] font-mono text-emerald-300 mt-2">
-                      <span>{item.sizeMB} MB</span>
-                      <span className="flex items-center gap-1 text-white">
-                        <ZoomIn className="w-3 h-3" /> Click to enlarge
-                      </span>
-                    </div>
-                  </div>
                 </div>
-
-                {/* Sub-card label */}
-                <div className="p-3 bg-neutral-950/80 border-t border-emerald-950/60 flex items-center justify-between text-[11px] text-neutral-400 font-mono">
-                  <span className="truncate pr-2">{item.title}</span>
-                  <span className="text-emerald-400 font-semibold shrink-0">
-                    {item.aspectRatio > 1 ? 'Landscape' : 'Portrait'}
-                  </span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-emerald-950 py-14 text-center text-xs text-neutral-500 font-mono space-y-2">
-        <p className="text-emerald-400/80">Ex Studio Botanical Masonry Edition</p>
-        <p>© MMXXVI All rights reserved.</p>
+      {/* ─── BOTANICAL FOOTER ─── */}
+      <footer className="border-t border-emerald-950/80 py-16 bg-[#070D0B] text-center space-y-2">
+        <span className="text-[11px] font-mono uppercase tracking-[0.3em] text-emerald-400/80 block">
+          {gallery.title} • BOTANICAL ROMANCE
+        </span>
+        <p className="text-[10px] text-neutral-500 font-mono">
+          Organic fine art photographic monograph • Lake Como Edition
+        </p>
       </footer>
     </div>
   );

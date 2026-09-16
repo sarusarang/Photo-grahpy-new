@@ -10,21 +10,21 @@ import { CinematicLayout } from '../../components/gallery/CinematicLayout';
 import { MinimalLayout } from '../../components/gallery/MinimalLayout';
 import { LightboxModal } from '../../components/gallery/LightboxModal';
 import { SlideshowModal } from '../../components/gallery/SlideshowModal';
+import { MusicPickerModal } from '../../components/gallery/MusicPickerModal';
+import { CURATED_TRACKS, type Track } from '../../services/musicService';
 import { SelectionBar } from '../../components/gallery/SelectionBar';
+import { ClientGalleryNavbar } from '../../components/gallery/ClientGalleryNavbar';
+import { SmoothScrollProvider, useLenisScroll } from '../../components/common/SmoothScroll';
 import {
-  Download,
   Share2,
   Lock,
   Layers,
   Sparkles,
-  Camera,
   Loader2,
-  Play,
   CheckSquare,
-  ExternalLink,
 } from 'lucide-react';
 
-export const ClientGalleryPage: React.FC = () => {
+const ClientGalleryContent: React.FC = () => {
   const { galleryId } = useParams<{ galleryId: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const { getGalleryByIdOrSlug, toggleMediaFavorite } = useGallery();
@@ -53,14 +53,22 @@ export const ClientGalleryPage: React.FC = () => {
   // Multi-Selection state
   const [selectedMediaIds, setSelectedMediaIds] = useState<Set<string>>(new Set());
 
-  // Slideshow Modal state
+  // Slideshow & Soundtrack state
   const [isSlideshowOpen, setIsSlideshowOpen] = useState(false);
   const [slideshowStartIndex, setSlideshowStartIndex] = useState(0);
+  const [isMusicPickerOpen, setIsMusicPickerOpen] = useState(false);
+  const [selectedTrack, setSelectedTrack] = useState<Track | null>(CURATED_TRACKS[0]);
 
   // PIN unlock state
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState(false);
+
+  // Top navbar visibility: only when scrolling down with smooth Lenis scroll listener
+  const [showNavbar, setShowNavbar] = useState(false);
+  useLenisScroll((scroll) => {
+    setShowNavbar(scroll > 80);
+  });
 
   // Bulk ZIP download simulation for all media
   const [isPreparingZip, setIsPreparingZip] = useState(false);
@@ -191,10 +199,10 @@ export const ClientGalleryPage: React.FC = () => {
     }, 200);
   };
 
-  // Start animated slideshow (if selected items exist, play selected; otherwise play all)
+  // Start slideshow: launch Instagram-style soundtrack picker
   const handleStartSlideshow = (startIndex: number = 0) => {
     setSlideshowStartIndex(startIndex);
-    setIsSlideshowOpen(true);
+    setIsMusicPickerOpen(true);
   };
 
   const handleSwitchTemplate = (tpl: GalleryTemplateId) => {
@@ -256,66 +264,19 @@ export const ClientGalleryPage: React.FC = () => {
 
   return (
     <div className="relative min-h-screen">
-      {/* Floating Top Client Bar: Studio Name, Slideshow CTA, Download All Action */}
-      <header className="sticky top-0 z-30 bg-neutral-950/90 backdrop-blur-md border-b border-neutral-800/80 px-4 sm:px-8 py-3 flex items-center justify-between gap-4 text-white text-xs">
-        <div className="flex items-center gap-3">
-          <Link
-            to="/dashboard/drive"
-            className="flex items-center gap-2 text-neutral-400 hover:text-white transition-colors"
-            title="Return to Studio Workspace"
-          >
-            <Camera className="w-4 h-4 text-amber-400" />
-            <span className="font-serif font-bold uppercase tracking-wider hidden sm:inline">
-              {photographer.studioName}
-            </span>
-          </Link>
-          <span className="text-neutral-700 hidden sm:inline">/</span>
-          <span className="text-neutral-300 truncate max-w-[160px] sm:max-w-xs font-medium">
-            {gallery.title}
-          </span>
-        </div>
-
-        <div className="flex items-center gap-2.5">
-          {/* Quick Slideshow Trigger in Header */}
-          <button
-            onClick={() => handleStartSlideshow(0)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-neutral-300 hover:text-amber-300 transition-colors text-xs font-medium"
-            title="Start Fullscreen Slideshow"
-          >
-            <Play className="w-3.5 h-3.5 fill-current text-amber-400" />
-            <span className="hidden sm:inline">Slideshow</span>
-          </button>
-
-          {/* Download All ZIP Action */}
-          {gallery.allowDownloads && (
-            <button
-              onClick={handleDownloadAll}
-              disabled={isPreparingZip}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 text-xs font-bold transition-all shadow-sm disabled:opacity-50"
-            >
-              {isPreparingZip ? (
-                <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span>Packaging ({zipProgress}%)...</span>
-                </>
-              ) : (
-                <>
-                  <Download className="w-3.5 h-3.5 stroke-[2.2]" />
-                  <span>Download All ({gallery.media.length})</span>
-                </>
-              )}
-            </button>
-          )}
-
-          <Link
-            to={`/dashboard/drive/${gallery.id}`}
-            className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-neutral-300 hover:text-white transition-colors"
-          >
-            <span>Edit</span>
-            <ExternalLink className="w-3 h-3" />
-          </Link>
-        </div>
-      </header>
+      {/* Floating Top Client Bar: Smooth appearance on scroll */}
+      <ClientGalleryNavbar
+        visible={showNavbar}
+        studioName={photographer.studioName}
+        galleryTitle={gallery.title}
+        galleryId={gallery.id}
+        allowDownloads={gallery.allowDownloads}
+        mediaCount={gallery.media.length}
+        isPreparingZip={isPreparingZip}
+        zipProgress={zipProgress}
+        onStartSlideshow={() => handleStartSlideshow(0)}
+        onDownloadAll={handleDownloadAll}
+      />
 
       {/* Dynamic Gallery Template Rendering: 1 of 4 genuine bespoke wedding designs */}
       {activeTemplate === 'editorial' && (
@@ -326,6 +287,11 @@ export const ClientGalleryPage: React.FC = () => {
           selectedMediaIds={selectedMediaIds}
           onToggleSelectMedia={handleToggleSelectMedia}
           onStartSlideshow={handleStartSlideshow}
+          studioName={photographer.studioName || 'ATELIER PHOTOGRAPHY'}
+          onShareGallery={() => {
+            navigator.clipboard.writeText(window.location.href);
+            showToast('Link Copied', 'Gallery link copied to clipboard.', 'success');
+          }}
         />
       )}
 
@@ -382,11 +348,10 @@ export const ClientGalleryPage: React.FC = () => {
           <button
             key={tpl.id}
             onClick={() => handleSwitchTemplate(tpl.id)}
-            className={`px-2.5 sm:px-3 py-1.5 rounded-xl capitalize font-medium text-xs transition-all ${
-              activeTemplate === tpl.id
+            className={`px-2.5 sm:px-3 py-1.5 rounded-xl capitalize font-medium text-xs transition-all ${activeTemplate === tpl.id
                 ? 'bg-amber-400 text-neutral-950 font-bold shadow-md'
                 : 'text-neutral-400 hover:text-white hover:bg-neutral-900'
-            }`}
+              }`}
           >
             {tpl.label}
           </button>
@@ -405,7 +370,18 @@ export const ClientGalleryPage: React.FC = () => {
         downloadProgress={selectedZipProgress}
       />
 
-      {/* Animated Slideshow Modal */}
+      {/* Instagram-Style Music Picker Modal */}
+      <MusicPickerModal
+        isOpen={isMusicPickerOpen}
+        onClose={() => setIsMusicPickerOpen(false)}
+        onSelectTrack={(track) => {
+          setSelectedTrack(track);
+          setIsSlideshowOpen(true);
+        }}
+        currentSelectedTrack={selectedTrack}
+      />
+
+      {/* Movie-Style Animated Slideshow Modal */}
       <SlideshowModal
         isOpen={isSlideshowOpen}
         onClose={() => setIsSlideshowOpen(false)}
@@ -413,6 +389,8 @@ export const ClientGalleryPage: React.FC = () => {
         initialIndex={slideshowStartIndex}
         galleryTitle={gallery.title}
         clientName={gallery.clientName}
+        selectedTrack={selectedTrack}
+        onChangeTrack={() => setIsMusicPickerOpen(true)}
       />
 
       {/* Lightbox Modal */}
@@ -429,5 +407,13 @@ export const ClientGalleryPage: React.FC = () => {
         />
       )}
     </div>
+  );
+};
+
+export const ClientGalleryPage: React.FC = () => {
+  return (
+    <SmoothScrollProvider>
+      <ClientGalleryContent />
+    </SmoothScrollProvider>
   );
 };

@@ -42,7 +42,7 @@ export const useSubmitOnboarding = () => {
     },
     onSuccess: (data) => {
       toast.success("Profile Setup Complete", {
-        description: data?.message || "Your photographer workspace is ready. Welcome to Ex Studio!",
+        description: data?.message || "Your photographer workspace is ready. Welcome to EX SHARE!",
       });
       queryClient.setQueryData(['onboarding-state'], data);
       queryClient.invalidateQueries({ queryKey: ['onboarding-state'] });

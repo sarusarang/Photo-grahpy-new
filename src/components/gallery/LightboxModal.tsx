@@ -37,7 +37,7 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
   onNavigate,
   onToggleFavorite,
   onDelete,
-  studioName = 'EX STUDIO',
+  studioName = 'EX SHARE',
   allowDownloads = true,
 }) => {
   const { showToast } = useToast();

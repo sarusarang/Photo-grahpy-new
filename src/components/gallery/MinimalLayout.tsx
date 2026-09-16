@@ -1,13 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { Gallery } from '../../types';
 import {
   Heart,
-  Play,
   Check,
-  Calendar,
-  Sparkles,
-  Maximize2,
+  Film,
 } from 'lucide-react';
+import { GalleryHeroBanner } from './GalleryHeroBanner';
+import { ClientSectionFilterBar, type FilterSelection } from './ClientSectionFilterBar';
+import { AIFaceSearchBox } from './AIFaceSearchBox';
 
 interface MinimalLayoutProps {
   gallery: Gallery;
@@ -26,151 +26,217 @@ export const MinimalLayout: React.FC<MinimalLayoutProps> = ({
   onToggleSelectMedia,
   onStartSlideshow,
 }) => {
+  // Derive gallery sections
+  const gallerySections = (gallery.sections && gallery.sections.length > 0)
+    ? gallery.sections
+    : Array.from(new Set(gallery.media.map((m) => m.sectionTitle).filter(Boolean) as string[]));
+
+  const [activeFilter, setActiveFilter] = useState<FilterSelection>({ type: 'all' });
+  const [searchQuery, setSearchQuery] = useState('');
+  const [aiMatchedIds, setAiMatchedIds] = useState<string[] | null>(null);
+
+  const coverImage = gallery.templateBanners?.['minimal'] || gallery.coverImage || gallery.media[0]?.url;
+  const shootDate = (gallery as any).shootDate || gallery.eventDate;
+
+  const filteredMedia = gallery.media.filter((item) => {
+    // 1. Search filter
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      const matchTitle = item.title?.toLowerCase().includes(q);
+      const matchCaption = item.caption?.toLowerCase().includes(q);
+      const matchSection = item.sectionTitle?.toLowerCase().includes(q);
+      if (!matchTitle && !matchCaption && !matchSection) return false;
+    }
+
+    // 2. Filter selection
+    if (activeFilter.type === 'ai-face') {
+      if (!aiMatchedIds) return false;
+      return aiMatchedIds.includes(item.id);
+    }
+    if (activeFilter.type === 'favorites') {
+      return item.isFavorite;
+    }
+    if (activeFilter.type === 'videos') {
+      return item.type === 'video';
+    }
+    if (activeFilter.type === 'section') {
+      return (item.sectionTitle || '').toLowerCase() === activeFilter.title.toLowerCase();
+    }
+
+    return true;
+  });
+
+  const favoritesCount = gallery.media.filter((m) => m.isFavorite).length;
+  const photosCount = gallery.media.filter((m) => m.type !== 'video').length;
+  const videosCount = gallery.media.filter((m) => m.type === 'video').length;
+
   return (
-    <div className="bg-[#F8F8F6] text-[#1A1A1A] min-h-screen selection:bg-neutral-800 selection:text-white font-sans antialiased">
-      {/* ─── SCANDINAVIAN FINE ART MUSEUM HERO BANNER ─── */}
-      <header className="border-b border-neutral-200/80 bg-white/60 backdrop-blur-xs">
-        <div className="max-w-7xl mx-auto px-6 sm:px-12 pt-16 pb-14">
-          <div className="flex items-center justify-between text-[11px] font-mono tracking-[0.25em] uppercase text-neutral-400 border-b border-neutral-200 pb-4 mb-10">
-            <span>Fine Art Exhibition Archive</span>
-            <span>MMXXVI</span>
-            <span>Villa Balbiano Series</span>
-          </div>
+    <div className="bg-[#F8F8F6] text-[#1A1A1A] min-h-screen selection:bg-neutral-900 selection:text-white font-sans antialiased">
+      {/* ─── BESPOKE SCANDINAVIAN MINIMAL FULL-SCREEN HERO BANNER ─── */}
+      <GalleryHeroBanner
+        template="minimal"
+        title={gallery.title}
+        shootDate={shootDate}
+        coverImage={coverImage}
+      />
 
-          <div className="max-w-3xl space-y-6">
-            <span className="text-xs font-mono uppercase tracking-[0.2em] text-neutral-500 block">
-              Permanent Collection No. 04
-            </span>
+      {/* ─── FLOATING CLIENT SECTION FILTER BAR (DOCKS FIXED DIRECTLY UNDER NAVBAR ON SCROLL) ─── */}
+      <ClientSectionFilterBar
+        sections={gallerySections}
+        activeFilter={activeFilter}
+        onSelectFilter={setActiveFilter}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        favoritesCount={favoritesCount}
+        totalPhotosCount={photosCount}
+        totalVideosCount={videosCount}
+        theme="minimal"
+      />
 
-            <h1 className="text-4xl sm:text-6xl font-light tracking-tight text-neutral-900 leading-[1.1]">
-              {gallery.title}
-            </h1>
+      {/* ─── AI FACE SEARCH BOX ─── */}
+      {activeFilter.type === 'ai-face' && (
+        <section className="max-w-4xl mx-auto px-4 mb-4">
+          <AIFaceSearchBox
+            mediaItems={gallery.media}
+            onMatchesFound={(matchedIds) => setAiMatchedIds(matchedIds)}
+            onClose={() => setActiveFilter({ type: 'all' })}
+            theme="minimal"
+          />
+        </section>
+      )}
 
-            <p className="text-sm sm:text-base font-serif italic text-neutral-600 leading-relaxed max-w-xl">
-              "A study in light, architectural stillness, and unspoken devotion along the Italian lakeshore."
-            </p>
-
-            <div className="flex flex-wrap items-center gap-6 text-xs font-mono text-neutral-500 pt-2">
-              <span className="text-neutral-800 font-medium">{gallery.clientName}</span>
-              <span>—</span>
-              <span className="flex items-center gap-1.5">
-                <Calendar className="w-3.5 h-3.5 text-neutral-400" />
-                {gallery.eventDate}
-              </span>
-              <span>—</span>
-              <span>{gallery.media.length} Archival Plates</span>
+      {/* ─── LARGE-FORMAT SCANDINAVIAN ART EXHIBITION (MINIMAL GAP, 2-COLUMN ASYMMETRICAL SPREADS) ─── */}
+      <main className="max-w-[1700px] mx-auto px-2 sm:px-4 pt-1 sm:pt-2 pb-16">
+        {filteredMedia.length === 0 ? (
+          activeFilter.type === 'ai-face' && aiMatchedIds === null ? null : (
+            <div className="py-24 text-center space-y-3 bg-white p-8 sm:p-12 border border-neutral-200 rounded-none max-w-md mx-auto shadow-xs">
+              <Heart className="w-8 h-8 text-neutral-400 mx-auto stroke-[1.25]" />
+              <p className="font-light text-xl text-neutral-900">
+                {activeFilter.type === 'favorites'
+                  ? 'No starred plates yet'
+                  : activeFilter.type === 'ai-face'
+                  ? 'No matching plates found for this face'
+                  : 'No photographic plates in this section'}
+              </p>
+              <p className="text-xs text-neutral-500 font-mono">
+                {activeFilter.type === 'favorites'
+                  ? 'Select the heart on any photographic plate to curate your selections.'
+                  : activeFilter.type === 'ai-face'
+                  ? 'Try uploading or taking another selfie with clear facial lighting.'
+                  : 'Try selecting All Photos to view the complete monograph.'}
+              </p>
             </div>
+          )
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 sm:gap-3.5 items-start">
+            {filteredMedia.map((item, index) => {
+              const originalIndex = gallery.media.findIndex((m) => m.id === item.id);
+              const actualIndex = originalIndex >= 0 ? originalIndex : 0;
+              const isSelected = selectedMediaIds.has(item.id);
+              const isFav = item.isFavorite;
+              const imgSrc = item.thumbnailUrl || (item.type === 'video' ? 'https://images.unsplash.com/photo-1606800052052-a08af7148866?auto=format&fit=crop&w=800&q=80' : item.url);
 
-            {/* Quick Action: Start Exhibition Slideshow */}
-            <div className="pt-4 flex items-center gap-3">
-              {onStartSlideshow && (
-                <button
-                  onClick={() => onStartSlideshow(0)}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full border border-neutral-800 hover:bg-neutral-900 hover:text-white text-neutral-900 font-mono text-xs uppercase tracking-wider transition-all"
-                >
-                  <Play className="w-3.5 h-3.5 fill-current" />
-                  <span>Launch Exhibition Slideshow</span>
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      </header>
+              // Every 5th item is featured as a full-width focal centerpiece across both columns
+              const isFeaturedCenterpiece = index % 5 === 0;
 
-      {/* ─── MUSEUM GALLERY WALL WITH PASSE-PARTOUT FRAMING ─── */}
-      <main className="max-w-7xl mx-auto px-6 sm:px-12 py-16 sm:py-24">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10 sm:gap-14">
-          {gallery.media.map((item, idx) => {
-            const isSelected = selectedMediaIds.has(item.id);
-            const isFav = item.isFavorite;
-
-            return (
-              <div
-                key={item.id}
-                className={`group flex flex-col justify-between bg-white p-4 sm:p-5 rounded-sm border transition-all duration-300 ${
-                  isSelected
-                    ? 'border-neutral-900 ring-2 ring-neutral-900/20 shadow-lg'
-                    : 'border-neutral-200/80 hover:border-neutral-300 shadow-xs hover:shadow-md'
-                }`}
-              >
-                {/* Passe-Partout Mat Frame & Image Container */}
+              return (
                 <div
-                  className="relative bg-[#F4F4F1] p-3 border border-neutral-100 aspect-[3/4] overflow-hidden cursor-pointer flex items-center justify-center"
-                  onClick={() => onOpenLightbox(idx)}
+                  key={item.id}
+                  className={`${
+                    isFeaturedCenterpiece ? 'md:col-span-2 w-full my-0.5' : 'col-span-1'
+                  } group transition-all duration-500 cursor-pointer`}
+                  onClick={() => onOpenLightbox(actualIndex)}
                 >
-                  <img
-                    src={item.thumbnailUrl || item.url}
-                    alt={item.title}
-                    loading="lazy"
-                    className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-700 ease-out"
-                  />
+                  {/* Fine Art Photographic Plate Container */}
+                  <div
+                    className={`relative overflow-hidden bg-white border transition-all duration-500 ${
+                      isSelected
+                        ? 'border-neutral-950 ring-2 ring-neutral-950/30 shadow-xl'
+                        : 'border-neutral-200/90 hover:border-neutral-900/80 shadow-xs hover:shadow-2xl'
+                    }`}
+                  >
+                    <img
+                      src={imgSrc}
+                      alt={item.title || 'Archival Plate'}
+                      loading="lazy"
+                      className="w-full h-auto object-cover group-hover:scale-[1.015] transition-transform duration-700 ease-out block"
+                    />
 
-                  {/* Multi-Select Checkbox Top-Left */}
-                  {onToggleSelectMedia && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onToggleSelectMedia(item.id);
-                      }}
-                      className={`absolute top-5 left-5 z-20 w-7 h-7 rounded-full border flex items-center justify-center transition-all ${
-                        isSelected
-                          ? 'bg-neutral-900 border-neutral-900 text-white scale-110 shadow-md'
-                          : 'bg-white/90 border-neutral-300 text-neutral-600 opacity-80 sm:opacity-0 group-hover:opacity-100 hover:bg-white'
-                      }`}
-                      title={isSelected ? 'Deselect plate' : 'Select plate'}
-                    >
-                      {isSelected ? (
-                        <Check className="w-3.5 h-3.5 stroke-[3]" />
-                      ) : (
-                        <div className="w-2 h-2 rounded-full border border-neutral-400" />
-                      )}
-                    </button>
-                  )}
+                    {/* Architectural Gallery Matte Overlay */}
+                    <div className="absolute inset-0 bg-neutral-950/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
 
-                  {/* Favorite Heart Top-Right */}
-                  {onToggleFavorite && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onToggleFavorite(item.id);
-                      }}
-                      className={`absolute top-5 right-5 z-20 p-2 rounded-full backdrop-blur-sm transition-all ${
-                        isFav
-                          ? 'bg-rose-500 text-white shadow-md'
-                          : 'bg-white/90 text-neutral-600 opacity-80 sm:opacity-0 group-hover:opacity-100 hover:bg-white'
-                      }`}
-                      title="Favorite"
-                    >
-                      <Heart className={`w-3.5 h-3.5 ${isFav ? 'fill-current' : ''}`} />
-                    </button>
-                  )}
-                </div>
+                    {/* Video Reel Badge */}
+                    {item.type === 'video' && (
+                      <div className="absolute bottom-3 left-3 z-10 px-2 py-0.5 rounded-none bg-white/95 backdrop-blur-md text-neutral-900 text-[10px] font-mono flex items-center gap-1 border border-neutral-200 shadow-sm">
+                        <Film className="w-3 h-3" /> Reel
+                      </div>
+                    )}
 
-                {/* Archival Plate Metadata Label */}
-                <div className="pt-4 flex items-baseline justify-between text-[11px] font-mono text-neutral-500">
-                  <div className="truncate pr-3">
-                    <span className="text-neutral-900 font-medium uppercase tracking-wider block truncate">
-                      {item.title}
-                    </span>
-                    <span className="text-[10px] text-neutral-400 mt-0.5 block">
-                      {item.sizeMB} MB • Archival Grade
-                    </span>
+                    {/* Multi-Select Checkbox (Top Left) */}
+                    {onToggleSelectMedia && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onToggleSelectMedia(item.id);
+                        }}
+                        className={`absolute top-3 left-3 z-20 w-7 h-7 rounded-full border flex items-center justify-center transition-all ${
+                          isSelected
+                            ? 'bg-neutral-950 border-neutral-950 text-white scale-110 shadow-md'
+                            : 'bg-white/90 border-neutral-300 text-neutral-800 opacity-80 sm:opacity-0 group-hover:opacity-100 hover:scale-105'
+                        }`}
+                        title={isSelected ? 'Deselect plate' : 'Select plate'}
+                      >
+                        {isSelected ? (
+                          <Check className="w-3.5 h-3.5 stroke-[3]" />
+                        ) : (
+                          <div className="w-2 h-2 rounded-full border border-neutral-400" />
+                        )}
+                      </button>
+                    )}
+
+                    {/* Favorite Heart Button (Top Right) */}
+                    {onToggleFavorite && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onToggleFavorite(item.id);
+                        }}
+                        className={`absolute top-3 right-3 z-20 p-2 rounded-full backdrop-blur-sm transition-all ${
+                          isFav
+                            ? 'bg-rose-500 text-white shadow-md'
+                            : 'bg-white/90 text-neutral-700 opacity-80 sm:opacity-0 group-hover:opacity-100 hover:bg-white'
+                        }`}
+                        title="Favorite plate"
+                      >
+                        <Heart className={`w-3.5 h-3.5 ${isFav ? 'fill-current' : ''}`} />
+                      </button>
+                    )}
                   </div>
 
-                  <span className="shrink-0 text-neutral-400 font-semibold">
-                    Plate {idx + 1 < 10 ? `0${idx + 1}` : idx + 1}
-                  </span>
+                  {/* Refined Archival Plate Caption Underneath */}
+                  <div className="mt-3 flex items-baseline justify-between text-[11px] font-mono text-neutral-400 px-0.5">
+                    <span className="text-neutral-700 font-medium tracking-tight truncate max-w-[70%]">
+                      {item.title || `Plate ${index + 1 < 10 ? `0${index + 1}` : index + 1}`}
+                    </span>
+                    <span className="text-[10px] tracking-widest text-neutral-400 uppercase">
+                      {item.sectionTitle || 'Archival Print'}
+                    </span>
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-neutral-200 py-16 text-center text-xs text-neutral-400 font-mono space-y-2">
-        <p>Ex Studio Fine Art Monograph MMXXVI</p>
-        <p>Documented in 35mm sensor format • Preserved in high resolution</p>
+      {/* ─── SCANDINAVIAN ARCHITECTURAL FOOTER ─── */}
+      <footer className="border-t border-neutral-200/80 py-16 bg-[#F2F2EE] text-center space-y-2">
+        <span className="text-[11px] font-mono uppercase tracking-[0.3em] text-neutral-500 block">
+          {gallery.title} • FINE ART MONOGRAPH
+        </span>
+        <p className="text-[10px] text-neutral-400 font-mono">
+          Curated in 2-column museum exhibition format • Preserved in archival resolution
+        </p>
       </footer>
     </div>
   );

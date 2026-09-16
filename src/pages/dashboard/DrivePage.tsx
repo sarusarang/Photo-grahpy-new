@@ -94,12 +94,12 @@ export const DrivePage: React.FC = () => {
         <div className="absolute inset-0 z-0">
           <img
             src="/sony_camera_light.jpg"
-            alt="Studio Camera Banner"
+            alt="EX SHARE Camera Banner"
             className="w-full h-full object-cover object-right opacity-95 dark:hidden block"
           />
           <img
             src="/sony_camera_dark.jpg"
-            alt="Studio Camera Banner"
+            alt="EX SHARE Camera Banner"
             className="w-full h-full object-cover object-right opacity-85 hidden dark:block"
           />
           {/* Gradient Overlay to ensure text readability */}
@@ -107,27 +107,24 @@ export const DrivePage: React.FC = () => {
         </div>
 
         {/* Banner Content Container */}
-        <div className="relative z-10 p-6 sm:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6 w-full">
+        <div className="relative z-10 p-5 sm:p-8 flex flex-col md:flex-row md:items-center justify-between gap-5 w-full">
           <div className="max-w-xl">
-            <span className="text-[11px] uppercase tracking-widest font-mono font-bold text-amber-700 dark:text-amber-400 block mb-1">
+            <span className="text-[10px] sm:text-[11px] uppercase tracking-widest font-mono font-bold text-amber-700 dark:text-amber-400 block mb-1">
               MASTER CLOUD DRIVE
             </span>
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-serif font-bold text-neutral-950 dark:text-white tracking-tight">
+            <h1 className="text-xl sm:text-3xl lg:text-4xl font-serif font-bold text-neutral-950 dark:text-white tracking-tight">
               Client Galleries & Media
             </h1>
-            <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400 mt-1.5 leading-relaxed font-normal">
+            <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400 mt-1 leading-relaxed font-normal">
               Manage your high-resolution client shoots, layouts, downloads, and proofing sets.
             </p>
           </div>
 
           {/* Right Action CTA: Create New Gallery */}
-          <div className="flex items-center gap-4 shrink-0">
-            <span className="hidden xl:inline dark:hidden text-sm font-serif italic text-neutral-800 tracking-wide font-medium">
-              Good Photos Better Stories
-            </span>
+          <div className="flex items-center gap-3 shrink-0 w-full sm:w-auto">
             <button
               onClick={() => setIsCreateModalOpen(true)}
-              className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 text-xs font-bold tracking-wide transition-all shadow-md shadow-amber-500/15 active:scale-95"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 text-xs font-bold tracking-wide transition-all shadow-md shadow-amber-500/15 active:scale-95 cursor-pointer"
             >
               <Plus className="w-4 h-4 stroke-[2.8]" />
               <span>Create New Gallery</span>
@@ -137,9 +134,9 @@ export const DrivePage: React.FC = () => {
       </div>
 
       {/* 2. Control Toolbar: Status Filter Pills, Sort Dropdown, View Switcher */}
-      <div className="flex flex-wrap items-center justify-between gap-4 pt-1">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
         {/* Left Filter Pills: All, Active, Delivered, Draft */}
-        <div className="flex items-center gap-2 overflow-x-auto py-1">
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 -mx-4 px-4 sm:mx-0 sm:px-0">
           {[
             { id: 'all', label: `All (${galleries.length})` },
             { id: 'active', label: 'Active' },
@@ -151,10 +148,10 @@ export const DrivePage: React.FC = () => {
               <button
                 key={tab.id}
                 onClick={() => setStatusFilter(tab.id)}
-                className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${
+                className={`px-4 py-2 rounded-full text-xs font-bold transition-all shrink-0 cursor-pointer active:scale-95 ${
                   isSelected
                     ? 'bg-amber-400 text-neutral-950 shadow-sm'
-                    : 'text-neutral-700 dark:text-neutral-400 hover:text-black dark:hover:text-white hover:bg-neutral-200/60 dark:hover:bg-neutral-800'
+                    : 'text-neutral-700 dark:text-neutral-400 hover:text-black dark:hover:text-white bg-neutral-100 dark:bg-neutral-900/60 sm:bg-transparent border border-neutral-200/60 dark:border-neutral-800/60 sm:border-transparent'
                 }`}
               >
                 {tab.label}
@@ -164,7 +161,7 @@ export const DrivePage: React.FC = () => {
         </div>
 
         {/* Right Controls: Sort Dropdown & Layout Buttons */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between sm:justify-end gap-3">
           {/* Custom Sort Dropdown */}
           <div className="relative" ref={sortDropdownRef}>
             <button
@@ -399,8 +396,8 @@ export const DrivePage: React.FC = () => {
         </div>
       ) : (
         /* Table View */
-        <div className="rounded-3xl bg-white dark:bg-[#12141a] border border-neutral-200 dark:border-neutral-800 overflow-hidden shadow-sm dark:shadow-xl">
-          <table className="w-full text-left text-xs text-neutral-700 dark:text-neutral-300">
+        <div className="rounded-3xl bg-white dark:bg-[#12141a] border border-neutral-200 dark:border-neutral-800 overflow-x-auto no-scrollbar shadow-sm dark:shadow-xl">
+          <table className="w-full min-w-[680px] text-left text-xs text-neutral-700 dark:text-neutral-300">
             <thead className="bg-neutral-50 dark:bg-neutral-900/90 border-b border-neutral-200 dark:border-neutral-800 text-[11px] uppercase tracking-wider text-neutral-500 dark:text-neutral-400 font-mono font-semibold">
               <tr>
                 <th className="py-3.5 px-6">Gallery</th>

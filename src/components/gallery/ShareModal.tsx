@@ -59,16 +59,19 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, gallery
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 dark:bg-black/80 backdrop-blur-md overlay-animate">
-      <div className="relative w-full max-w-lg bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-3xl p-6 sm:p-7 shadow-2xl overflow-hidden modal-animate text-neutral-900 dark:text-neutral-100 my-auto">
-        <div className="flex items-center justify-between pb-5 border-b border-neutral-200 dark:border-neutral-800">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/70 backdrop-blur-md overlay-animate">
+      <div className="relative w-full sm:max-w-lg bg-white dark:bg-neutral-950 border-t sm:border border-neutral-200 dark:border-neutral-800 rounded-t-[28px] sm:rounded-3xl p-5 sm:p-7 pb-safe shadow-2xl overflow-hidden max-h-[92vh] sm:max-h-[90vh] overflow-y-auto sheet-animate sm:modal-animate text-neutral-900 dark:text-neutral-100">
+        {/* Mobile Grab Handle */}
+        <div className="w-10 h-1 rounded-full bg-neutral-300 dark:bg-neutral-700 mx-auto mb-3 sm:hidden" />
+
+        <div className="flex items-center justify-between pb-4 sm:pb-5 border-b border-neutral-200 dark:border-neutral-800">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-500">
-              <Share2 className="w-5 h-5" />
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-500 shrink-0">
+              <Share2 className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
             <div>
-              <h2 className="text-xl font-serif text-neutral-900 dark:text-white tracking-tight font-bold">Share Client Gallery</h2>
-              <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate max-w-[260px]">{gallery.title}</p>
+              <h2 className="text-lg sm:text-xl font-serif text-neutral-900 dark:text-white tracking-tight font-bold">Share Client Gallery</h2>
+              <p className="text-[11px] sm:text-xs text-neutral-500 dark:text-neutral-400 truncate max-w-[240px] sm:max-w-[260px]">{gallery.title}</p>
             </div>
           </div>
           <button

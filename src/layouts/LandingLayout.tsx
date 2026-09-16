@@ -1,25 +1,16 @@
 import React from 'react';
 import { Outlet, Link } from 'react-router-dom';
-import { Camera, ArrowRight, ShieldCheck } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
+import { Logo } from '../components/common/Logo';
 
 export const LandingLayout: React.FC = () => {
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-100 flex flex-col antialiased">
       {/* Reserved Public Header */}
       <header className="h-20 border-b border-neutral-800/80 px-6 sm:px-12 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-amber-400 flex items-center justify-center text-neutral-950 font-bold">
-            <Camera className="w-5 h-5 stroke-[2.2]" />
-          </div>
-          <div>
-            <span className="text-xs uppercase tracking-widest text-neutral-400 font-mono block">
-              Platform Preview
-            </span>
-            <span className="font-serif font-bold text-white text-base tracking-wide">
-              EX STUDIO
-            </span>
-          </div>
-        </div>
+        <Link to="/" className="flex items-center group py-1" title="EX SHARE">
+          <Logo variant="dark" className="h-7 sm:h-8 w-auto object-contain transition-transform group-hover:scale-105" />
+        </Link>
 
         <div className="flex items-center gap-4">
           <Link
@@ -45,7 +36,7 @@ export const LandingLayout: React.FC = () => {
 
       {/* Reserved Public Footer */}
       <footer className="border-t border-neutral-900 py-8 px-6 text-center text-xs text-neutral-500">
-        <p>© 2026 Ex Studio Platform • Professional Photography Cloud Infrastructure</p>
+        <p>© 2026 EX SHARE Platform • Professional Photography Cloud Infrastructure</p>
       </footer>
     </div>
   );

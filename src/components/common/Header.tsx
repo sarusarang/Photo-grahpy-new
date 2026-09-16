@@ -4,8 +4,8 @@ import { useAuth } from '../../context/AuthContext';
 import { useGallery } from '../../context/GalleryContext';
 import { AnimatedThemeToggler } from '../ui/animated-theme-toggler';
 import { ProfileDropdown } from './ProfileDropdown';
+import { Logo } from './Logo';
 import {
-  Camera,
   Bell,
   ChevronDown,
   Menu,
@@ -34,18 +34,8 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
           <Menu className="w-5 h-5" />
         </button>
 
-        <Link to="/dashboard/drive" className="flex items-center gap-3 group">
-          <div className="w-9 h-9 rounded-xl bg-amber-400 flex items-center justify-center text-neutral-950 shadow-md group-hover:scale-105 transition-transform shrink-0">
-            <Camera className="w-5 h-5 stroke-[2.4]" />
-          </div>
-          <div className="min-w-0">
-            <span className="text-sm font-bold tracking-tight text-neutral-900 dark:text-white block leading-tight font-sans">
-              EX STUDIO
-            </span>
-            <span className="text-[9px] tracking-[0.22em] font-semibold text-neutral-500 dark:text-neutral-400 uppercase block">
-              PHOTOGRAPHY
-            </span>
-          </div>
+        <Link to="/dashboard/drive" className="flex items-center group py-1" title="EX SHARE Dashboard">
+          <Logo variant="auto" className="h-6 sm:h-7 w-auto object-contain transition-transform group-hover:scale-105" />
         </Link>
       </div>
 
