@@ -13,6 +13,8 @@ import { GalleryHeroBanner } from './GalleryHeroBanner';
 import { ClientSectionFilterBar, type FilterSelection } from './ClientSectionFilterBar';
 import { AIFaceSearchBox } from './AIFaceSearchBox';
 
+import { isVideoMedia } from '../../data/demoData';
+
 interface CinematicLayoutProps {
   gallery: Gallery;
   onOpenLightbox: (index: number) => void;
@@ -32,7 +34,12 @@ export const CinematicLayout: React.FC<CinematicLayoutProps> = ({
 }) => {
   const media = gallery.media;
   const videos = media.filter((m) => m.type === 'video');
-  const coverImage = gallery.templateBanners?.['cinematic'] || gallery.coverImage || media[0]?.url;
+  const bannerVideoUrl =
+    (gallery.templateBanners?.['cinematic'] && isVideoMedia(gallery.templateBanners?.['cinematic']))
+      ? gallery.templateBanners?.['cinematic']
+      : (isVideoMedia(gallery.coverImage)
+          ? gallery.coverImage
+          : (videos[0]?.url || 'https://assets.mixkit.co/videos/preview/mixkit-fashion-model-in-neon-lights-42998-large.mp4'));
   const shootDate = (gallery as any).shootDate || gallery.eventDate;
 
   // Derive gallery sections
@@ -104,12 +111,13 @@ export const CinematicLayout: React.FC<CinematicLayoutProps> = ({
 
   return (
     <div className="bg-[#050507] text-neutral-100 min-h-screen selection:bg-amber-400 selection:text-black font-sans antialiased">
-      {/* ─── BESPOKE 2.39:1 ANAMORPHIC CINEMATIC FULL-SCREEN HERO BANNER ─── */}
+      {/* ─── BESPOKE 2.39:1 ANAMORPHIC CINEMATIC FULL-SCREEN HERO BANNER (VIDEO ONLY) ─── */}
       <GalleryHeroBanner
         template="cinematic"
         title={gallery.title}
         shootDate={shootDate}
-        coverImage={coverImage}
+        coverImage={bannerVideoUrl}
+        videoUrl={bannerVideoUrl}
       />
 
 

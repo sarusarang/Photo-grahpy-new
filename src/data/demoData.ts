@@ -142,6 +142,52 @@ export const GALLERY_TEMPLATES: GalleryTemplate[] = [
   },
 ];
 
+export const DEFAULT_GALLERY_COVERS: string[] = [
+  'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1600&q=85',
+  'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&w=1600&q=85',
+  'https://images.unsplash.com/photo-1503899036084-c55cdd92da26?auto=format&fit=crop&w=1600&q=85',
+  'https://images.unsplash.com/photo-1469371670807-013ccf25f16a?auto=format&fit=crop&w=1600&q=85',
+  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=1600&q=85',
+  'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?auto=format&fit=crop&w=1600&q=85',
+  'https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?auto=format&fit=crop&w=1600&q=85',
+  'https://images.unsplash.com/photo-1537633552985-df8429e8048b?auto=format&fit=crop&w=1600&q=85',
+  'https://images.unsplash.com/photo-1583939003579-730e3918a45a?auto=format&fit=crop&w=1600&q=85',
+  'https://images.unsplash.com/photo-1519225429762-b930869a19c6?auto=format&fit=crop&w=1600&q=85',
+];
+
+export const getRandomCoverImage = (): string => {
+  const index = Math.floor(Math.random() * DEFAULT_GALLERY_COVERS.length);
+  return DEFAULT_GALLERY_COVERS[index];
+};
+
+export const DEFAULT_CINEMATIC_VIDEOS = [
+  {
+    id: 'vid-preset-wedding',
+    title: 'Fine Art Wedding Cinema Reel',
+    url: 'https://assets.mixkit.co/videos/preview/mixkit-bride-holding-a-bouquet-of-flowers-43183-large.mp4',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=600&q=80',
+    duration: '02:00',
+  },
+  {
+    id: 'vid-preset-editorial',
+    title: 'Runway Atmospheric Reel',
+    url: 'https://assets.mixkit.co/videos/preview/mixkit-fashion-model-in-neon-lights-42998-large.mp4',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=600&q=80',
+    duration: '01:30',
+  },
+];
+
+export const isVideoMedia = (url?: string): boolean => {
+  if (!url) return false;
+  return (
+    url.endsWith('.mp4') ||
+    url.endsWith('.webm') ||
+    url.endsWith('.mov') ||
+    url.includes('/videos/') ||
+    url.includes('mixkit.co')
+  );
+};
+
 export const INITIAL_GALLERIES: Gallery[] = [
   {
     id: 'gal-lake-como',

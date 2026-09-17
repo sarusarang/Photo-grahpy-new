@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import type { Gallery, MediaItem, SubscriptionPlan, GalleryTemplateId } from '../types';
-import { INITIAL_GALLERIES, INITIAL_SUBSCRIPTION, AVAILABLE_PLANS } from '../data/demoData';
+import { INITIAL_GALLERIES, INITIAL_SUBSCRIPTION, AVAILABLE_PLANS, getRandomCoverImage } from '../data/demoData';
 
 interface GalleryContextType {
   galleries: Gallery[];
@@ -87,7 +87,7 @@ export const GalleryProvider: React.FC<{ children: React.ReactNode }> = ({ child
       createdAt: new Date().toISOString().split('T')[0],
       coverImage:
         galleryData.coverImage ||
-        'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1200&q=80',
+        getRandomCoverImage(),
       templateId: galleryData.templateId || 'editorial',
       status: galleryData.status || 'active',
       isPasswordProtected: galleryData.isPasswordProtected || false,

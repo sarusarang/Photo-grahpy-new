@@ -72,13 +72,14 @@ export const MasonryLayout: React.FC<MasonryLayoutProps> = ({
   const photosCount = gallery.media.filter((m) => m.type !== 'video').length;
   const videosCount = gallery.media.filter((m) => m.type === 'video').length;
 
+  const galleryPhotos = gallery.media.filter((m) => m.type !== 'video');
   const masonryBanners = gallery.masonryBannerImages && gallery.masonryBannerImages.length >= 4
     ? gallery.masonryBannerImages
     : [
         coverImage,
-        gallery.media[1]?.url || gallery.media[0]?.url || coverImage,
-        gallery.media[2]?.url || gallery.media[0]?.url || coverImage,
-        gallery.media[3]?.url || gallery.media[0]?.url || coverImage,
+        galleryPhotos[1]?.url || galleryPhotos[0]?.url || coverImage,
+        galleryPhotos[2]?.url || galleryPhotos[0]?.url || coverImage,
+        galleryPhotos[3]?.url || galleryPhotos[0]?.url || coverImage,
       ];
 
   return (

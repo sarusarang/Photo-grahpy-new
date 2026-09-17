@@ -23,15 +23,22 @@ const onRefreshFailed = (error: any) => {
     refreshSubscribers = [];
 };
 
+const rawBaseURL = import.meta.env.VITE_API_BASE_URL || "https://3lrrk4tb-8001.inc1.devtunnels.ms/api";
+const normalizedBaseURL = rawBaseURL.endsWith("/") ? rawBaseURL : `${rawBaseURL}/`;
+
 // Axios instance
 const axiosInstance = axios.create({
-    baseURL: import.meta.env.VITE_API_BASE_URL,
+    baseURL: normalizedBaseURL,
     withCredentials: true,
 });
 
 // 🧩 Request Interceptor
 axiosInstance.interceptors.request.use(
     (config) => {
+        if (config.url) {
+            // Normalize path so it resolves relative to baseURL (/api/)
+            config.url = config.url.replace(/^\/?api\/v1\/?/, '').replace(/^\/?api\/?/, '').replace(/^\//, '');
+        }
         return config;
     },
     (error) => Promise.reject(error)
@@ -74,7 +81,7 @@ axiosInstance.interceptors.response.use(
             try {
                 // 🔄 Try refresh token
                 await axios.post(
-                    `${import.meta.env.VITE_API_BASE_URL}/api/auth/token/refresh/`,
+                    `${normalizedBaseURL}auth/token/refresh/`,
                     {},
                     { withCredentials: true }
                 );

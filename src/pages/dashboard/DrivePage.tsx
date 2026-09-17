@@ -87,7 +87,7 @@ export const DrivePage: React.FC = () => {
   };
 
   return (
-    <div className="dashboard-container p-4 sm:p-8 max-w-7xl mx-auto space-y-6 text-neutral-900 dark:text-neutral-100 transition-colors">
+    <div className="dashboard-container p-4 sm:p-8 max-w-[1440px] mx-auto space-y-6 text-neutral-900 dark:text-neutral-100 transition-colors">
       {/* 1. Master Cloud Drive Hero Banner (Exact match to screenshot) */}
       <div className="relative rounded-3xl overflow-hidden border border-neutral-200/90 dark:border-neutral-800/80 shadow-sm dark:shadow-lg transition-all min-h-[175px] sm:min-h-[195px] flex items-center bg-gradient-to-r from-[#faf8f5] via-[#f7f4ec] to-[#f2ebde] dark:bg-[#13151b]">
         {/* Background Image: Light warm aesthetic Sony camera */}
@@ -271,7 +271,7 @@ export const DrivePage: React.FC = () => {
           </button>
         </div>
       ) : viewMode === 'grid' ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 stagger">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6 stagger">
           {filteredGalleries.map((gal) => {
             const { photos, videos, sizeMB } = getGalleryStats(gal);
 
@@ -281,23 +281,23 @@ export const DrivePage: React.FC = () => {
                 onClick={() => navigate(`/dashboard/drive/${gal.id}`)}
                 className="group relative rounded-3xl bg-white dark:bg-[#121319] border border-neutral-200 dark:border-neutral-800/80 hover:border-neutral-300 dark:hover:border-neutral-700 shadow-sm dark:shadow-xl overflow-hidden cursor-pointer flex flex-col justify-between card-lift fade-up"
               >
-                {/* Cover Image Header — Proportionate height */}
-                <div className="relative h-56 sm:h-64 w-full overflow-hidden bg-neutral-900">
+                {/* Cover Image Header — Proportionate height for 3-card layout */}
+                <div className="relative h-48 sm:h-52 w-full overflow-hidden bg-neutral-900">
                   <img
                     src={gal.coverImage}
                     alt={gal.title}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out will-change-transform"
                   />
                   {/* Bottom dark gradient overlay so text is crystal clear */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-black/30" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-black/20" />
 
                   {/* Top Overlay Badges */}
-                  <div className="absolute top-4 left-4 right-4 flex items-center justify-between">
-                    <span className="px-3 py-1 rounded-full bg-black/75 backdrop-blur-md text-amber-400 text-[10px] font-mono font-bold uppercase tracking-wider border border-amber-400/20 shadow-xs">
+                  <div className="absolute top-3.5 left-3.5 right-3.5 flex items-center justify-between">
+                    <span className="px-2.5 py-0.5 rounded-full bg-black/75 backdrop-blur-md text-amber-400 text-[10px] font-mono font-bold uppercase tracking-wider border border-amber-400/20 shadow-xs">
                       {gal.templateId} layout
                     </span>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
                       {gal.isPasswordProtected && (
                         <span
                           className="p-1.5 rounded-full bg-black/75 backdrop-blur-md text-amber-400 border border-white/10"
@@ -311,7 +311,7 @@ export const DrivePage: React.FC = () => {
                           e.stopPropagation();
                           setShareGallery(gal);
                         }}
-                        className="p-1.5 rounded-full bg-black/75 hover:bg-amber-400 hover:text-neutral-950 text-white backdrop-blur-md transition-colors border border-white/10"
+                        className="p-1.5 rounded-full bg-black/75 hover:bg-amber-400 hover:text-neutral-950 text-white backdrop-blur-md transition-colors border border-white/10 cursor-pointer"
                         title="Share Gallery"
                       >
                         <Share2 className="w-3.5 h-3.5" />
@@ -320,72 +320,72 @@ export const DrivePage: React.FC = () => {
                   </div>
 
                   {/* Bottom Image Overlay Details */}
-                  <div className="absolute bottom-3.5 left-4 right-4 text-white">
-                    <p className="text-[11px] text-neutral-300 font-medium tracking-wide drop-shadow-sm">
+                  <div className="absolute bottom-3 left-3.5 right-3.5 text-white">
+                    <p className="text-[11px] text-neutral-300 font-medium tracking-wide drop-shadow-sm truncate">
                       {gal.clientName}
                     </p>
-                    <h3 className="font-serif font-bold text-lg sm:text-xl text-white truncate drop-shadow-md mt-0.5">
+                    <h3 className="font-serif font-bold text-base sm:text-lg text-white truncate drop-shadow-md mt-0.5">
                       {gal.title}
                     </h3>
                   </div>
                 </div>
 
                 {/* Card Body Details */}
-                <div className="p-4 sm:p-5 space-y-4">
-                  {/* Card Stats: Photos, Videos, Size (Exact 3 columns) */}
-                  <div className="rounded-2xl bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-200/80 dark:border-neutral-800/80 p-3 grid grid-cols-3 divide-x divide-neutral-200 dark:divide-neutral-800 text-center">
-                    <div className="px-2">
-                      <span className="text-[10px] text-neutral-500 dark:text-neutral-400 uppercase tracking-wider block font-mono font-semibold">
+                <div className="p-3.5 sm:p-4 space-y-3.5 flex-1 flex flex-col justify-between">
+                  {/* Card Stats: Photos, Videos, Size (3 compact balanced columns) */}
+                  <div className="rounded-2xl bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-200/80 dark:border-neutral-800/80 p-2.5 grid grid-cols-3 divide-x divide-neutral-200 dark:divide-neutral-800 text-center">
+                    <div className="px-1">
+                      <span className="text-[9px] sm:text-[10px] text-neutral-500 dark:text-neutral-400 uppercase tracking-wider block font-mono font-semibold">
                         PHOTOS
                       </span>
-                      <span className="text-sm font-bold text-neutral-900 dark:text-white">
+                      <span className="text-xs sm:text-sm font-bold text-neutral-900 dark:text-white">
                         {photos}
                       </span>
                     </div>
 
-                    <div className="px-2">
-                      <span className="text-[10px] text-neutral-500 dark:text-neutral-400 uppercase tracking-wider block font-mono font-semibold">
+                    <div className="px-1">
+                      <span className="text-[9px] sm:text-[10px] text-neutral-500 dark:text-neutral-400 uppercase tracking-wider block font-mono font-semibold">
                         VIDEOS
                       </span>
-                      <span className="text-sm font-bold text-neutral-900 dark:text-white">
+                      <span className="text-xs sm:text-sm font-bold text-neutral-900 dark:text-white">
                         {videos}
                       </span>
                     </div>
 
-                    <div className="px-2">
-                      <span className="text-[10px] text-neutral-500 dark:text-neutral-400 uppercase tracking-wider block font-mono font-semibold">
+                    <div className="px-1">
+                      <span className="text-[9px] sm:text-[10px] text-neutral-500 dark:text-neutral-400 uppercase tracking-wider block font-mono font-semibold">
                         SIZE
                       </span>
-                      <span className="text-sm font-bold font-mono text-amber-600 dark:text-amber-400">
+                      <span className="text-xs sm:text-sm font-bold text-amber-600 dark:text-amber-400">
                         {sizeMB} MB
                       </span>
                     </div>
                   </div>
 
                   {/* Card Bottom Meta & Actions */}
-                  <div className="flex items-center justify-between text-xs pt-1 border-t border-neutral-100 dark:border-neutral-800/70">
-                    <span className="text-neutral-500 dark:text-neutral-400 flex items-center gap-1.5 text-xs font-mono font-medium">
+                  <div className="flex items-center justify-between text-xs pt-2.5 border-t border-neutral-100 dark:border-neutral-800/70">
+                    <span className="text-neutral-500 dark:text-neutral-400 flex items-center gap-1.5 text-[11px] sm:text-xs font-mono font-medium">
                       <Calendar className="w-3.5 h-3.5 text-neutral-400 dark:text-neutral-500" />
                       {gal.eventDate}
                     </span>
 
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1">
                       <Link
                         to={`/gallery/${gal.slug || gal.id}`}
                         target="_blank"
                         onClick={(e) => e.stopPropagation()}
-                        className="p-1.5 rounded-lg text-neutral-500 dark:text-neutral-400 hover:text-black dark:hover:text-amber-400 hover:bg-neutral-100 dark:hover:bg-neutral-800/50 transition-colors"
+                        className="p-1.5 rounded-lg text-neutral-500 dark:text-neutral-400 hover:text-black dark:hover:text-amber-400 hover:bg-neutral-100 dark:hover:bg-neutral-800/60 transition-colors"
                         title="Client View Preview"
                       >
-                        <ExternalLink className="w-4 h-4" />
+                        <ExternalLink className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                       </Link>
 
                       <button
                         onClick={(e) => handleDelete(e, gal)}
-                        className="p-1.5 rounded-lg text-neutral-500 dark:text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-neutral-800/50 transition-colors"
+                        className="p-1.5 rounded-lg text-neutral-500 dark:text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-neutral-800/60 transition-colors cursor-pointer"
                         title="Delete Gallery"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                       </button>
                     </div>
                   </div>

@@ -18,7 +18,6 @@ import { SmoothScrollProvider, useLenisScroll } from '../../components/common/Sm
 import {
   Share2,
   Lock,
-  Layers,
   Sparkles,
   Loader2,
   CheckSquare,
@@ -33,19 +32,9 @@ const ClientGalleryContent: React.FC = () => {
 
   const gallery = getGalleryByIdOrSlug(galleryId || '');
 
-  // Template switching: either from query param or from gallery's set template
+  // Active template: preview query param (from dashboard) or gallery's set template
   const queryTemplate = searchParams.get('previewTemplate') as GalleryTemplateId | null;
-  const [activeTemplate, setActiveTemplate] = useState<GalleryTemplateId>(
-    queryTemplate || gallery?.templateId || 'editorial'
-  );
-
-  useEffect(() => {
-    if (queryTemplate) {
-      setActiveTemplate(queryTemplate);
-    } else if (gallery?.templateId) {
-      setActiveTemplate(gallery.templateId);
-    }
-  }, [queryTemplate, gallery?.templateId]);
+  const activeTemplate: GalleryTemplateId = queryTemplate || gallery?.templateId || 'editorial';
 
   // Lightbox state
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
@@ -205,11 +194,6 @@ const ClientGalleryContent: React.FC = () => {
     setIsMusicPickerOpen(true);
   };
 
-  const handleSwitchTemplate = (tpl: GalleryTemplateId) => {
-    setActiveTemplate(tpl);
-    setSearchParams({ previewTemplate: tpl });
-    showToast('Layout Switched', `Rendering through ${tpl.toUpperCase()} wedding design system.`, 'info');
-  };
 
   // Render password screen if locked
   if (isLocked) {
@@ -328,35 +312,6 @@ const ClientGalleryContent: React.FC = () => {
         />
       )}
 
-      {/* Floating 4-Design Switcher Widget (Bottom Left) */}
-      <nav
-        aria-label="Gallery Template Styles"
-        className="fixed bottom-6 left-4 sm:left-6 z-40 bg-neutral-950/95 backdrop-blur-md border border-neutral-800 rounded-2xl p-1.5 sm:p-2 shadow-2xl flex items-center gap-1 text-xs"
-      >
-        <span className="text-[10px] uppercase font-mono text-neutral-500 px-1.5 sm:px-2 flex items-center gap-1 hidden xs:flex">
-          <Layers className="w-3.5 h-3.5 text-amber-400" />
-          <span className="hidden sm:inline">Theme:</span>
-        </span>
-        {(
-          [
-            { id: 'editorial', label: 'Editorial' },
-            { id: 'masonry', label: 'Masonry' },
-            { id: 'cinematic', label: 'Cinematic' },
-            { id: 'minimal', label: 'Minimal' },
-          ] as const
-        ).map((tpl) => (
-          <button
-            key={tpl.id}
-            onClick={() => handleSwitchTemplate(tpl.id)}
-            className={`px-2.5 sm:px-3 py-1.5 rounded-xl capitalize font-medium text-xs transition-all ${activeTemplate === tpl.id
-                ? 'bg-amber-400 text-neutral-950 font-bold shadow-md'
-                : 'text-neutral-400 hover:text-white hover:bg-neutral-900'
-              }`}
-          >
-            {tpl.label}
-          </button>
-        ))}
-      </nav>
 
       {/* Multi-Select Floating Action Toolbar (Appears when photos are selected) */}
       <SelectionBar

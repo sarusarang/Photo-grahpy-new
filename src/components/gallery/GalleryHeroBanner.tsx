@@ -1,5 +1,6 @@
 import React from 'react';
-import { ArrowDown, Film } from 'lucide-react';
+import { ArrowDown } from 'lucide-react';
+import { isVideoMedia } from '../../data/demoData';
 
 export type GalleryHeroTemplate = 'editorial' | 'masonry' | 'cinematic' | 'minimal';
 
@@ -8,6 +9,7 @@ export interface GalleryHeroBannerProps {
   title: string;
   shootDate?: string;
   coverImage?: string;
+  videoUrl?: string;
   additionalImages?: string[];
   className?: string;
 }
@@ -33,9 +35,9 @@ export const formatHeroShootDate = (dateStr?: string): string => {
 /**
  * Reusable Gallery Hero Banner Component
  * 4 completely distinct, stunning, and unique layouts:
- * 1. Editorial: Haute-Couture Vogue Full-Bleed Cover (Preserved)
- * 2. Masonry: Multi-Photo Botanical Mosaic Cluster Spread
- * 3. Cinematic: 2.39:1 Anamorphic IMAX Cinema Screen with Ambient Flare
+ * 1. Editorial: Haute-Couture Vogue Full-Bleed Cover
+ * 2. Masonry: Multi-Photo Botanical Mosaic Cluster with High-Contrast Floating Atelier Badge
+ * 3. Cinematic: 2.39:1 Anamorphic IMAX Cinema Screen (Video-Only, Clean Letterbox)
  * 4. Minimal: 50/50 Scandinavian Museum Wall Exhibition Split
  */
 export const GalleryHeroBanner: React.FC<GalleryHeroBannerProps> = ({
@@ -43,6 +45,7 @@ export const GalleryHeroBanner: React.FC<GalleryHeroBannerProps> = ({
   title,
   shootDate,
   coverImage = 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1600&q=85',
+  videoUrl,
   additionalImages = [],
   className = '',
 }) => {
@@ -54,7 +57,7 @@ export const GalleryHeroBanner: React.FC<GalleryHeroBannerProps> = ({
   const img4 = additionalImages[2] || 'https://images.unsplash.com/photo-1519225421980-715cb0215aed?auto=format&fit=crop&w=800&q=80';
 
   // ─────────────────────────────────────────────────────────────
-  // 1. EDITORIAL TEMPLATE HERO (Haute-Couture Vogue Magazine Edition - UNTOUCHED)
+  // 1. EDITORIAL TEMPLATE HERO (Haute-Couture Vogue Magazine Edition)
   // ─────────────────────────────────────────────────────────────
   if (template === 'editorial') {
     return (
@@ -102,69 +105,92 @@ export const GalleryHeroBanner: React.FC<GalleryHeroBannerProps> = ({
   }
 
   // ─────────────────────────────────────────────────────────────
-  // 2. MASONRY TEMPLATE HERO (Botanical 4-Photo Curated Mosaic Spread - Screen Fitted)
+  // 2. MASONRY TEMPLATE HERO (Botanical 4-Photo Curated Mosaic with High-Contrast Floating Atelier Badge)
   // ─────────────────────────────────────────────────────────────
   if (template === 'masonry') {
     return (
       <header
-        className={`w-full h-[100dvh] max-h-[100dvh] bg-[#09110E] text-white py-3 sm:py-5 px-4 sm:px-8 border-b border-emerald-950/80 relative overflow-hidden select-none flex flex-col justify-center items-center ${className}`}
+        className={`w-full h-[100dvh] max-h-[100dvh] bg-[#09110E] text-white py-3 sm:py-6 px-3 sm:px-8 border-b border-emerald-950/80 relative overflow-hidden select-none flex flex-col justify-center items-center ${className}`}
       >
         {/* Soft Ambient Botanical Glow */}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[500px] bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="max-w-6xl xl:max-w-7xl w-full flex flex-col items-center justify-center relative z-10">
-          {/* Curated 4-Photo Organic Mosaic: Fills ~72% of viewport height with minimal top/bottom gap */}
-          <div className="w-full h-[72vh] max-h-[580px] grid grid-cols-12 gap-2 sm:gap-3">
-            {/* Slot 1: Left Main Vertical Focal Photo (5 cols) */}
-            <div className="col-span-5 h-full relative rounded-xl sm:rounded-2xl overflow-hidden shadow-2xl shadow-black/80 border border-emerald-500/30 group">
-              <img
-                src={coverImage}
-                alt={title}
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#09110E]/40 via-transparent to-transparent pointer-events-none" />
-            </div>
-
-            {/* Middle: Stack of 2 Detail Photos (Slots 2 & 3, 4 cols) */}
-            <div className="col-span-4 h-full flex flex-col gap-2 sm:gap-3">
-              <div className="flex-1 w-full relative rounded-xl sm:rounded-2xl overflow-hidden shadow-xl border border-emerald-900/50 group">
+        <div className="max-w-6xl xl:max-w-7xl w-full h-[84vh] max-h-[640px] flex flex-col items-center justify-center relative z-10">
+          {/* Curated 4-Photo Organic Mosaic Container */}
+          <div className="relative w-full h-full rounded-2xl sm:rounded-3xl overflow-hidden shadow-2xl shadow-black/90 border border-emerald-500/30">
+            <div className="w-full h-full grid grid-cols-12 gap-1.5 sm:gap-2.5 p-1.5 sm:p-2 bg-[#060c0a]">
+              {/* Slot 1: Left Main Vertical Focal Photo (5 cols) */}
+              <div className="col-span-5 h-full relative rounded-xl sm:rounded-2xl overflow-hidden shadow-md group">
                 <img
-                  src={img2}
-                  alt="Detail Still 1"
+                  src={coverImage}
+                  alt={title}
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).src =
+                      'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1200&q=80';
+                  }}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
                 />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent pointer-events-none" />
               </div>
-              <div className="flex-1 w-full relative rounded-xl sm:rounded-2xl overflow-hidden shadow-xl border border-emerald-900/50 group">
+
+              {/* Middle: Stack of 2 Detail Photos (Slots 2 & 3, 4 cols) */}
+              <div className="col-span-4 h-full flex flex-col gap-1.5 sm:gap-2.5">
+                <div className="flex-1 w-full relative rounded-xl sm:rounded-2xl overflow-hidden shadow-md group">
+                  <img
+                    src={img2}
+                    alt="Detail Still 1"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).src =
+                        'https://images.unsplash.com/photo-1583939003579-730e3918a45a?auto=format&fit=crop&w=800&q=80';
+                    }}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
+                </div>
+                <div className="flex-1 w-full relative rounded-xl sm:rounded-2xl overflow-hidden shadow-md group">
+                  <img
+                    src={img3}
+                    alt="Detail Still 2"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).src =
+                        'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?auto=format&fit=crop&w=800&q=80';
+                    }}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
+                </div>
+              </div>
+
+              {/* Slot 4: Right Vertical Accent Photo (3 cols) */}
+              <div className="col-span-3 h-full relative rounded-xl sm:rounded-2xl overflow-hidden shadow-md group">
                 <img
-                  src={img3}
-                  alt="Detail Still 2"
+                  src={img4}
+                  alt="Atmosphere Accent"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).src =
+                      'https://images.unsplash.com/photo-1519225421980-715cb0215aed?auto=format&fit=crop&w=800&q=80';
+                  }}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
                 />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent pointer-events-none" />
               </div>
             </div>
 
-            {/* Slot 4: Right Vertical Accent Photo (3 cols) */}
-            <div className="col-span-3 h-full relative rounded-xl sm:rounded-2xl overflow-hidden shadow-xl border border-emerald-900/50 group">
-              <img
-                src={img4}
-                alt="Atmosphere Accent"
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#09110E]/40 via-transparent to-transparent pointer-events-none" />
-            </div>
-          </div>
+            {/* Bottom Vignette Scrim across the entire mosaic base */}
+            <div className="absolute inset-x-0 bottom-0 h-44 bg-gradient-to-t from-black/90 via-black/50 to-transparent pointer-events-none z-10" />
 
-          {/* Organic Title & Date Header Underneath: Compact and neat */}
-          <div className="text-center space-y-1 pt-2 sm:pt-3">
-            <h1 className="text-3xl sm:text-5xl md:text-6xl font-serif italic text-white tracking-tight leading-tight drop-shadow-md">
-              {title}
-            </h1>
-            <div className="flex items-center justify-center gap-3 text-emerald-400/80">
-              <span className="h-px w-10 bg-emerald-800/60" />
-              <span className="text-[11px] sm:text-xs font-mono tracking-[0.25em] uppercase text-emerald-400 font-medium">
-                {formattedDate}
-              </span>
-              <span className="h-px w-10 bg-emerald-800/60" />
+            {/* Centered Floating Atelier Glassmorphism Title Capsule - 100% Readable on ANY Photo */}
+            <div className="absolute bottom-5 sm:bottom-8 left-1/2 -translate-x-1/2 z-20 w-[92%] sm:w-auto max-w-2xl px-6 sm:px-10 py-3.5 sm:py-4.5 rounded-2xl sm:rounded-3xl bg-[#09110E]/85 backdrop-blur-xl border border-white/20 dark:border-emerald-500/30 shadow-2xl shadow-black text-center space-y-1.5 pointer-events-auto">
+              <div className="flex items-center justify-center gap-2.5 text-emerald-400">
+                <span className="h-px w-6 sm:w-10 bg-emerald-500/60" />
+                <span className="text-[10px] sm:text-xs font-mono uppercase tracking-[0.3em] font-semibold text-emerald-400">
+                  {formattedDate}
+                </span>
+                <span className="h-px w-6 sm:w-10 bg-emerald-500/60" />
+              </div>
+              <h1 className="text-2xl sm:text-4xl md:text-5xl font-serif italic text-white tracking-tight leading-tight drop-shadow-lg">
+                {title}
+              </h1>
             </div>
           </div>
         </div>
@@ -173,39 +199,49 @@ export const GalleryHeroBanner: React.FC<GalleryHeroBannerProps> = ({
   }
 
   // ─────────────────────────────────────────────────────────────
-  // 3. CINEMATIC TEMPLATE HERO (2.39:1 Anamorphic IMAX Cinema Screen - Screen Fitted)
+  // 3. CINEMATIC TEMPLATE HERO (2.39:1 Anamorphic IMAX Cinema Screen - VIDEO ONLY)
   // ─────────────────────────────────────────────────────────────
   if (template === 'cinematic') {
+    const videoSrc =
+      videoUrl ||
+      (isVideoMedia(coverImage)
+        ? coverImage
+        : 'https://assets.mixkit.co/videos/preview/mixkit-fashion-model-in-neon-lights-42998-large.mp4');
+
+    const videoPoster =
+      coverImage && !isVideoMedia(coverImage)
+        ? coverImage
+        : 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1600&q=85';
+
     return (
       <header
         className={`w-full h-[100dvh] max-h-[100dvh] bg-[#050507] text-white py-4 sm:py-6 px-4 sm:px-8 border-b border-neutral-900 select-none flex flex-col justify-center items-center relative overflow-hidden ${className}`}
       >
         <div className="max-w-6xl xl:max-w-7xl w-full flex flex-col items-center justify-center relative z-10">
-          {/* Floating 2.39:1 Cinema Screen Container: Controlled height to fit screen */}
+          {/* Floating 2.39:1 Cinema Screen Container */}
           <div className="relative w-full h-[65vh] max-h-[500px]">
             {/* Ambient Golden Amber Flare behind the screen */}
             <div className="absolute -inset-3 sm:-inset-6 bg-amber-500/15 rounded-3xl blur-2xl pointer-events-none" />
 
-            {/* Anamorphic Cinema Screen Frame */}
+            {/* Anamorphic Cinema Screen Frame - Pure Video Playback with NO Top HUD Badges */}
             <div className="relative w-full h-full rounded-xl sm:rounded-2xl overflow-hidden shadow-2xl shadow-black bg-black border border-amber-500/35 ring-1 ring-amber-400/20 group">
-              <img
-                src={coverImage}
-                alt={title}
+              <video
+                src={videoSrc}
+                poster={videoPoster}
+                autoPlay
+                muted
+                loop
+                playsInline
+                preload="auto"
                 className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-1000 ease-out"
               />
 
               {/* Anamorphic Lens Flare Gradient */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-amber-500/10 pointer-events-none" />
-
-              {/* Top Film Timecode HUD */}
-              <div className="absolute top-3 left-4 z-10 flex items-center gap-2 text-[10px] sm:text-xs font-mono tracking-[0.25em] text-amber-400 bg-black/75 backdrop-blur-md px-3 py-1 rounded-md border border-amber-500/30 shadow-lg">
-                <Film className="w-3.5 h-3.5 text-amber-400" />
-                <span>2.39:1 ANAMORPHIC MASTER</span>
-              </div>
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-amber-500/10 pointer-events-none" />
             </div>
           </div>
 
-          {/* Grand Cinema Title & Date Underneath Screen: Compact and fit within viewport */}
+          {/* Grand Cinema Title & Date Underneath Screen */}
           <div className="text-center space-y-1.5 pt-3 sm:pt-4">
             <h1 className="text-3xl sm:text-5xl md:text-6xl font-serif tracking-widest text-white uppercase drop-shadow-2xl leading-tight font-normal">
               {title}

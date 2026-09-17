@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useGallery } from '../../context/GalleryContext';
 import { useToast } from '../../components/ui/Toast';
-import { GALLERY_TEMPLATES } from '../../data/demoData';
+import { GALLERY_TEMPLATES, isVideoMedia, DEFAULT_CINEMATIC_VIDEOS } from '../../data/demoData';
+import { formatHeroShootDate } from '../../components/gallery/GalleryHeroBanner';
 import type { GalleryTemplateId, MediaItem } from '../../types';
 import { UploadMediaModal } from '../../components/gallery/UploadMediaModal';
 import { ShareModal } from '../../components/gallery/ShareModal';
@@ -522,9 +523,22 @@ export const GalleryDetailPage: React.FC = () => {
                             {!isCover && (
                               <button
                                 onClick={() => {
+                                  if (gallery.templateId === 'cinematic' && item.type !== 'video') {
+                                    setCoverImage(gallery.id, item.url);
+                                    showToast(
+                                      'Cover Updated',
+                                      'Cinematic template uses video reels for its hero banner. Photo saved as general card cover.',
+                                      'info'
+                                    );
+                                    return;
+                                  }
                                   setCoverImage(gallery.id, item.url);
                                   setTemplateBannerImage(gallery.id, gallery.templateId, item.url);
-                                  showToast('Hero Banner Updated', 'Selected photo set as gallery hero banner.', 'success');
+                                  showToast(
+                                    'Hero Banner Updated',
+                                    `${item.type === 'video' ? 'Video reel' : 'Selected photo'} set as gallery hero banner.`,
+                                    'success'
+                                  );
                                 }}
                                 className="px-2 py-1 rounded-lg text-[10px] font-semibold text-neutral-600 dark:text-neutral-300 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-500/10 border border-neutral-200 dark:border-neutral-800 hover:border-amber-500/30 transition-all flex items-center gap-1 cursor-pointer"
                                 title="Set as Hero Banner for this gallery"
@@ -636,13 +650,14 @@ export const GalleryDetailPage: React.FC = () => {
               );
 
               const isMasonry = selectedBannerTemplate === 'masonry';
+              const galleryPhotos = gallery.media.filter((m) => m.type !== 'video');
               const masonryBanners = gallery.masonryBannerImages && gallery.masonryBannerImages.length >= 4
                 ? gallery.masonryBannerImages
                 : [
-                    gallery.templateBanners?.['masonry'] || gallery.coverImage || gallery.media[0]?.url || '',
-                    gallery.media[1]?.url || gallery.media[0]?.url || '',
-                    gallery.media[2]?.url || gallery.media[0]?.url || '',
-                    gallery.media[3]?.url || gallery.media[0]?.url || '',
+                    gallery.templateBanners?.['masonry'] || gallery.coverImage || galleryPhotos[0]?.url || '',
+                    galleryPhotos[1]?.url || galleryPhotos[0]?.url || '',
+                    galleryPhotos[2]?.url || galleryPhotos[0]?.url || '',
+                    galleryPhotos[3]?.url || galleryPhotos[0]?.url || '',
                   ];
 
               const currentSingleBanner =
@@ -657,146 +672,214 @@ export const GalleryDetailPage: React.FC = () => {
                 'Slot 4: Right Accent',
               ];
 
+              const isCinematic = selectedBannerTemplate === 'cinematic';
+              const isMinimal = selectedBannerTemplate === 'minimal';
+              const isEditorial = selectedBannerTemplate === 'editorial';
+
+              const videos = gallery.media.filter((m) => m.type === 'video');
+              const currentCinematicVideo =
+                (gallery.templateBanners?.['cinematic'] && isVideoMedia(gallery.templateBanners?.['cinematic']))
+                  ? gallery.templateBanners?.['cinematic']
+                  : (isVideoMedia(gallery.coverImage)
+                      ? gallery.coverImage
+                      : (videos[0]?.url || DEFAULT_CINEMATIC_VIDEOS[0].url));
+
+              const formattedDate = formatHeroShootDate(gallery.eventDate);
+
               return (
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-                  {/* Banner Preview Screen */}
+                  {/* Banner Preview Screen — Exact Faithful Miniature of Live Client Layout */}
                   <div className="lg:col-span-7 relative aspect-[16/9] sm:aspect-[21/9] rounded-2xl overflow-hidden bg-neutral-950 border border-neutral-200 dark:border-neutral-800 shadow-md p-2 flex flex-col justify-between group">
-                    {isMasonry ? (
-                      /* 4-Photo Masonry Live Interactive Mosaic Preview */
-                      <div className="w-full h-full grid grid-cols-12 gap-1.5 sm:gap-2">
-                        {/* Slot 1: Focal (5 cols) */}
-                        <div
-                          onClick={() => setActiveMasonrySlot(0)}
-                          className={`col-span-5 h-full relative rounded-xl overflow-hidden cursor-pointer transition-all ${
-                            activeMasonrySlot === 0
-                              ? 'ring-2 ring-amber-400 border border-amber-400 shadow-lg scale-[1.01]'
-                              : 'opacity-90 hover:opacity-100'
-                          }`}
-                        >
-                          <img
-                            src={masonryBanners[0]}
-                            alt="Slot 1 Focal"
-                            className="w-full h-full object-cover"
+                    {isCinematic ? (
+                      /* Exact Cinematic Preview: 2.39:1 Screen with looping Video Reel and Grand Cinema Title */
+                      <div className="w-full h-full bg-[#050507] rounded-xl p-3 sm:p-4 flex flex-col justify-center items-center relative overflow-hidden">
+                        {/* Ambient Golden Amber Flare behind the screen */}
+                        <div className="absolute inset-0 bg-amber-500/15 rounded-xl blur-xl pointer-events-none" />
+
+                        {/* 2.39:1 Anamorphic Cinema Screen Frame (NO Top-Right HUD Badge) */}
+                        <div className="relative w-full aspect-[2.39/1] max-h-[220px] rounded-lg overflow-hidden shadow-2xl shadow-black bg-black border border-amber-500/35 ring-1 ring-amber-400/20 group">
+                          <video
+                            src={currentCinematicVideo}
+                            autoPlay
+                            muted
+                            loop
+                            playsInline
+                            className="w-full h-full object-cover object-center"
                           />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/20" />
-                          <div className="absolute top-1.5 left-1.5">
-                            <span className={`px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase tracking-wider ${
-                              activeMasonrySlot === 0
-                                ? 'bg-amber-400 text-neutral-950'
-                                : 'bg-black/70 text-white'
-                            }`}>
-                              Slot 1 (Main)
-                            </span>
-                          </div>
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-amber-500/10 pointer-events-none" />
                         </div>
 
-                        {/* Slots 2 & 3: Stacked (4 cols) */}
-                        <div className="col-span-4 h-full flex flex-col gap-1.5 sm:gap-2">
-                          <div
-                            onClick={() => setActiveMasonrySlot(1)}
-                            className={`flex-1 w-full relative rounded-xl overflow-hidden cursor-pointer transition-all ${
-                              activeMasonrySlot === 1
-                                ? 'ring-2 ring-amber-400 border border-amber-400 shadow-lg scale-[1.01]'
-                                : 'opacity-90 hover:opacity-100'
-                            }`}
-                          >
-                            <img
-                              src={masonryBanners[1]}
-                              alt="Slot 2 Detail"
-                              className="w-full h-full object-cover"
-                            />
-                            <div className="absolute top-1.5 left-1.5">
-                              <span className={`px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase tracking-wider ${
-                                activeMasonrySlot === 1
-                                  ? 'bg-amber-400 text-neutral-950'
-                                  : 'bg-black/70 text-white'
-                              }`}>
-                                Slot 2
-                              </span>
-                            </div>
-                          </div>
-
-                          <div
-                            onClick={() => setActiveMasonrySlot(2)}
-                            className={`flex-1 w-full relative rounded-xl overflow-hidden cursor-pointer transition-all ${
-                              activeMasonrySlot === 2
-                                ? 'ring-2 ring-amber-400 border border-amber-400 shadow-lg scale-[1.01]'
-                                : 'opacity-90 hover:opacity-100'
-                            }`}
-                          >
-                            <img
-                              src={masonryBanners[2]}
-                              alt="Slot 3 Detail"
-                              className="w-full h-full object-cover"
-                            />
-                            <div className="absolute top-1.5 left-1.5">
-                              <span className={`px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase tracking-wider ${
-                                activeMasonrySlot === 2
-                                  ? 'bg-amber-400 text-neutral-950'
-                                  : 'bg-black/70 text-white'
-                              }`}>
-                                Slot 3
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Slot 4: Accent (3 cols) */}
-                        <div
-                          onClick={() => setActiveMasonrySlot(3)}
-                          className={`col-span-3 h-full relative rounded-xl overflow-hidden cursor-pointer transition-all ${
-                            activeMasonrySlot === 3
-                              ? 'ring-2 ring-amber-400 border border-amber-400 shadow-lg scale-[1.01]'
-                              : 'opacity-90 hover:opacity-100'
-                          }`}
-                        >
-                          <img
-                            src={masonryBanners[3]}
-                            alt="Slot 4 Accent"
-                            className="w-full h-full object-cover"
-                          />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/20" />
-                          <div className="absolute top-1.5 left-1.5">
-                            <span className={`px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase tracking-wider ${
-                              activeMasonrySlot === 3
-                                ? 'bg-amber-400 text-neutral-950'
-                                : 'bg-black/70 text-white'
-                            }`}>
-                              Slot 4
+                        {/* Grand Cinema Title & Date Underneath */}
+                        <div className="text-center space-y-0.5 pt-2">
+                          <h5 className="text-xs sm:text-sm md:text-base font-serif tracking-widest text-white uppercase drop-shadow-md truncate max-w-md">
+                            {gallery.title}
+                          </h5>
+                          <div className="flex items-center justify-center gap-2 text-amber-400/80">
+                            <span className="h-px w-6 bg-amber-800/60" />
+                            <span className="text-[8px] font-mono tracking-[0.25em] uppercase text-amber-400 font-semibold">
+                              // {formattedDate} //
                             </span>
+                            <span className="h-px w-6 bg-amber-800/60" />
                           </div>
                         </div>
                       </div>
-                    ) : (
-                      /* Single Banner Preview for Editorial, Cinematic, Minimal */
-                      <div className="relative w-full h-full rounded-xl overflow-hidden">
+                    ) : isMasonry ? (
+                      /* Exact Masonry Preview: 4-Photo Curated Mosaic with Floating Glass Atelier Capsule */
+                      <div className="w-full h-full relative rounded-xl overflow-hidden bg-[#060c0a] p-1.5">
+                        <div className="w-full h-full grid grid-cols-12 gap-1.5">
+                          {/* Slot 1: Focal (5 cols) */}
+                          <div
+                            onClick={() => setActiveMasonrySlot(0)}
+                            className={`col-span-5 h-full relative rounded-lg overflow-hidden cursor-pointer transition-all ${
+                              activeMasonrySlot === 0
+                                ? 'ring-2 ring-amber-400 border border-amber-400 shadow-lg scale-[1.01]'
+                                : 'opacity-90 hover:opacity-100'
+                            }`}
+                          >
+                            <img
+                              src={masonryBanners[0]}
+                              alt="Slot 1 Focal"
+                              className="w-full h-full object-cover"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent pointer-events-none" />
+                            <div className="absolute top-1 left-1">
+                              <span
+                                className={`px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase tracking-wider ${
+                                  activeMasonrySlot === 0
+                                    ? 'bg-amber-400 text-neutral-950'
+                                    : 'bg-black/70 text-white'
+                                }`}
+                              >
+                                Slot 1 (Main)
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Slots 2 & 3: Stacked (4 cols) */}
+                          <div className="col-span-4 h-full flex flex-col gap-1.5">
+                            <div
+                              onClick={() => setActiveMasonrySlot(1)}
+                              className={`flex-1 w-full relative rounded-lg overflow-hidden cursor-pointer transition-all ${
+                                activeMasonrySlot === 1
+                                  ? 'ring-2 ring-amber-400 border border-amber-400 shadow-lg scale-[1.01]'
+                                  : 'opacity-90 hover:opacity-100'
+                              }`}
+                            >
+                              <img
+                                src={masonryBanners[1]}
+                                alt="Slot 2 Detail"
+                                className="w-full h-full object-cover"
+                              />
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
+                              <div className="absolute top-1 left-1">
+                                <span
+                                  className={`px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase tracking-wider ${
+                                    activeMasonrySlot === 1
+                                      ? 'bg-amber-400 text-neutral-950'
+                                      : 'bg-black/70 text-white'
+                                  }`}
+                                >
+                                  Slot 2
+                                </span>
+                              </div>
+                            </div>
+
+                            <div
+                              onClick={() => setActiveMasonrySlot(2)}
+                              className={`flex-1 w-full relative rounded-lg overflow-hidden cursor-pointer transition-all ${
+                                activeMasonrySlot === 2
+                                  ? 'ring-2 ring-amber-400 border border-amber-400 shadow-lg scale-[1.01]'
+                                  : 'opacity-90 hover:opacity-100'
+                              }`}
+                            >
+                              <img
+                                src={masonryBanners[2]}
+                                alt="Slot 3 Detail"
+                                className="w-full h-full object-cover"
+                              />
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
+                              <div className="absolute top-1 left-1">
+                                <span
+                                  className={`px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase tracking-wider ${
+                                    activeMasonrySlot === 2
+                                      ? 'bg-amber-400 text-neutral-950'
+                                      : 'bg-black/70 text-white'
+                                  }`}
+                                >
+                                  Slot 3
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Slot 4: Accent (3 cols) */}
+                          <div
+                            onClick={() => setActiveMasonrySlot(3)}
+                            className={`col-span-3 h-full relative rounded-lg overflow-hidden cursor-pointer transition-all ${
+                              activeMasonrySlot === 3
+                                ? 'ring-2 ring-amber-400 border border-amber-400 shadow-lg scale-[1.01]'
+                                : 'opacity-90 hover:opacity-100'
+                            }`}
+                          >
+                            <img
+                              src={masonryBanners[3]}
+                              alt="Slot 4 Accent"
+                              className="w-full h-full object-cover"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent pointer-events-none" />
+                            <div className="absolute top-1 left-1">
+                              <span
+                                className={`px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase tracking-wider ${
+                                  activeMasonrySlot === 3
+                                    ? 'bg-amber-400 text-neutral-950'
+                                    : 'bg-black/70 text-white'
+                                }`}
+                              >
+                                Slot 4
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Floating Frosted Glass Title Capsule Preview */}
+                        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-20 px-3 py-1 rounded-xl bg-[#09110E]/85 backdrop-blur-md border border-emerald-500/30 text-center shadow-lg pointer-events-none">
+                          <p className="text-[7px] font-mono uppercase text-emerald-400 font-semibold">// {formattedDate} //</p>
+                          <p className="text-[10px] font-serif italic text-white truncate max-w-[190px]">{gallery.title}</p>
+                        </div>
+                      </div>
+                    ) : isEditorial ? (
+                      /* Exact Editorial Preview: Vogue spread with delicate fonts and kenburns ambiance */
+                      <div className="relative w-full h-full rounded-xl overflow-hidden flex items-center justify-center text-center p-4">
                         <img
                           src={currentSingleBanner}
-                          alt="Active Hero Banner"
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+                          alt="Editorial Banner"
+                          className="absolute inset-0 w-full h-full object-cover"
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/40" />
-
-                        <div className="absolute inset-0 p-5 flex flex-col justify-between text-white">
-                          <div className="flex items-center justify-between">
-                            <span className="px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md text-[10px] font-mono font-bold tracking-widest text-amber-400 border border-amber-400/20 uppercase">
-                              {activeTemplateInfo?.badge || selectedBannerTemplate} Banner
-                            </span>
-                            {gallery.templateId === selectedBannerTemplate && (
-                              <span className="px-2.5 py-1 rounded-full bg-emerald-500/20 backdrop-blur-md text-[10px] font-mono font-bold tracking-wider text-emerald-400 border border-emerald-500/30">
-                                ● Active on Live Gallery
-                              </span>
-                            )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/60 pointer-events-none" />
+                        <div className="relative z-10 space-y-0.5 text-white">
+                          <span className="text-[8px] font-mono tracking-[0.25em] uppercase text-amber-200/90 block">
+                            SHOOT DATE • {formattedDate}
+                          </span>
+                          <h5 className="text-lg sm:text-xl font-serif font-light tracking-tight text-white leading-tight drop-shadow-md truncate max-w-md">
+                            {gallery.title}
+                          </h5>
+                          <span className="font-script text-base text-amber-200/90 block">Atelier Series</span>
+                        </div>
+                      </div>
+                    ) : (
+                      /* Exact Minimal Preview: Scandinavian 50/50 Museum Print Wall */
+                      <div className="w-full h-full rounded-xl overflow-hidden bg-[#F8F8F6] text-neutral-900 p-4 grid grid-cols-12 gap-4 items-center">
+                        <div className="col-span-7 h-full flex items-center justify-center">
+                          <div className="p-1.5 bg-white shadow-lg border border-neutral-200 w-full h-full max-h-[190px] relative overflow-hidden">
+                            <img src={currentSingleBanner} alt="Minimal Monograph" className="w-full h-full object-cover" />
                           </div>
-
-                          <div className="space-y-1">
-                            <span className="text-[10px] font-mono tracking-widest uppercase text-neutral-300">
-                              {gallery.clientName} • {gallery.eventDate}
-                            </span>
-                            <h5 className="text-xl sm:text-2xl font-serif font-bold text-white tracking-tight drop-shadow-md">
-                              {gallery.title}
-                            </h5>
-                          </div>
+                        </div>
+                        <div className="col-span-5 text-left space-y-1">
+                          <span className="text-[8px] font-mono tracking-[0.2em] uppercase text-neutral-400 block">EXHIBITION MONOGRAPH</span>
+                          <h5 className="text-xs sm:text-sm font-serif font-light text-neutral-900 line-clamp-2 leading-tight">
+                            {gallery.title}
+                          </h5>
+                          <span className="text-[8px] font-mono tracking-[0.2em] uppercase text-neutral-500 block">— {formattedDate} —</span>
                         </div>
                       </div>
                     )}
@@ -907,162 +990,299 @@ export const GalleryDetailPage: React.FC = () => {
               );
             })()}
 
-            {/* Photo Selection Grid — Pick any image from the gallery to set as banner */}
+            {/* Media Selection Grid — Pick image or video according to template */}
             <div className="pt-5 border-t border-neutral-200 dark:border-neutral-800 space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <h5 className="text-xs font-bold uppercase tracking-wider text-neutral-900 dark:text-neutral-100 flex items-center gap-1.5">
-                    <ImageIcon className="w-3.5 h-3.5 text-amber-500" />
-                    <span>
-                      {selectedBannerTemplate === 'masonry'
-                        ? `Choose Photo for Masonry Slot ${activeMasonrySlot + 1} (${
-                            ['Main Focal', 'Top Detail', 'Bottom Detail', 'Right Accent'][activeMasonrySlot]
-                          })`
-                        : 'Choose Banner Photo from Gallery'}
-                    </span>
-                    <span className="text-neutral-400 font-normal">
-                      ({gallery.media.length} photos)
-                    </span>
-                  </h5>
-                  <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
-                    {selectedBannerTemplate === 'masonry'
-                      ? `Click any photo below to assign it to Slot ${activeMasonrySlot + 1} of the 4-photo Masonry hero mosaic.`
-                      : `Click any photo below to instantly set it as the hero banner for ${selectedBannerTemplate}.`}
-                  </p>
-                </div>
+              {(() => {
+                const isCinematic = selectedBannerTemplate === 'cinematic';
+                const isMasonry = selectedBannerTemplate === 'masonry';
+                const galleryVideos = gallery.media.filter((m) => m.type === 'video');
+                const galleryPhotos = gallery.media.filter((m) => m.type !== 'video');
 
-                {/* Section filter pills if gallery has sections */}
-                {(() => {
-                  const distinctSections = Array.from(
-                    new Set(gallery.media.map((m) => m.sectionTitle).filter(Boolean) as string[])
-                  );
-                  if (distinctSections.length === 0) return null;
+                return (
+                  <>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div>
+                        <h5 className="text-xs font-bold uppercase tracking-wider text-neutral-900 dark:text-neutral-100 flex items-center gap-1.5">
+                          {isCinematic ? (
+                            <>
+                              <Film className="w-3.5 h-3.5 text-amber-500" />
+                              <span>Choose Banner Video from Gallery</span>
+                              <span className="text-neutral-400 font-normal">
+                                ({galleryVideos.length} {galleryVideos.length === 1 ? 'video' : 'videos'})
+                              </span>
+                            </>
+                          ) : isMasonry ? (
+                            <>
+                              <ImageIcon className="w-3.5 h-3.5 text-amber-500" />
+                              <span>
+                                Choose Photo for Masonry Slot {activeMasonrySlot + 1} ({
+                                  ['Main Focal', 'Top Detail', 'Bottom Detail', 'Right Accent'][activeMasonrySlot]
+                                })
+                              </span>
+                              <span className="text-neutral-400 font-normal">
+                                ({galleryPhotos.length} photos)
+                              </span>
+                            </>
+                          ) : (
+                            <>
+                              <ImageIcon className="w-3.5 h-3.5 text-amber-500" />
+                              <span>Choose Banner Photo from Gallery</span>
+                              <span className="text-neutral-400 font-normal">
+                                ({galleryPhotos.length} photos)
+                              </span>
+                            </>
+                          )}
+                        </h5>
+                        <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                          {isCinematic
+                            ? 'Cinematic layout exclusively supports video reels for its hero screen. Only video media items can be set as the banner.'
+                            : isMasonry
+                            ? `Click any photo below to assign it to Slot ${activeMasonrySlot + 1} of the 4-photo Masonry hero mosaic.`
+                            : `Click any photo below to instantly set it as the hero banner for ${selectedBannerTemplate}.`}
+                        </p>
+                      </div>
 
-                  return (
-                    <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-1">
-                      <button
-                        onClick={() => setBannerSectionFilter('all')}
-                        className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors cursor-pointer ${
-                          bannerSectionFilter === 'all'
-                            ? 'bg-amber-400 text-neutral-950 font-bold'
-                            : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
-                        }`}
-                      >
-                        All
-                      </button>
-                      {distinctSections.map((sec) => (
-                        <button
-                          key={sec}
-                          onClick={() => setBannerSectionFilter(sec)}
-                          className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors whitespace-nowrap cursor-pointer ${
-                            bannerSectionFilter === sec
-                              ? 'bg-amber-400 text-neutral-950 font-bold'
-                              : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
-                          }`}
-                        >
-                          {sec}
-                        </button>
-                      ))}
+                      {/* Section filter pills if not in video mode or if videos have sections */}
+                      {!isCinematic && (() => {
+                        const distinctSections = Array.from(
+                          new Set(galleryPhotos.map((m) => m.sectionTitle).filter(Boolean) as string[])
+                        );
+                        if (distinctSections.length === 0) return null;
+
+                        return (
+                          <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-1">
+                            <button
+                              onClick={() => setBannerSectionFilter('all')}
+                              className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors cursor-pointer ${
+                                bannerSectionFilter === 'all'
+                                  ? 'bg-amber-400 text-neutral-950 font-bold'
+                                  : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
+                              }`}
+                            >
+                              All
+                            </button>
+                            {distinctSections.map((sec) => (
+                              <button
+                                key={sec}
+                                onClick={() => setBannerSectionFilter(sec)}
+                                className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors whitespace-nowrap cursor-pointer ${
+                                  bannerSectionFilter === sec
+                                    ? 'bg-amber-400 text-neutral-950 font-bold'
+                                    : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
+                                }`}
+                              >
+                                {sec}
+                              </button>
+                            ))}
+                          </div>
+                        );
+                      })()}
                     </div>
-                  );
-                })()}
-              </div>
 
-              {/* Thumbnail Gallery Grid */}
-              <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3 max-h-96 overflow-y-auto pr-1 no-scrollbar">
-                {gallery.media
-                  .filter((m) =>
-                    bannerSectionFilter === 'all'
-                      ? true
-                      : (m.sectionTitle || '').toLowerCase() === bannerSectionFilter.toLowerCase()
-                  )
-                  .map((item) => {
-                    const isMasonry = selectedBannerTemplate === 'masonry';
-                    const masonryBanners = gallery.masonryBannerImages && gallery.masonryBannerImages.length >= 4
-                      ? gallery.masonryBannerImages
-                      : [
-                          gallery.templateBanners?.['masonry'] || gallery.coverImage || gallery.media[0]?.url || '',
-                          gallery.media[1]?.url || gallery.media[0]?.url || '',
-                          gallery.media[2]?.url || gallery.media[0]?.url || '',
-                          gallery.media[3]?.url || gallery.media[0]?.url || '',
-                        ];
+                    {/* CINEMATIC VIDEO-ONLY PICKER */}
+                    {isCinematic ? (
+                      <div className="space-y-4">
+                        {galleryVideos.length > 0 ? (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                            {galleryVideos.map((video) => {
+                              const isSelected =
+                                (gallery.templateBanners?.['cinematic'] || gallery.coverImage) === video.url;
 
-                    const isSelectedBanner = isMasonry
-                      ? masonryBanners[activeMasonrySlot] === item.url
-                      : (gallery.templateBanners?.[selectedBannerTemplate] ||
-                          gallery.coverImage ||
-                          gallery.media[0]?.url) === item.url;
+                              return (
+                                <button
+                                  key={video.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setTemplateBannerImage(gallery.id, 'cinematic', video.url);
+                                    setCoverImage(gallery.id, video.url);
+                                    showToast(
+                                      'Cinematic Video Banner Set',
+                                      `"${video.title}" set as active hero video reel.`,
+                                      'success'
+                                    );
+                                  }}
+                                  className={`group relative rounded-2xl overflow-hidden border-2 text-left transition-all p-2 bg-neutral-50 dark:bg-neutral-900 cursor-pointer ${
+                                    isSelected
+                                      ? 'border-amber-400 ring-2 ring-amber-400/50 shadow-lg shadow-amber-500/20'
+                                      : 'border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700'
+                                  }`}
+                                >
+                                  <div className="relative aspect-[16/9] rounded-xl overflow-hidden bg-black mb-2">
+                                    <img
+                                      src={video.thumbnailUrl || video.url}
+                                      alt={video.title}
+                                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                    />
+                                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center group-hover:bg-black/20 transition-colors">
+                                      <span className="w-9 h-9 rounded-full bg-amber-400 text-neutral-950 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                                        <Film className="w-4 h-4 ml-0.5" />
+                                      </span>
+                                    </div>
+                                    <div className="absolute top-2 left-2">
+                                      <span className="px-2 py-0.5 rounded-md bg-black/80 backdrop-blur-md text-[9px] font-mono font-semibold text-amber-400 border border-amber-400/30">
+                                        VIDEO REEL
+                                      </span>
+                                    </div>
+                                    {video.duration && (
+                                      <div className="absolute bottom-2 right-2">
+                                        <span className="px-1.5 py-0.5 rounded bg-black/80 text-[9px] font-mono text-white">
+                                          {video.duration}
+                                        </span>
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center justify-between px-1">
+                                    <p className="text-xs font-semibold text-neutral-900 dark:text-white truncate">
+                                      {video.title}
+                                    </p>
+                                    {isSelected && (
+                                      <span className="px-2 py-0.5 rounded-full bg-amber-400 text-neutral-950 text-[9px] font-bold shrink-0">
+                                        Active
+                                      </span>
+                                    )}
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <div className="p-6 rounded-2xl bg-neutral-50 dark:bg-neutral-900/50 border border-neutral-200 dark:border-neutral-800 text-center space-y-4">
+                            <div className="w-12 h-12 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-500 flex items-center justify-center mx-auto">
+                              <Film className="w-6 h-6" />
+                            </div>
+                            <div className="space-y-1">
+                              <h6 className="text-sm font-semibold text-neutral-900 dark:text-white">
+                                No Video Reels in this Gallery Yet
+                              </h6>
+                              <p className="text-xs text-neutral-500 dark:text-neutral-400 max-w-md mx-auto">
+                                The Cinematic template requires an MP4 motion video reel for its widescreen display. You can select one of our studio presets below or upload a video:
+                              </p>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-xl mx-auto pt-1">
+                              {DEFAULT_CINEMATIC_VIDEOS.map((vid) => (
+                                <button
+                                  key={vid.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setTemplateBannerImage(gallery.id, 'cinematic', vid.url);
+                                    setCoverImage(gallery.id, vid.url);
+                                    showToast('Cinematic Reel Set', `Set "${vid.title}" as cinematic video banner.`, 'success');
+                                  }}
+                                  className="p-3 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 hover:border-amber-400 transition-all text-left flex items-center gap-3 cursor-pointer group"
+                                >
+                                  <img src={vid.thumbnailUrl} alt={vid.title} className="w-14 h-10 object-cover rounded-lg shrink-0" />
+                                  <div className="overflow-hidden">
+                                    <p className="text-xs font-semibold text-neutral-900 dark:text-white truncate group-hover:text-amber-500">
+                                      {vid.title}
+                                    </p>
+                                    <p className="text-[10px] font-mono text-neutral-400">{vid.duration} • Studio Preset</p>
+                                  </div>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      /* PHOTO SELECTION GRID FOR EDITORIAL, MASONRY, MINIMAL */
+                      <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3 max-h-96 overflow-y-auto pr-1 no-scrollbar">
+                        {galleryPhotos
+                          .filter((m) =>
+                            bannerSectionFilter === 'all'
+                              ? true
+                              : (m.sectionTitle || '').toLowerCase() === bannerSectionFilter.toLowerCase()
+                          )
+                          .map((item) => {
+                            const masonryBanners =
+                              gallery.masonryBannerImages && gallery.masonryBannerImages.length >= 4
+                                ? gallery.masonryBannerImages
+                                : [
+                                    gallery.templateBanners?.['masonry'] || gallery.coverImage || gallery.media[0]?.url || '',
+                                    gallery.media[1]?.url || gallery.media[0]?.url || '',
+                                    gallery.media[2]?.url || gallery.media[0]?.url || '',
+                                    gallery.media[3]?.url || gallery.media[0]?.url || '',
+                                  ];
 
-                    const masonrySlotIndex = isMasonry ? masonryBanners.indexOf(item.url) : -1;
+                            const isSelectedBanner = isMasonry
+                              ? masonryBanners[activeMasonrySlot] === item.url
+                              : (gallery.templateBanners?.[selectedBannerTemplate] ||
+                                  gallery.coverImage ||
+                                  gallery.media[0]?.url) === item.url;
 
-                    return (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => {
-                          if (isMasonry) {
-                            setMasonryBannerImage(gallery.id, activeMasonrySlot, item.url);
-                            showToast(
-                              `Slot ${activeMasonrySlot + 1} Updated`,
-                              `Set photo for Masonry Slot ${activeMasonrySlot + 1}.`,
-                              'success'
+                            const masonrySlotIndex = isMasonry ? masonryBanners.indexOf(item.url) : -1;
+
+                            return (
+                              <button
+                                key={item.id}
+                                type="button"
+                                onClick={() => {
+                                  if (isMasonry) {
+                                    setMasonryBannerImage(gallery.id, activeMasonrySlot, item.url);
+                                    showToast(
+                                      `Slot ${activeMasonrySlot + 1} Updated`,
+                                      `Set photo for Masonry Slot ${activeMasonrySlot + 1}.`,
+                                      'success'
+                                    );
+                                  } else {
+                                    setTemplateBannerImage(gallery.id, selectedBannerTemplate, item.url);
+                                    showToast(
+                                      'Banner Image Updated',
+                                      `Set new hero banner for ${selectedBannerTemplate.toUpperCase()}.`,
+                                      'success'
+                                    );
+                                  }
+                                }}
+                                className={`group relative aspect-[4/5] rounded-xl overflow-hidden border-2 transition-all cursor-pointer text-left ${
+                                  isSelectedBanner
+                                    ? 'border-amber-400 ring-2 ring-amber-400/50 shadow-lg shadow-amber-500/20 scale-[1.03]'
+                                    : 'border-transparent hover:border-neutral-300 dark:hover:border-neutral-600 hover:scale-[1.02]'
+                                }`}
+                                title={`Select "${item.title}"`}
+                              >
+                                <img
+                                  src={item.thumbnailUrl || item.url}
+                                  alt={item.title}
+                                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                                  loading="lazy"
+                                />
+
+                                {/* Selected Indicator Badge */}
+                                {isSelectedBanner && (
+                                  <div className="absolute inset-0 bg-amber-500/20 backdrop-blur-[1px] flex flex-col justify-between p-1.5 pointer-events-none">
+                                    <span className="self-end p-1 rounded-full bg-amber-400 text-neutral-950 shadow-md">
+                                      <Check className="w-3 h-3 stroke-[3]" />
+                                    </span>
+                                    <span className="px-1.5 py-0.5 rounded bg-black/80 text-amber-300 text-[8px] font-mono font-bold uppercase truncate">
+                                      {isMasonry ? `Slot ${activeMasonrySlot + 1}` : 'Banner'}
+                                    </span>
+                                  </div>
+                                )}
+
+                                {/* If in another masonry slot */}
+                                {isMasonry && !isSelectedBanner && masonrySlotIndex >= 0 && (
+                                  <div className="absolute top-1 left-1">
+                                    <span className="px-1.5 py-0.5 rounded bg-black/70 text-neutral-300 text-[8px] font-mono border border-white/20">
+                                      Slot {masonrySlotIndex + 1}
+                                    </span>
+                                  </div>
+                                )}
+
+                                {/* Hover Overlay */}
+                                {!isSelectedBanner && (
+                                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center p-1 text-center">
+                                    <span className="px-2 py-1 rounded-lg bg-amber-400 text-neutral-950 text-[10px] font-bold shadow-md">
+                                      {isMasonry ? `Set Slot ${activeMasonrySlot + 1}` : 'Set Banner'}
+                                    </span>
+                                  </div>
+                                )}
+                              </button>
                             );
-                          } else {
-                            setTemplateBannerImage(gallery.id, selectedBannerTemplate, item.url);
-                            showToast(
-                              'Banner Image Updated',
-                              `Set new hero banner for ${selectedBannerTemplate.toUpperCase()}.`,
-                              'success'
-                            );
-                          }
-                        }}
-                        className={`group relative aspect-[4/5] rounded-xl overflow-hidden border-2 transition-all cursor-pointer text-left ${
-                          isSelectedBanner
-                            ? 'border-amber-400 ring-2 ring-amber-400/50 shadow-lg shadow-amber-500/20 scale-[1.03]'
-                            : 'border-transparent hover:border-neutral-300 dark:hover:border-neutral-600 hover:scale-[1.02]'
-                        }`}
-                        title={`Select "${item.title}"`}
-                      >
-                        <img
-                          src={item.thumbnailUrl || item.url}
-                          alt={item.title}
-                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                          loading="lazy"
-                        />
-
-                        {/* Selected Indicator Badge */}
-                        {isSelectedBanner && (
-                          <div className="absolute inset-0 bg-amber-500/20 backdrop-blur-[1px] flex flex-col justify-between p-1.5 pointer-events-none">
-                            <span className="self-end p-1 rounded-full bg-amber-400 text-neutral-950 shadow-md">
-                              <Check className="w-3 h-3 stroke-[3]" />
-                            </span>
-                            <span className="px-1.5 py-0.5 rounded bg-black/80 text-amber-300 text-[8px] font-mono font-bold uppercase truncate">
-                              {isMasonry ? `Slot ${activeMasonrySlot + 1}` : 'Banner'}
-                            </span>
-                          </div>
-                        )}
-
-                        {/* If in another masonry slot */}
-                        {isMasonry && !isSelectedBanner && masonrySlotIndex >= 0 && (
-                          <div className="absolute top-1 left-1">
-                            <span className="px-1.5 py-0.5 rounded bg-black/70 text-neutral-300 text-[8px] font-mono border border-white/20">
-                              Slot {masonrySlotIndex + 1}
-                            </span>
-                          </div>
-                        )}
-
-                        {/* Hover Overlay */}
-                        {!isSelectedBanner && (
-                          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center p-1 text-center">
-                            <span className="px-2 py-1 rounded-lg bg-amber-400 text-neutral-950 text-[10px] font-bold shadow-md">
-                              {isMasonry ? `Set Slot ${activeMasonrySlot + 1}` : 'Set Banner'}
-                            </span>
-                          </div>
-                        )}
-                      </button>
-                    );
-                  })}
-              </div>
+                          })}
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
             </div>
           </div>
 
