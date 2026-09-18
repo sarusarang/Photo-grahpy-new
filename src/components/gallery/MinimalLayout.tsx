@@ -8,6 +8,7 @@ import {
 import { GalleryHeroBanner } from './GalleryHeroBanner';
 import { ClientSectionFilterBar, type FilterSelection } from './ClientSectionFilterBar';
 import { AIFaceSearchBox } from './AIFaceSearchBox';
+import { ClientGalleryFooter } from './ClientGalleryFooter';
 
 interface MinimalLayoutProps {
   gallery: Gallery;
@@ -16,6 +17,7 @@ interface MinimalLayoutProps {
   selectedMediaIds?: Set<string>;
   onToggleSelectMedia?: (mediaId: string) => void;
   onStartSlideshow?: (startIndex?: number) => void;
+  studioName?: string;
 }
 
 export const MinimalLayout: React.FC<MinimalLayoutProps> = ({
@@ -25,6 +27,7 @@ export const MinimalLayout: React.FC<MinimalLayoutProps> = ({
   selectedMediaIds = new Set(),
   onToggleSelectMedia,
   onStartSlideshow,
+  studioName,
 }) => {
   // Derive gallery sections
   const gallerySections = (gallery.sections && gallery.sections.length > 0)
@@ -105,8 +108,12 @@ export const MinimalLayout: React.FC<MinimalLayoutProps> = ({
         </section>
       )}
 
-      {/* ─── LARGE-FORMAT SCANDINAVIAN ART EXHIBITION (MINIMAL GAP, 2-COLUMN ASYMMETRICAL SPREADS) ─── */}
-      <main className="max-w-[1700px] mx-auto px-2 sm:px-4 pt-1 sm:pt-2 pb-16">
+      {/* ─── SCANDINAVIAN 2-COLUMN ARCHITECTURAL EXHIBITION GRID ─── */}
+      <main
+        className={`max-w-[1500px] mx-auto px-4 sm:px-8 ${
+          activeFilter.type === 'ai-face' && aiMatchedIds === null ? 'hidden' : 'pt-1 sm:pt-2 pb-6'
+        }`}
+      >
         {filteredMedia.length === 0 ? (
           activeFilter.type === 'ai-face' && aiMatchedIds === null ? null : (
             <div className="py-24 text-center space-y-3 bg-white p-8 sm:p-12 border border-neutral-200 rounded-none max-w-md mx-auto shadow-xs">
@@ -230,14 +237,12 @@ export const MinimalLayout: React.FC<MinimalLayoutProps> = ({
       </main>
 
       {/* ─── SCANDINAVIAN ARCHITECTURAL FOOTER ─── */}
-      <footer className="border-t border-neutral-200/80 py-16 bg-[#F2F2EE] text-center space-y-2">
-        <span className="text-[11px] font-mono uppercase tracking-[0.3em] text-neutral-500 block">
-          {gallery.title} • FINE ART MONOGRAPH
-        </span>
-        <p className="text-[10px] text-neutral-400 font-mono">
-          Curated in 2-column museum exhibition format • Preserved in archival resolution
-        </p>
-      </footer>
+      <ClientGalleryFooter
+        galleryTitle={gallery.title}
+        studioName={studioName || 'FINE ART MONOGRAPH'}
+        mediaCount={gallery.media.length}
+        theme="minimal"
+      />
     </div>
   );
 };

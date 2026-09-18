@@ -68,16 +68,87 @@ export const LoginPage: React.FC = () => {
     }
   };
 
-  const handleOtpDigitChange = (index: number, val: string) => {
-    if (!/^\d*$/.test(val)) return;
+  const handleOtpPaste = (e: React.ClipboardEvent<HTMLInputElement>, startIndex: number) => {
+    e.preventDefault();
+    const pastedText = e.clipboardData.getData('text');
+    const digits = pastedText.replace(/\D/g, '');
+    if (!digits) return;
+
     const nextDigits = [...otpDigits];
-    nextDigits[index] = val.slice(-1);
+    // If full OTP or more pasted, fill all slots starting at index 0
+    const startFrom = digits.length >= 6 ? 0 : startIndex;
+    const chars = digits.slice(0, 6 - startFrom).split('');
+
+    chars.forEach((d, i) => {
+      if (startFrom + i < 6) {
+        nextDigits[startFrom + i] = d;
+      }
+    });
+
+    setOtpDigits(nextDigits);
+    const fullCode = nextDigits.join('');
+    otpForm.setValue('otp', fullCode, { shouldValidate: fullCode.length === 6 });
+
+    const focusIndex = Math.min(5, startFrom + chars.length - 1);
+    document.getElementById(`login-otp-${focusIndex}`)?.focus();
+  };
+
+  const handleOtpDigitChange = (index: number, val: string) => {
+    const digitsOnly = val.replace(/\D/g, '');
+
+    if (!digitsOnly) {
+      const nextDigits = [...otpDigits];
+      nextDigits[index] = '';
+      setOtpDigits(nextDigits);
+      const fullCode = nextDigits.join('');
+      otpForm.setValue('otp', fullCode, { shouldValidate: fullCode.length === 6 });
+      return;
+    }
+
+    // If more than 1 character was entered (autofill, native paste, or rapid input)
+    if (digitsOnly.length > 1) {
+      // If user typed a single character while input was already filled
+      if (digitsOnly.length === 2 && digitsOnly[0] === otpDigits[index]) {
+        const char = digitsOnly[1];
+        const nextDigits = [...otpDigits];
+        nextDigits[index] = char;
+        setOtpDigits(nextDigits);
+        const fullCode = nextDigits.join('');
+        otpForm.setValue('otp', fullCode, { shouldValidate: fullCode.length === 6 });
+        if (index < 5) {
+          document.getElementById(`login-otp-${index + 1}`)?.focus();
+        }
+        return;
+      }
+
+      const nextDigits = [...otpDigits];
+      const startFrom = digitsOnly.length >= 6 ? 0 : index;
+      const chars = digitsOnly.slice(0, 6 - startFrom).split('');
+
+      chars.forEach((c, idx) => {
+        if (startFrom + idx < 6) {
+          nextDigits[startFrom + idx] = c;
+        }
+      });
+
+      setOtpDigits(nextDigits);
+      const fullCode = nextDigits.join('');
+      otpForm.setValue('otp', fullCode, { shouldValidate: fullCode.length === 6 });
+
+      const focusIndex = Math.min(5, startFrom + chars.length - 1);
+      document.getElementById(`login-otp-${focusIndex}`)?.focus();
+      return;
+    }
+
+    // Single digit input
+    const nextDigits = [...otpDigits];
+    nextDigits[index] = digitsOnly;
     setOtpDigits(nextDigits);
 
     const fullCode = nextDigits.join('');
     otpForm.setValue('otp', fullCode, { shouldValidate: fullCode.length === 6 });
 
-    if (val && index < 5) {
+    if (index < 5) {
       const nextEl = document.getElementById(`login-otp-${index + 1}`);
       nextEl?.focus();
     }
@@ -223,10 +294,12 @@ export const LoginPage: React.FC = () => {
                       id={`login-otp-${i}`}
                       type="text"
                       inputMode="numeric"
-                      maxLength={1}
+                      maxLength={6}
                       value={digit}
                       onChange={(e) => handleOtpDigitChange(i, e.target.value)}
                       onKeyDown={(e) => handleOtpKeyDown(i, e)}
+                      onPaste={(e) => handleOtpPaste(e, i)}
+                      onFocus={(e) => e.target.select()}
                       className={`w-11 h-12 sm:w-12 sm:h-14 text-center rounded-xl font-mono text-lg font-bold outline-none transition-all ${
                         digit
                           ? 'bg-amber-400/10 border border-amber-400 text-amber-400'

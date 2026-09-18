@@ -13,6 +13,7 @@ import { SlideshowModal } from '../../components/gallery/SlideshowModal';
 import { MusicPickerModal } from '../../components/gallery/MusicPickerModal';
 import { CURATED_TRACKS, type Track } from '../../services/musicService';
 import { SelectionBar } from '../../components/gallery/SelectionBar';
+import { MediaShareModal } from '../../components/gallery/MediaShareModal';
 import { ClientGalleryNavbar } from '../../components/gallery/ClientGalleryNavbar';
 import { SmoothScrollProvider, useLenisScroll } from '../../components/common/SmoothScroll';
 import {
@@ -41,6 +42,7 @@ const ClientGalleryContent: React.FC = () => {
 
   // Multi-Selection state
   const [selectedMediaIds, setSelectedMediaIds] = useState<Set<string>>(new Set());
+  const [isShareSelectedOpen, setIsShareSelectedOpen] = useState(false);
 
   // Slideshow & Soundtrack state
   const [isSlideshowOpen, setIsSlideshowOpen] = useState(false);
@@ -287,6 +289,7 @@ const ClientGalleryContent: React.FC = () => {
           selectedMediaIds={selectedMediaIds}
           onToggleSelectMedia={handleToggleSelectMedia}
           onStartSlideshow={handleStartSlideshow}
+          studioName={photographer.studioName}
         />
       )}
 
@@ -298,6 +301,7 @@ const ClientGalleryContent: React.FC = () => {
           selectedMediaIds={selectedMediaIds}
           onToggleSelectMedia={handleToggleSelectMedia}
           onStartSlideshow={handleStartSlideshow}
+          studioName={photographer.studioName}
         />
       )}
 
@@ -309,6 +313,7 @@ const ClientGalleryContent: React.FC = () => {
           selectedMediaIds={selectedMediaIds}
           onToggleSelectMedia={handleToggleSelectMedia}
           onStartSlideshow={handleStartSlideshow}
+          studioName={photographer.studioName}
         />
       )}
 
@@ -321,6 +326,7 @@ const ClientGalleryContent: React.FC = () => {
         onSelectAll={handleSelectAll}
         onDownloadSelected={handleDownloadSelected}
         onPlaySlideshow={() => handleStartSlideshow(0)}
+        onShareSelected={() => setIsShareSelectedOpen(true)}
         isDownloading={isPreparingSelectedZip}
         downloadProgress={selectedZipProgress}
       />
@@ -359,8 +365,20 @@ const ClientGalleryContent: React.FC = () => {
           onToggleFavorite={(mId) => toggleMediaFavorite(gallery.id, mId)}
           studioName={photographer.studioName}
           allowDownloads={gallery.allowDownloads}
+          galleryTitle={gallery.title}
+          gallerySlug={gallery.slug || gallery.id}
         />
       )}
+
+      {/* Share Selected Photos Modal */}
+      <MediaShareModal
+        isOpen={isShareSelectedOpen}
+        onClose={() => setIsShareSelectedOpen(false)}
+        mediaItems={gallery.media.filter((m) => selectedMediaIds.has(m.id))}
+        galleryTitle={gallery.title}
+        gallerySlug={gallery.slug || gallery.id}
+        clientName={gallery.clientName}
+      />
     </div>
   );
 };

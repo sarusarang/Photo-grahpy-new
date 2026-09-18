@@ -7,6 +7,7 @@ import {
 import { GalleryHeroBanner } from './GalleryHeroBanner';
 import { ClientSectionFilterBar, type FilterSelection } from './ClientSectionFilterBar';
 import { AIFaceSearchBox } from './AIFaceSearchBox';
+import { ClientGalleryFooter } from './ClientGalleryFooter';
 
 interface EditorialLayoutProps {
   gallery: Gallery;
@@ -26,6 +27,8 @@ export const EditorialLayout: React.FC<EditorialLayoutProps> = ({
   selectedMediaIds = new Set(),
   onToggleSelectMedia,
   onStartSlideshow,
+  studioName = 'EX SHARE',
+  onShareGallery,
 }) => {
   const media = gallery.media;
   const coverImage = gallery.templateBanners?.['editorial'] || gallery.coverImage || media[0]?.url;
@@ -110,7 +113,13 @@ export const EditorialLayout: React.FC<EditorialLayoutProps> = ({
       )}
 
       {/* ─── MINIMAL-GAP MODERN EDITORIAL FLUID PHOTO GRID (NO NAMES/METADATA, PURE IMAGES) ─── */}
-      <main className="max-w-[1700px] mx-auto px-2 sm:px-4 pt-1 sm:pt-2 pb-16">
+      <main
+        className={`max-w-[1700px] mx-auto px-2 sm:px-4 ${
+          activeFilter.type === 'ai-face' && aiMatchedIds === null
+            ? 'hidden'
+            : 'pt-1 sm:pt-2 pb-6'
+        }`}
+      >
         {/* Empty Filter State */}
         {displayMedia.length === 0 ? (
           activeFilter.type === 'ai-face' && aiMatchedIds === null ? null : (
@@ -211,15 +220,13 @@ export const EditorialLayout: React.FC<EditorialLayoutProps> = ({
         )}
       </main>
 
-      {/* ─── MINIMAL FOOTER ─── */}
-      <footer className="border-t border-neutral-200 py-12 bg-white text-center space-y-2">
-        <span className="text-[11px] font-mono uppercase tracking-[0.25em] text-neutral-400 block">
-          {gallery.title} • EX SHARE
-        </span>
-        <p className="text-[10px] text-neutral-400 font-mono">
-          Curated in full museum resolution
-        </p>
-      </footer>
+      {/* ─── LUXURY REDUCED-GAP FOOTER ─── */}
+      <ClientGalleryFooter
+        galleryTitle={gallery.title}
+        studioName={studioName}
+        mediaCount={media.length}
+        theme="editorial"
+      />
     </div>
   );
 };

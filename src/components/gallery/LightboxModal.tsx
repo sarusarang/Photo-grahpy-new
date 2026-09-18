@@ -2,7 +2,9 @@ import React, { useEffect, useCallback, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import type { MediaItem } from '../../types';
 import { useToast } from '../ui/Toast';
+import { useScrollLock } from '../../hooks/useScrollLock';
 import { ConfirmDeleteModal } from '../common/ConfirmDeleteModal';
+import { MediaShareModal } from './MediaShareModal';
 import {
   X,
   ChevronLeft,
@@ -15,6 +17,7 @@ import {
   ZoomOut,
   Maximize2,
   RotateCcw,
+  Share2,
 } from 'lucide-react';
 
 interface LightboxModalProps {
@@ -27,6 +30,9 @@ interface LightboxModalProps {
   onDelete?: (mediaId: string) => void;
   studioName?: string;
   allowDownloads?: boolean;
+  galleryTitle?: string;
+  gallerySlug?: string;
+  onShare?: (item: MediaItem) => void;
 }
 
 export const LightboxModal: React.FC<LightboxModalProps> = ({
@@ -39,9 +45,16 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
   onDelete,
   studioName = 'EX SHARE',
   allowDownloads = true,
+  galleryTitle,
+  gallerySlug,
+  onShare,
 }) => {
   const { showToast } = useToast();
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+
+  // Lock background scroll
+  useScrollLock(isOpen);
 
   // Zoom & Pan Editor State
   const [zoom, setZoom] = useState(1);
@@ -248,7 +261,7 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
       : 'animate-butter-fade';
 
   return createPortal(
-    <div className="fixed inset-0 z-50 bg-black/95 backdrop-blur-2xl flex flex-col justify-between select-none overlay-animate">
+    <div data-lenis-prevent="true" className="fixed inset-0 z-50 bg-black/95 backdrop-blur-2xl flex flex-col justify-between select-none overlay-animate overscroll-contain">
       {/* Top Bar */}
       <div className="flex items-center justify-between px-4 sm:px-6 py-4 bg-gradient-to-b from-black/85 via-black/40 to-transparent z-20 gap-3">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
@@ -274,6 +287,21 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
               <Heart className={`w-4 h-4 ${currentItem.isFavorite ? 'fill-current' : ''}`} />
             </button>
           )}
+
+          {/* Social Share Button on Top */}
+          <button
+            onClick={() => {
+              if (onShare) {
+                onShare(currentItem);
+              }
+              setIsShareModalOpen(true);
+            }}
+            className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-2 rounded-full bg-white/10 hover:bg-white/20 text-white text-xs font-semibold tracking-wide transition-all active:scale-95 border border-white/10 cursor-pointer"
+            title="Share this photo on social media"
+          >
+            <Share2 className="w-4 h-4 text-amber-400" />
+            <span className="hidden sm:inline">Share</span>
+          </button>
 
           {allowDownloads && (
             <button
@@ -367,7 +395,7 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
                   transformOrigin: 'center center',
                   willChange: 'transform',
                 }}
-                className="max-h-[78vh] sm:max-h-[82vh] max-w-[90vw] object-contain rounded-xl sm:rounded-2xl shadow-2xl pointer-events-auto"
+                className="max-h-[78vh] sm:max-h-[82vh] max-w-[90vw] object-contain rounded-none shadow-2xl pointer-events-auto"
               />
             </div>
           )}
@@ -467,6 +495,15 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
         description="Are you sure you want to delete this photo from the gallery? This action is permanent."
         confirmLabel="Delete Photo"
         item={currentItem}
+      />
+
+      {/* Social Media Share Modal */}
+      <MediaShareModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        mediaItems={[currentItem]}
+        galleryTitle={galleryTitle || studioName}
+        gallerySlug={gallerySlug}
       />
     </div>,
     document.body

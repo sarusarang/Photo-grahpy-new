@@ -12,6 +12,7 @@ import {
 import { GalleryHeroBanner } from './GalleryHeroBanner';
 import { ClientSectionFilterBar, type FilterSelection } from './ClientSectionFilterBar';
 import { AIFaceSearchBox } from './AIFaceSearchBox';
+import { ClientGalleryFooter } from './ClientGalleryFooter';
 
 import { isVideoMedia } from '../../data/demoData';
 
@@ -22,6 +23,7 @@ interface CinematicLayoutProps {
   selectedMediaIds?: Set<string>;
   onToggleSelectMedia?: (mediaId: string) => void;
   onStartSlideshow?: (startIndex?: number) => void;
+  studioName?: string;
 }
 
 export const CinematicLayout: React.FC<CinematicLayoutProps> = ({
@@ -31,6 +33,7 @@ export const CinematicLayout: React.FC<CinematicLayoutProps> = ({
   selectedMediaIds = new Set(),
   onToggleSelectMedia,
   onStartSlideshow,
+  studioName,
 }) => {
   const media = gallery.media;
   const videos = media.filter((m) => m.type === 'video');
@@ -147,8 +150,12 @@ export const CinematicLayout: React.FC<CinematicLayoutProps> = ({
         </section>
       )}
 
-      {/* ─── DYNAMIC 6-COLUMN WIDESCREEN FILM STORYBOARD GRID (PANORAMICS + DUOS + TRIPTYCHS) ─── */}
-      <main className="max-w-[1700px] mx-auto px-2 sm:px-4 pt-1 sm:pt-2 pb-16">
+      {/* ─── 2.39:1 ANAMORPHIC CINEMATIC STILLS & MOTION REELS ─── */}
+      <main
+        className={`max-w-7xl mx-auto px-4 sm:px-6 ${
+          activeFilter.type === 'ai-face' && aiMatchedIds === null ? 'hidden' : 'pt-2 pb-6'
+        }`}
+      >
         {filteredMedia.length === 0 ? (
           activeFilter.type === 'ai-face' && aiMatchedIds === null ? null : (
             <div className="py-24 text-center space-y-3 bg-neutral-900/40 rounded-3xl border border-neutral-800 p-8 max-w-md mx-auto">
@@ -280,14 +287,12 @@ export const CinematicLayout: React.FC<CinematicLayoutProps> = ({
       </main>
 
       {/* ─── CINEMATIC LETTERBOX FOOTER ─── */}
-      <footer className="border-t border-neutral-800/80 py-12 bg-[#030304] text-center space-y-2">
-        <span className="text-[11px] font-mono uppercase tracking-[0.3em] text-amber-400/90 block">
-          {gallery.title} • 2.39:1 ANAMORPHIC MASTER
-        </span>
-        <p className="text-[10px] text-neutral-500 font-mono">
-          Mastered in DCI-P3 color space • Preserved in high bit-depth
-        </p>
-      </footer>
+      <ClientGalleryFooter
+        galleryTitle={gallery.title}
+        studioName={studioName || '2.39:1 ANAMORPHIC MASTER'}
+        mediaCount={media.length}
+        theme="cinematic"
+      />
     </div>
   );
 };

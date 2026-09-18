@@ -14,7 +14,6 @@ export const AIFaceSearchBox: React.FC<AIFaceSearchBoxProps> = ({
   mediaItems,
   onMatchesFound,
   onClose,
-  theme = 'editorial',
 }) => {
   const [mode, setMode] = useState<'prompt' | 'camera' | 'scanning' | 'results'>('prompt');
   const [matchResult, setMatchResult] = useState<FaceMatchResult | null>(null);
@@ -150,7 +149,7 @@ export const AIFaceSearchBox: React.FC<AIFaceSearchBoxProps> = ({
   };
 
   return (
-    <div className="w-full my-6 transition-all duration-300 animate-in fade-in zoom-in-95">
+    <div className="w-full my-4 sm:my-6 transition-all duration-300 animate-in fade-in zoom-in-95">
       {/* Hidden file input for uploading face photo */}
       <input
         ref={fileInputRef}
@@ -160,49 +159,63 @@ export const AIFaceSearchBox: React.FC<AIFaceSearchBoxProps> = ({
         onChange={handleFileUpload}
       />
 
-      {/* ─── 1. INITIAL PROMPT STATE (Matching Reference Screenshot) ─── */}
+      {/* ─── 1. INITIAL PROMPT STATE: White BG + Nice Dotted Border ─── */}
       {mode === 'prompt' && (
-        <div className="max-w-2xl mx-auto rounded-3xl border border-dashed border-neutral-300 dark:border-neutral-700 p-8 sm:p-12 text-center bg-white/70 dark:bg-neutral-900/60 backdrop-blur-md shadow-sm">
-          {/* Avatar Icon with Camera Badge matching Screenshot */}
-          <div className="relative inline-block mx-auto mb-5">
-            <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-neutral-200 dark:bg-neutral-800 flex items-center justify-center overflow-hidden">
+        <div className="relative max-w-2xl mx-auto rounded-3xl border-2 border-dotted border-neutral-300 hover:border-neutral-400 p-8 sm:p-12 text-center bg-white shadow-xl shadow-neutral-900/5 transition-all">
+          {/* Close button */}
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="absolute top-4 right-4 p-2 text-neutral-400 hover:text-neutral-900 hover:bg-neutral-100 rounded-full transition-colors cursor-pointer"
+              title="Close AI Search"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
+
+          {/* Center Avatar Icon with Camera Overlay Badge */}
+          <div className="relative inline-block mx-auto mb-4 sm:mb-5">
+            <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-neutral-100 border border-neutral-200 flex items-center justify-center overflow-hidden shadow-inner">
               <svg
                 viewBox="0 0 100 100"
-                className="w-full h-full text-neutral-400 dark:text-neutral-500 fill-current"
+                className="w-full h-full text-neutral-400 fill-current"
               >
-                {/* Stylized Avatar Head & Shoulders */}
                 <circle cx="50" cy="38" r="18" />
                 <path d="M 22 88 C 22 66, 34 58, 50 58 C 66 58, 78 66, 78 88 Z" />
               </svg>
             </div>
-            {/* Small Camera Overlay Badge at Bottom-Right */}
-            <div className="absolute -bottom-1 -right-1 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-neutral-700 dark:bg-neutral-600 text-white flex items-center justify-center ring-2 ring-white dark:ring-neutral-900 shadow-md">
+            {/* Small Camera Overlay Badge */}
+            <div className="absolute -bottom-1 -right-1 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-neutral-900 text-white flex items-center justify-center ring-2 ring-white shadow-md">
               <Camera className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[2]" />
             </div>
           </div>
 
-          {/* Heading */}
-          <h3 className="font-serif italic text-lg sm:text-2xl text-neutral-800 dark:text-neutral-200 font-normal tracking-wide mb-6">
+          {/* Heading & Explanatory Subtitle */}
+          <h3 className="font-serif italic text-xl sm:text-2xl text-neutral-900 font-normal tracking-wide mb-2">
             Add a selfie to find all your images
           </h3>
+          <p className="text-xs sm:text-sm text-neutral-500 max-w-md mx-auto mb-6 font-sans">
+            Upload a photo or take a quick selfie to let our private AI instantly locate every photo you appear in.
+          </p>
 
-          {/* Two Action Buttons: Upload Face & Take Selfie */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5 max-w-sm mx-auto">
+          {/* Action Buttons: Upload Face & Take Selfie */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 max-w-sm mx-auto">
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="w-full sm:w-auto px-7 py-3 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-800 dark:text-neutral-100 hover:bg-neutral-50 dark:hover:bg-neutral-700/80 font-medium text-xs sm:text-sm tracking-wide transition-all shadow-sm cursor-pointer flex items-center justify-center gap-2"
+              className="w-full sm:w-auto px-7 py-3 rounded-xl border border-neutral-300 bg-white hover:bg-neutral-50 text-neutral-900 font-semibold text-xs sm:text-sm tracking-wide transition-all shadow-sm hover:shadow cursor-pointer flex items-center justify-center gap-2 active:scale-95"
             >
-              <Upload className="w-4 h-4 text-neutral-500" />
+              <Upload className="w-4 h-4 text-neutral-600" />
               Upload Face
             </button>
 
             <button
               type="button"
               onClick={startCamera}
-              className="w-full sm:w-auto px-7 py-3 rounded-xl bg-[#1E252B] hover:bg-neutral-950 text-white font-medium text-xs sm:text-sm tracking-wide transition-all shadow-md cursor-pointer flex items-center justify-center gap-2"
+              className="w-full sm:w-auto px-7 py-3 rounded-xl bg-neutral-950 hover:bg-neutral-800 text-white font-semibold text-xs sm:text-sm tracking-wide transition-all shadow-md hover:shadow-lg cursor-pointer flex items-center justify-center gap-2 active:scale-95"
             >
-              <Camera className="w-4 h-4 text-neutral-300" />
+              <Camera className="w-4 h-4 text-neutral-200" />
               Take Selfie
             </button>
           </div>
@@ -211,11 +224,11 @@ export const AIFaceSearchBox: React.FC<AIFaceSearchBoxProps> = ({
 
       {/* ─── 2. LIVE CAMERA STREAM (Take Selfie) ─── */}
       {mode === 'camera' && (
-        <div className="max-w-md mx-auto rounded-3xl border border-neutral-300 dark:border-neutral-800 p-6 bg-neutral-950 text-white shadow-2xl relative overflow-hidden">
+        <div className="max-w-md mx-auto rounded-3xl border-2 border-dotted border-neutral-300 p-6 bg-white text-neutral-900 shadow-2xl relative overflow-hidden">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-amber-400" />
-              <span className="text-xs font-mono tracking-widest uppercase text-neutral-300">
+              <Sparkles className="w-4 h-4 text-amber-500" />
+              <span className="text-xs font-mono tracking-widest uppercase text-neutral-700 font-semibold">
                 Selfie Face Scanner
               </span>
             </div>
@@ -225,20 +238,20 @@ export const AIFaceSearchBox: React.FC<AIFaceSearchBoxProps> = ({
                 stopCamera();
                 setMode('prompt');
               }}
-              className="p-1 rounded-full text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors"
+              className="p-1.5 rounded-full text-neutral-400 hover:text-neutral-900 hover:bg-neutral-100 transition-colors cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
 
           {cameraError ? (
-            <div className="py-12 px-4 text-center space-y-4">
-              <AlertCircle className="w-10 h-10 text-red-400 mx-auto" />
-              <p className="text-xs text-neutral-300">{cameraError}</p>
+            <div className="py-10 px-4 text-center space-y-4">
+              <AlertCircle className="w-10 h-10 text-rose-500 mx-auto" />
+              <p className="text-xs text-neutral-600">{cameraError}</p>
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="px-5 py-2.5 rounded-xl bg-white text-neutral-950 text-xs font-semibold hover:bg-neutral-200"
+                className="px-5 py-2.5 rounded-xl bg-neutral-950 text-white text-xs font-semibold hover:bg-neutral-800 cursor-pointer"
               >
                 Upload Photo Instead
               </button>
@@ -246,7 +259,7 @@ export const AIFaceSearchBox: React.FC<AIFaceSearchBoxProps> = ({
           ) : (
             <div className="space-y-4">
               {/* Camera Preview with Oval Face Guide */}
-              <div className="relative aspect-square w-full rounded-2xl overflow-hidden bg-black flex items-center justify-center">
+              <div className="relative aspect-square w-full rounded-2xl overflow-hidden bg-neutral-950 flex items-center justify-center">
                 <video
                   ref={videoRef}
                   autoPlay
@@ -256,10 +269,10 @@ export const AIFaceSearchBox: React.FC<AIFaceSearchBoxProps> = ({
                 />
                 {/* Oval Face Alignment Guide */}
                 <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-                  <div className="w-48 h-64 sm:w-56 sm:h-72 rounded-[50%] border-2 border-dashed border-white/60 shadow-[0_0_0_9999px_rgba(0,0,0,0.45)]" />
+                  <div className="w-48 h-64 sm:w-56 sm:h-72 rounded-[50%] border-2 border-dashed border-white/70 shadow-[0_0_0_9999px_rgba(0,0,0,0.45)]" />
                 </div>
                 <div className="absolute bottom-3 inset-x-0 text-center pointer-events-none">
-                  <span className="text-[11px] font-mono bg-black/60 backdrop-blur-md px-3 py-1 rounded-full text-neutral-200">
+                  <span className="text-[11px] font-mono bg-black/70 backdrop-blur-md px-3 py-1 rounded-full text-neutral-200">
                     Position your face in the oval
                   </span>
                 </div>
@@ -270,7 +283,7 @@ export const AIFaceSearchBox: React.FC<AIFaceSearchBoxProps> = ({
                 <button
                   type="button"
                   onClick={toggleCameraFacing}
-                  className="p-3 rounded-full bg-neutral-900 border border-neutral-800 text-neutral-300 hover:text-white hover:bg-neutral-800 transition-colors"
+                  className="p-3 rounded-full bg-neutral-100 border border-neutral-200 text-neutral-700 hover:text-neutral-950 hover:bg-neutral-200 transition-colors cursor-pointer"
                   title="Flip camera"
                 >
                   <RefreshCw className="w-4 h-4" />
@@ -279,16 +292,16 @@ export const AIFaceSearchBox: React.FC<AIFaceSearchBoxProps> = ({
                 <button
                   type="button"
                   onClick={captureSelfie}
-                  className="px-8 py-3 rounded-full bg-white text-neutral-950 font-bold text-xs uppercase tracking-wider hover:bg-neutral-200 transition-all shadow-lg flex items-center gap-2 cursor-pointer scale-100 hover:scale-105"
+                  className="px-8 py-3 rounded-full bg-neutral-950 text-white font-bold text-xs uppercase tracking-wider hover:bg-neutral-800 transition-all shadow-lg flex items-center gap-2 cursor-pointer active:scale-95"
                 >
-                  <Camera className="w-4 h-4 text-neutral-950" />
+                  <Camera className="w-4 h-4 text-white" />
                   Snap Photo
                 </button>
 
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="p-3 rounded-full bg-neutral-900 border border-neutral-800 text-neutral-300 hover:text-white hover:bg-neutral-800 transition-colors"
+                  className="p-3 rounded-full bg-neutral-100 border border-neutral-200 text-neutral-700 hover:text-neutral-950 hover:bg-neutral-200 transition-colors cursor-pointer"
                   title="Upload image instead"
                 >
                   <Upload className="w-4 h-4" />
@@ -301,16 +314,16 @@ export const AIFaceSearchBox: React.FC<AIFaceSearchBoxProps> = ({
 
       {/* ─── 3. SCANNING ANIMATION STATE ─── */}
       {mode === 'scanning' && (
-        <div className="max-w-md mx-auto rounded-3xl border border-neutral-200 dark:border-neutral-800 p-8 text-center bg-white dark:bg-neutral-900 shadow-xl space-y-5">
+        <div className="max-w-md mx-auto rounded-3xl border-2 border-dotted border-neutral-300 p-8 text-center bg-white shadow-xl shadow-neutral-900/5 space-y-5">
           <div className="relative w-20 h-20 mx-auto">
             <div className="w-20 h-20 rounded-full border-4 border-amber-500/20 border-t-amber-500 animate-spin" />
             <Sparkles className="w-8 h-8 text-amber-500 absolute inset-0 m-auto animate-pulse" />
           </div>
           <div>
-            <h4 className="font-serif italic text-lg text-neutral-900 dark:text-neutral-100">
+            <h4 className="font-serif italic text-lg text-neutral-900 font-medium">
               Analyzing Facial Features...
             </h4>
-            <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 font-mono">
+            <p className="text-xs text-neutral-500 mt-1 font-mono">
               Matching your selfie across {mediaItems.length} gallery photographs
             </p>
           </div>
@@ -319,7 +332,7 @@ export const AIFaceSearchBox: React.FC<AIFaceSearchBoxProps> = ({
 
       {/* ─── 4. RECOGNIZED RESULT STATE ─── */}
       {mode === 'results' && matchResult && (
-        <div className="max-w-xl mx-auto rounded-2xl border border-neutral-200 dark:border-neutral-800 p-4 sm:p-5 bg-white/95 dark:bg-neutral-900/95 backdrop-blur-xl shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="max-w-xl mx-auto rounded-2xl border-2 border-dotted border-emerald-400 p-4 sm:p-5 bg-white shadow-xl shadow-neutral-900/5 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3.5">
             {/* User Selfie Thumbnail with Checkmark */}
             <div className="relative shrink-0">
@@ -335,14 +348,14 @@ export const AIFaceSearchBox: React.FC<AIFaceSearchBoxProps> = ({
 
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-mono uppercase tracking-widest text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
+                <span className="text-[10px] font-mono uppercase tracking-widest text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
                   Face Recognized
                 </span>
                 <span className="text-[11px] text-neutral-400 font-mono">
                   {Math.round(matchResult.confidence * 100)}% match
                 </span>
               </div>
-              <p className="font-serif italic text-sm sm:text-base text-neutral-900 dark:text-neutral-100 mt-0.5">
+              <p className="font-serif italic text-sm sm:text-base text-neutral-900 mt-0.5 font-medium">
                 Found {matchResult.matchedCount} photographs of you
               </p>
             </div>
@@ -353,14 +366,14 @@ export const AIFaceSearchBox: React.FC<AIFaceSearchBoxProps> = ({
             <button
               type="button"
               onClick={() => setMode('prompt')}
-              className="px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-xs font-medium text-neutral-700 dark:text-neutral-300 transition-colors"
+              className="px-3 py-1.5 rounded-lg border border-neutral-300 hover:bg-neutral-100 text-xs font-medium text-neutral-700 transition-colors cursor-pointer"
             >
               Change Selfie
             </button>
             <button
               type="button"
               onClick={handleClear}
-              className="px-3 py-1.5 rounded-lg bg-neutral-950 dark:bg-white text-white dark:text-neutral-950 text-xs font-medium hover:opacity-90 transition-opacity"
+              className="px-3 py-1.5 rounded-lg bg-neutral-950 text-white text-xs font-medium hover:bg-neutral-800 transition-all cursor-pointer"
             >
               Reset Filter
             </button>

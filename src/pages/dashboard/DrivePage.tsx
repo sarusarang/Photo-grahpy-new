@@ -17,6 +17,7 @@ import {
   ArrowUpDown,
   ChevronDown,
   Check,
+  X,
 } from 'lucide-react';
 
 export const DrivePage: React.FC = () => {
@@ -38,15 +39,54 @@ export const DrivePage: React.FC = () => {
   const [sortDropdownOpen, setSortDropdownOpen] = useState(false);
   const sortDropdownRef = useRef<HTMLDivElement>(null);
 
+  // Date Filter State
+  const [dateFilter, setDateFilter] = useState<string>('all');
+  const [dateFilterTab, setDateFilterTab] = useState<'presets' | 'custom'>('presets');
+  const [customRange, setCustomRange] = useState<{ from: string; to: string }>({ from: '', to: '' });
+  const [dateDropdownOpen, setDateDropdownOpen] = useState(false);
+  const dateDropdownRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     const handleOutsideClick = (e: MouseEvent) => {
       if (sortDropdownRef.current && !sortDropdownRef.current.contains(e.target as Node)) {
         setSortDropdownOpen(false);
       }
+      if (dateDropdownRef.current && !dateDropdownRef.current.contains(e.target as Node)) {
+        setDateDropdownOpen(false);
+      }
     };
     document.addEventListener('mousedown', handleOutsideClick);
     return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, []);
+
+  // Dynamically extract available years from gallery event dates
+  const availableYears = useMemo(() => {
+    const years = new Set<string>();
+    galleries.forEach((g) => {
+      if (g.eventDate) {
+        const year = g.eventDate.split('-')[0];
+        if (year && year.length === 4) years.add(year);
+      }
+    });
+    return Array.from(years).sort().reverse();
+  }, [galleries]);
+
+  const getDateFilterLabel = () => {
+    if (dateFilter === 'all') return 'Filter Date';
+    if (dateFilter === 'this-year') return 'This Year';
+    if (dateFilter === 'last-year') return 'Last Year';
+    if (dateFilter === 'last-30-days') return 'Past 30d';
+    if (dateFilter === 'last-3-months') return 'Past 3m';
+    if (dateFilter === 'last-6-months') return 'Past 6m';
+    if (dateFilter.startsWith('year-')) return `Year ${dateFilter.replace('year-', '')}`;
+    if (dateFilter === 'custom') {
+      if (customRange.from && customRange.to) return `${customRange.from} → ${customRange.to}`;
+      if (customRange.from) return `From ${customRange.from}`;
+      if (customRange.to) return `Until ${customRange.to}`;
+      return 'Custom Range';
+    }
+    return 'Filter Date';
+  };
 
   // Filter and sort galleries
   const filteredGalleries = useMemo(() => {
@@ -60,7 +100,35 @@ export const DrivePage: React.FC = () => {
         const matchesStatus =
           statusFilter === 'all' || gal.status === statusFilter;
 
-        return matchesQuery && matchesStatus;
+        // Date filter matching
+        let matchesDate = true;
+        if (dateFilter === 'this-year') {
+          const currentYear = new Date().getFullYear().toString();
+          matchesDate = gal.eventDate.startsWith(currentYear);
+        } else if (dateFilter === 'last-year') {
+          const lastYear = (new Date().getFullYear() - 1).toString();
+          matchesDate = gal.eventDate.startsWith(lastYear);
+        } else if (dateFilter === 'last-30-days') {
+          const galleryTime = new Date(gal.eventDate).getTime();
+          const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+          matchesDate = galleryTime >= thirtyDaysAgo;
+        } else if (dateFilter === 'last-3-months') {
+          const galleryTime = new Date(gal.eventDate).getTime();
+          const ninetyDaysAgo = Date.now() - 90 * 24 * 60 * 60 * 1000;
+          matchesDate = galleryTime >= ninetyDaysAgo;
+        } else if (dateFilter === 'last-6-months') {
+          const galleryTime = new Date(gal.eventDate).getTime();
+          const halfYearAgo = Date.now() - 180 * 24 * 60 * 60 * 1000;
+          matchesDate = galleryTime >= halfYearAgo;
+        } else if (dateFilter.startsWith('year-')) {
+          const targetYear = dateFilter.replace('year-', '');
+          matchesDate = gal.eventDate.startsWith(targetYear);
+        } else if (dateFilter === 'custom') {
+          if (customRange.from && gal.eventDate < customRange.from) matchesDate = false;
+          if (customRange.to && gal.eventDate > customRange.to) matchesDate = false;
+        }
+
+        return matchesQuery && matchesStatus && matchesDate;
       })
       .sort((a, b) => {
         if (sortBy === 'date-desc') return new Date(b.eventDate).getTime() - new Date(a.eventDate).getTime();
@@ -69,7 +137,7 @@ export const DrivePage: React.FC = () => {
         if (sortBy === 'photos') return b.media.length - a.media.length;
         return 0;
       });
-  }, [galleries, searchQuery, statusFilter, sortBy]);
+  }, [galleries, searchQuery, statusFilter, sortBy, dateFilter, customRange]);
 
   const handleDelete = (e: React.MouseEvent, gal: Gallery) => {
     e.stopPropagation();
@@ -160,8 +228,167 @@ export const DrivePage: React.FC = () => {
           })}
         </div>
 
-        {/* Right Controls: Sort Dropdown & Layout Buttons */}
-        <div className="flex items-center justify-between sm:justify-end gap-3">
+        {/* Right Controls: Date Filter, Sort Dropdown & Layout Buttons */}
+        <div className="flex flex-wrap sm:flex-nowrap items-center justify-between sm:justify-end gap-2.5 sm:gap-3">
+          {/* Custom Date Filter Dropdown */}
+          <div className="relative" ref={dateDropdownRef}>
+            <button
+              type="button"
+              onClick={() => setDateDropdownOpen((p) => !p)}
+              className={`flex items-center gap-2 text-xs px-3.5 py-2 rounded-xl border font-semibold transition-all shadow-xs cursor-pointer ${
+                dateFilter !== 'all'
+                  ? 'bg-amber-400/10 border-amber-400/60 text-amber-500 dark:text-amber-300 ring-1 ring-amber-400/20'
+                  : 'bg-white dark:bg-[#12141a] border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 hover:border-amber-300 dark:hover:border-amber-700'
+              }`}
+              title="Filter galleries by date"
+            >
+              <Calendar className={`w-3.5 h-3.5 shrink-0 ${dateFilter !== 'all' ? 'text-amber-400' : ''}`} />
+              <span className="whitespace-nowrap">{getDateFilterLabel()}</span>
+              {dateFilter !== 'all' && (
+                <span
+                  role="button"
+                  tabIndex={0}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDateFilter('all');
+                    setCustomRange({ from: '', to: '' });
+                  }}
+                  className="p-0.5 hover:bg-neutral-800/50 rounded-full transition-colors cursor-pointer text-neutral-400 hover:text-white"
+                  title="Clear date filter"
+                >
+                  <X className="w-3 h-3" />
+                </span>
+              )}
+              <ChevronDown
+                className={`w-3.5 h-3.5 transition-transform duration-200 text-neutral-400 ${
+                  dateDropdownOpen ? 'rotate-180' : ''
+                }`}
+              />
+            </button>
+
+            {dateDropdownOpen && (
+              <div className="absolute right-0 top-full mt-2 w-64 sm:w-72 z-50 rounded-2xl bg-white dark:bg-[#14161f] border border-neutral-200 dark:border-neutral-800/90 shadow-2xl dark:shadow-black/70 overflow-hidden animate-in fade-in zoom-in-95 duration-150 text-neutral-900 dark:text-neutral-100 p-2.5">
+                {/* 2-Tab Segmented Switcher: Presets vs Custom */}
+                <div className="flex items-center p-1 rounded-xl bg-neutral-100 dark:bg-neutral-900/90 border border-neutral-200/80 dark:border-neutral-800/80 text-xs mb-2">
+                  <button
+                    type="button"
+                    onClick={() => setDateFilterTab('presets')}
+                    className={`flex-1 py-1 px-2.5 rounded-lg font-medium transition-all cursor-pointer text-center text-[11px] ${
+                      dateFilterTab === 'presets'
+                        ? 'bg-white dark:bg-neutral-800 text-neutral-950 dark:text-white shadow-xs font-semibold'
+                        : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-white'
+                    }`}
+                  >
+                    Presets
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDateFilterTab('custom')}
+                    className={`flex-1 py-1 px-2.5 rounded-lg font-medium transition-all cursor-pointer text-center text-[11px] ${
+                      dateFilterTab === 'custom'
+                        ? 'bg-white dark:bg-neutral-800 text-neutral-950 dark:text-white shadow-xs font-semibold'
+                        : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-white'
+                    }`}
+                  >
+                    Custom Range
+                  </button>
+                </div>
+
+                {/* Tab 1: Presets View */}
+                {dateFilterTab === 'presets' ? (
+                  <div className="space-y-0.5">
+                    {[
+                      { id: 'all', label: 'All Dates' },
+                      { id: 'this-year', label: `This Year (${new Date().getFullYear()})` },
+                      { id: 'last-30-days', label: 'Past 30 Days' },
+                      { id: 'last-3-months', label: 'Past 3 Months' },
+                      { id: 'last-year', label: `Last Year (${new Date().getFullYear() - 1})` },
+                    ].map((opt) => {
+                      const isSelected = dateFilter === opt.id;
+                      return (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() => {
+                            setDateFilter(opt.id);
+                            setDateDropdownOpen(false);
+                          }}
+                          className={`w-full flex items-center justify-between px-3 py-1.5 rounded-xl text-xs transition-all cursor-pointer ${
+                            isSelected
+                              ? 'bg-amber-400/15 text-amber-500 dark:text-amber-300 font-semibold border border-amber-400/30'
+                              : 'text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800/70 hover:text-neutral-950 dark:hover:text-white'
+                          }`}
+                        >
+                          <span>{opt.label}</span>
+                          {isSelected && <Check className="w-3.5 h-3.5 text-amber-400 shrink-0" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  /* Tab 2: Custom Date Range Inputs */
+                  <div className="p-1 space-y-2">
+                    <div className="space-y-1">
+                      <label className="block text-[10px] font-mono text-neutral-500 uppercase tracking-wider">
+                        From Date
+                      </label>
+                      <input
+                        type="date"
+                        value={customRange.from}
+                        onChange={(e) =>
+                          setCustomRange((prev) => ({ ...prev, from: e.target.value }))
+                        }
+                        className="w-full text-xs px-2.5 py-1.5 rounded-lg bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:border-amber-400 font-mono"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="block text-[10px] font-mono text-neutral-500 uppercase tracking-wider">
+                        To Date
+                      </label>
+                      <input
+                        type="date"
+                        value={customRange.to}
+                        onChange={(e) =>
+                          setCustomRange((prev) => ({ ...prev, to: e.target.value }))
+                        }
+                        className="w-full text-xs px-2.5 py-1.5 rounded-lg bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:border-amber-400 font-mono"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (customRange.from || customRange.to) {
+                          setDateFilter('custom');
+                          setDateDropdownOpen(false);
+                        }
+                      }}
+                      className="w-full py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 font-bold text-xs transition-colors cursor-pointer shadow-xs active:scale-95"
+                    >
+                      Apply Range
+                    </button>
+                  </div>
+                )}
+
+                {/* Reset link if filter is active */}
+                {dateFilter !== 'all' && (
+                  <div className="pt-1.5 mt-1.5 border-t border-neutral-100 dark:border-neutral-800/80">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDateFilter('all');
+                        setCustomRange({ from: '', to: '' });
+                        setDateDropdownOpen(false);
+                      }}
+                      className="w-full py-1 text-[11px] font-medium text-neutral-400 hover:text-rose-400 text-center transition-colors cursor-pointer"
+                    >
+                      Reset to All Dates
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           {/* Custom Sort Dropdown */}
           <div className="relative" ref={sortDropdownRef}>
             <button
@@ -264,8 +491,10 @@ export const DrivePage: React.FC = () => {
             onClick={() => {
               setSearchQuery('');
               setStatusFilter('all');
+              setDateFilter('all');
+              setCustomRange({ from: '', to: '' });
             }}
-            className="px-4 py-2 rounded-xl bg-amber-400 text-neutral-950 font-bold text-xs shadow-sm hover:bg-amber-300"
+            className="px-4 py-2 rounded-xl bg-amber-400 text-neutral-950 font-bold text-xs shadow-sm hover:bg-amber-300 cursor-pointer"
           >
             Reset Filters
           </button>

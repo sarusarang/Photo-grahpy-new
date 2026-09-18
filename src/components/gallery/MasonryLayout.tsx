@@ -11,6 +11,7 @@ import {
 import { GalleryHeroBanner } from './GalleryHeroBanner';
 import { ClientSectionFilterBar, type FilterSelection } from './ClientSectionFilterBar';
 import { AIFaceSearchBox } from './AIFaceSearchBox';
+import { ClientGalleryFooter } from './ClientGalleryFooter';
 
 interface MasonryLayoutProps {
   gallery: Gallery;
@@ -19,6 +20,7 @@ interface MasonryLayoutProps {
   selectedMediaIds?: Set<string>;
   onToggleSelectMedia?: (mediaId: string) => void;
   onStartSlideshow?: (startIndex?: number) => void;
+  studioName?: string;
 }
 
 export const MasonryLayout: React.FC<MasonryLayoutProps> = ({
@@ -28,6 +30,7 @@ export const MasonryLayout: React.FC<MasonryLayoutProps> = ({
   selectedMediaIds = new Set(),
   onToggleSelectMedia,
   onStartSlideshow,
+  studioName,
 }) => {
   // Derive gallery sections
   const gallerySections = (gallery.sections && gallery.sections.length > 0)
@@ -118,8 +121,12 @@ export const MasonryLayout: React.FC<MasonryLayoutProps> = ({
         </section>
       )}
 
-      {/* ─── 4-COLUMN LUSH ORGANIC BOTANICAL MASONRY (MINIMAL GAP, SLEEK ORGANIC ELEVATIONS) ─── */}
-      <main className="max-w-[1780px] mx-auto px-2 sm:px-4 pt-1 sm:pt-2 pb-16">
+      {/* ─── BOTANICAL 3-COLUMN FINE ART MASONRY WATERFALL ─── */}
+      <main
+        className={`max-w-7xl mx-auto px-4 sm:px-6 ${
+          activeFilter.type === 'ai-face' && aiMatchedIds === null ? 'hidden' : 'pt-2 pb-6'
+        }`}
+      >
         {filteredMedia.length === 0 ? (
           activeFilter.type === 'ai-face' && aiMatchedIds === null ? null : (
             <div className="py-24 text-center space-y-3 bg-neutral-900/40 rounded-3xl border border-emerald-950/80 p-8 max-w-md mx-auto">
@@ -235,14 +242,12 @@ export const MasonryLayout: React.FC<MasonryLayoutProps> = ({
       </main>
 
       {/* ─── BOTANICAL FOOTER ─── */}
-      <footer className="border-t border-emerald-950/80 py-16 bg-[#070D0B] text-center space-y-2">
-        <span className="text-[11px] font-mono uppercase tracking-[0.3em] text-emerald-400/80 block">
-          {gallery.title} • BOTANICAL ROMANCE
-        </span>
-        <p className="text-[10px] text-neutral-500 font-mono">
-          Organic fine art photographic monograph • Lake Como Edition
-        </p>
-      </footer>
+      <ClientGalleryFooter
+        galleryTitle={gallery.title}
+        studioName={studioName || 'BOTANICAL ROMANCE'}
+        mediaCount={gallery.media.length}
+        theme="masonry"
+      />
     </div>
   );
 };

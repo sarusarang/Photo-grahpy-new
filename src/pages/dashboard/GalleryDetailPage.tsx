@@ -1527,6 +1527,8 @@ export const GalleryDetailPage: React.FC = () => {
             removeMediaFromGallery(gallery.id, mId);
           }}
           allowDownloads={gallery.allowDownloads}
+          galleryTitle={gallery.title}
+          gallerySlug={gallery.slug || gallery.id}
         />
       )}
 

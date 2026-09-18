@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { Gallery } from '../../types';
 import { useToast } from '../ui/Toast';
+import { useScrollLock } from '../../hooks/useScrollLock';
 import {
   X,
   Copy,
@@ -25,6 +26,9 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, gallery
   const { showToast } = useToast();
   const [copied, setCopied] = useState(false);
   const [showQR, setShowQR] = useState(false);
+
+  // Lock background scroll
+  useScrollLock(isOpen);
 
   if (!isOpen) return null;
 
@@ -59,8 +63,8 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, gallery
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/70 backdrop-blur-md overlay-animate">
-      <div className="relative w-full sm:max-w-lg bg-white dark:bg-neutral-950 border-t sm:border border-neutral-200 dark:border-neutral-800 rounded-t-[28px] sm:rounded-3xl p-5 sm:p-7 pb-safe shadow-2xl overflow-hidden max-h-[92vh] sm:max-h-[90vh] overflow-y-auto sheet-animate sm:modal-animate text-neutral-900 dark:text-neutral-100">
+    <div data-lenis-prevent="true" className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/70 backdrop-blur-md overlay-animate overscroll-contain">
+      <div data-lenis-prevent="true" className="relative w-full sm:max-w-xl md:max-w-2xl bg-white dark:bg-neutral-950 border-t sm:border border-neutral-200 dark:border-neutral-800 rounded-t-[28px] sm:rounded-3xl p-5 sm:p-7 pb-safe shadow-2xl overflow-hidden max-h-[92vh] sm:max-h-[90vh] overflow-y-auto sheet-animate sm:modal-animate text-neutral-900 dark:text-neutral-100 overscroll-contain">
         {/* Mobile Grab Handle */}
         <div className="w-10 h-1 rounded-full bg-neutral-300 dark:bg-neutral-700 mx-auto mb-3 sm:hidden" />
 
