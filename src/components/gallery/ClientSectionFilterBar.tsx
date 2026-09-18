@@ -1,13 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   Sparkles,
-  Search,
-  X,
   ChevronDown,
   Heart,
   Film,
   Camera,
-  Layers,
 } from 'lucide-react';
 import { useLenisScroll } from '../common/SmoothScroll';
 
@@ -22,8 +19,6 @@ interface ClientSectionFilterBarProps {
   sections: string[];
   activeFilter: FilterSelection;
   onSelectFilter: (filter: FilterSelection) => void;
-  searchQuery: string;
-  onSearchChange: (query: string) => void;
   favoritesCount?: number;
   totalPhotosCount?: number;
   totalVideosCount?: number;
@@ -34,16 +29,12 @@ export const ClientSectionFilterBar: React.FC<ClientSectionFilterBarProps> = ({
   sections = [],
   activeFilter,
   onSelectFilter,
-  searchQuery,
-  onSearchChange,
   favoritesCount = 0,
   totalPhotosCount = 0,
   totalVideosCount = 0,
   theme = 'masonry',
 }) => {
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isMoreOpen, setIsMoreOpen] = useState(false);
-  const searchInputRef = useRef<HTMLInputElement>(null);
   const moreDropdownRef = useRef<HTMLDivElement>(null);
   const anchorRef = useRef<HTMLDivElement>(null);
   const [isDocked, setIsDocked] = useState(false);
@@ -77,13 +68,6 @@ export const ClientSectionFilterBar: React.FC<ClientSectionFilterBarProps> = ({
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
-
-  // Focus search input when opened
-  useEffect(() => {
-    if (isSearchOpen) {
-      searchInputRef.current?.focus();
-    }
-  }, [isSearchOpen]);
 
   // Keep first 2-3 sections visible in capsule, move others to "More ▾"
   const visibleSections = sections.slice(0, 2);

@@ -67,7 +67,7 @@ export interface RefreshTokenResponse {
 export interface ApiErrorResponse {
   status?: number;
   message: string;
-  data?: any;
+  data?: unknown;
 }
 
 export interface AuthResponse {
@@ -77,7 +77,7 @@ export interface AuthResponse {
   user?: AuthUser;
   is_new_user?: boolean;
   is_registered?: boolean;
-  data?: any;
-  [key: string]: any;
+  data?: unknown;
+  [key: string]: unknown;
 }
 

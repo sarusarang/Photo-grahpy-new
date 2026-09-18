@@ -16,6 +16,12 @@ const LoginPage = lazy(() =>
 const OnboardingPage = lazy(() =>
   import('./pages/auth/OnboardingPage').then((m) => ({ default: m.OnboardingPage }))
 );
+const OverviewPage = lazy(() =>
+  import('./pages/dashboard/OverviewPage').then((m) => ({ default: m.OverviewPage }))
+);
+const InquiriesPage = lazy(() =>
+  import('./pages/dashboard/InquiriesPage').then((m) => ({ default: m.InquiriesPage }))
+);
 const DrivePage = lazy(() =>
   import('./pages/dashboard/DrivePage').then((m) => ({ default: m.DrivePage }))
 );
@@ -29,6 +35,12 @@ const TutorialPage = lazy(() =>
 );
 const SettingsPage = lazy(() =>
   import('./pages/dashboard/SettingsPage').then((m) => ({ default: m.SettingsPage }))
+);
+const PortfolioStudioPage = lazy(() =>
+  import('./pages/dashboard/PortfolioStudioPage').then((m) => ({ default: m.PortfolioStudioPage }))
+);
+const PortfolioPage = lazy(() =>
+  import('./pages/portfolio/PortfolioPage').then((m) => ({ default: m.PortfolioPage }))
 );
 const ClientGalleryPage = lazy(() =>
   import('./pages/client/ClientGalleryPage').then((m) => ({
@@ -84,19 +96,25 @@ export default function App() {
               </ProtectedRoute>
             }
           >
-            <Route index element={<Navigate to="/dashboard/home" replace />} />
-            <Route path="home" element={<DrivePage />} />
+            <Route index element={<Navigate to="/dashboard/overview" replace />} />
+            <Route path="overview" element={<OverviewPage />} />
+            <Route path="home" element={<Navigate to="/dashboard/overview" replace />} />
             <Route path="drive" element={<DrivePage />} />
             <Route path="drive/:galleryId" element={<GalleryDetailPage />} />
+            <Route path="inquiries" element={<InquiriesPage />} />
+            <Route path="portfolio" element={<PortfolioStudioPage />} />
             <Route path="tutorials" element={<TutorialPage />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>
+
+          {/* Public Photographer Portfolio Route (No Auth Required) */}
+          <Route path="/portfolio/:photographerId" element={<PortfolioPage />} />
 
           {/* Public Client Gallery Route (Separate Layout) */}
           <Route path="/gallery/:galleryId" element={<ClientGalleryPage />} />
 
           {/* Catch all fallback */}
-          <Route path="*" element={<Navigate to="/dashboard/home" replace />} />
+          <Route path="*" element={<Navigate to="/dashboard/overview" replace />} />
         </Routes>
       </Suspense>
     </>

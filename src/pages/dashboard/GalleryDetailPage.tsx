@@ -18,12 +18,10 @@ import {
   Heart,
   Image as ImageIcon,
   Film,
-  Calendar,
   Layers,
   Sparkles,
   ArrowUp,
   ArrowDown,
-  Lock,
   Eye,
   CheckSquare,
   Square,
@@ -673,7 +671,6 @@ export const GalleryDetailPage: React.FC = () => {
               ];
 
               const isCinematic = selectedBannerTemplate === 'cinematic';
-              const isMinimal = selectedBannerTemplate === 'minimal';
               const isEditorial = selectedBannerTemplate === 'editorial';
 
               const videos = gallery.media.filter((m) => m.type === 'video');

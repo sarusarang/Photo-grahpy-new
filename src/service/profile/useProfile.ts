@@ -36,7 +36,7 @@ export const useOnboardingState = (enabled = true) => {
 export const useSubmitOnboarding = () => {
   const queryClient = useQueryClient();
 
-  return useMutation<SubmitOnboardingResponse, any, SubmitOnboardingPayload>({
+  return useMutation<SubmitOnboardingResponse, Error, SubmitOnboardingPayload>({
     mutationFn: async (payload) => {
       return await SubmitOnboardingApi(payload);
     },
@@ -48,7 +48,7 @@ export const useSubmitOnboarding = () => {
       queryClient.invalidateQueries({ queryKey: ['onboarding-state'] });
       queryClient.invalidateQueries({ queryKey: ['check-login'] });
     },
-    onError: (error: any) => {
+    onError: (error) => {
       toast.error("Profile Setup Failed", {
         description: error?.message || "Failed to complete studio profile. Please verify your details and try again.",
       });
@@ -83,7 +83,7 @@ export const usePhotographerProfile = (enabled = true) => {
 export const useUpdatePersonalInformation = () => {
   const queryClient = useQueryClient();
 
-  return useMutation<UpdatePersonalInformationResponse, any, UpdatePersonalInformationPayload>({
+  return useMutation<UpdatePersonalInformationResponse, Error, UpdatePersonalInformationPayload>({
     mutationFn: async (payload) => {
       return await UpdatePersonalInformationApi(payload);
     },
@@ -97,9 +97,10 @@ export const useUpdatePersonalInformation = () => {
       queryClient.invalidateQueries({ queryKey: ['photographer-profile'] });
       queryClient.invalidateQueries({ queryKey: ['check-login'] });
     },
-    onError: (error: any) => {
+    onError: (error) => {
+      const err = error as { message?: string; response?: { data?: { message?: string } } };
       toast.error("Save Failed", {
-        description: error?.response?.data?.message || error?.message || "Failed to update personal information.",
+        description: err?.response?.data?.message || err?.message || "Failed to update personal information.",
       });
     },
   });
@@ -112,7 +113,7 @@ export const useUpdatePersonalInformation = () => {
 export const useUploadProfileAvatar = () => {
   const queryClient = useQueryClient();
 
-  return useMutation<UploadAvatarResponse, any, File>({
+  return useMutation<UploadAvatarResponse, Error, File>({
     mutationFn: async (file: File) => {
       return await UploadProfileAvatarApi(file);
     },
@@ -123,9 +124,10 @@ export const useUploadProfileAvatar = () => {
       queryClient.invalidateQueries({ queryKey: ['photographer-profile'] });
       queryClient.invalidateQueries({ queryKey: ['check-login'] });
     },
-    onError: (error: any) => {
+    onError: (error) => {
+      const err = error as { message?: string; response?: { data?: { message?: string } } };
       toast.error("Upload Failed", {
-        description: error?.response?.data?.message || error?.message || "Failed to upload profile photo.",
+        description: err?.response?.data?.message || err?.message || "Failed to upload profile photo.",
       });
     },
   });
@@ -138,7 +140,7 @@ export const useUploadProfileAvatar = () => {
 export const useRemoveProfileAvatar = () => {
   const queryClient = useQueryClient();
 
-  return useMutation<RemoveAvatarResponse, any, void>({
+  return useMutation<RemoveAvatarResponse, Error, void>({
     mutationFn: async () => {
       return await RemoveProfileAvatarApi();
     },
@@ -149,9 +151,10 @@ export const useRemoveProfileAvatar = () => {
       queryClient.invalidateQueries({ queryKey: ['photographer-profile'] });
       queryClient.invalidateQueries({ queryKey: ['check-login'] });
     },
-    onError: (error: any) => {
+    onError: (error) => {
+      const err = error as { message?: string; response?: { data?: { message?: string } } };
       toast.error("Remove Failed", {
-        description: error?.response?.data?.message || error?.message || "Failed to remove profile photo.",
+        description: err?.response?.data?.message || err?.message || "Failed to remove profile photo.",
       });
     },
   });

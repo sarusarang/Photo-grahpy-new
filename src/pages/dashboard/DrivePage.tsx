@@ -59,18 +59,6 @@ export const DrivePage: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, []);
 
-  // Dynamically extract available years from gallery event dates
-  const availableYears = useMemo(() => {
-    const years = new Set<string>();
-    galleries.forEach((g) => {
-      if (g.eventDate) {
-        const year = g.eventDate.split('-')[0];
-        if (year && year.length === 4) years.add(year);
-      }
-    });
-    return Array.from(years).sort().reverse();
-  }, [galleries]);
-
   const getDateFilterLabel = () => {
     if (dateFilter === 'all') return 'Filter Date';
     if (dateFilter === 'this-year') return 'This Year';
@@ -90,6 +78,13 @@ export const DrivePage: React.FC = () => {
 
   // Filter and sort galleries
   const filteredGalleries = useMemo(() => {
+    const now = Date.now();
+    const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000;
+    const ninetyDaysAgo = now - 90 * 24 * 60 * 60 * 1000;
+    const halfYearAgo = now - 180 * 24 * 60 * 60 * 1000;
+    const currentYear = new Date(now).getFullYear().toString();
+    const lastYear = (new Date(now).getFullYear() - 1).toString();
+
     return galleries
       .filter((gal) => {
         const matchesQuery =
@@ -103,22 +98,17 @@ export const DrivePage: React.FC = () => {
         // Date filter matching
         let matchesDate = true;
         if (dateFilter === 'this-year') {
-          const currentYear = new Date().getFullYear().toString();
           matchesDate = gal.eventDate.startsWith(currentYear);
         } else if (dateFilter === 'last-year') {
-          const lastYear = (new Date().getFullYear() - 1).toString();
           matchesDate = gal.eventDate.startsWith(lastYear);
         } else if (dateFilter === 'last-30-days') {
           const galleryTime = new Date(gal.eventDate).getTime();
-          const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
           matchesDate = galleryTime >= thirtyDaysAgo;
         } else if (dateFilter === 'last-3-months') {
           const galleryTime = new Date(gal.eventDate).getTime();
-          const ninetyDaysAgo = Date.now() - 90 * 24 * 60 * 60 * 1000;
           matchesDate = galleryTime >= ninetyDaysAgo;
         } else if (dateFilter === 'last-6-months') {
           const galleryTime = new Date(gal.eventDate).getTime();
-          const halfYearAgo = Date.now() - 180 * 24 * 60 * 60 * 1000;
           matchesDate = galleryTime >= halfYearAgo;
         } else if (dateFilter.startsWith('year-')) {
           const targetYear = dateFilter.replace('year-', '');
@@ -427,7 +417,7 @@ export const DrivePage: React.FC = () => {
                       <button
                         key={opt.value}
                         onClick={() => {
-                          setSortBy(opt.value as any);
+                          setSortBy(opt.value as typeof sortBy);
                           setSortDropdownOpen(false);
                         }}
                         className={`w-full flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${

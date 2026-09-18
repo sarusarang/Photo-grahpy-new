@@ -168,7 +168,7 @@ export async function fetchCategoryTracks(categoryId: string): Promise<Track[]> 
           duration: Math.round((item.trackTimeMillis || 30000) / 1000),
           coverUrl: hdArtwork,
           audioUrl: item.previewUrl,
-          category: (categoryId === 'all' ? 'romantic' : categoryId) as any,
+          category: (categoryId === 'all' ? 'romantic' : categoryId) as Track['category'],
           badge: item.primaryGenreName || 'Music',
         };
       });

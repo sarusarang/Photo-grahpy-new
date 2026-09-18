@@ -19,20 +19,16 @@ import {
   Loader2,
   RefreshCw,
   CreditCard,
-  Sparkles,
   AlertCircle,
   PackageOpen,
 } from 'lucide-react';
-import { renderPlanFeature, type PlanItem } from '../../data/plansData';
+import { renderPlanFeature } from '../../data/plansData';
 import { useStudioPlans, useCurrentSubscription, usePlanUpgradeFlow } from '@/service/plans/usePlans';
 import type { StudioPlan } from '@/service/plans/type';
 
-export type { PlanItem };
-
-interface UpgradePlanModalProps {
+export interface UpgradePlanModalProps {
   isOpen: boolean;
   onClose: () => void;
-  customPlans?: PlanItem[];
 }
 
 const getPlanIcon = (planId: string) => {
@@ -44,7 +40,6 @@ const getPlanIcon = (planId: string) => {
 export const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({
   isOpen,
   onClose,
-  customPlans,
 }) => {
   const { subscription, upgradeSubscription } = useGallery();
   const { showToast } = useToast();
@@ -93,17 +88,21 @@ export const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({
 
   if (!isRendered) return null;
 
-  // Derive plans: custom prop > API plans (NO mock fallback)
-  const displayPlans = (customPlans || apiPlans || []) as (StudioPlan | PlanItem)[];
-  const plans = displayPlans.map((p: any) => ({
-    ...p,
-    price: typeof p.monthly_price === 'string' ? parseFloat(p.monthly_price) : (p.price || 0),
-    originalPrice: p.original_monthly_price ? parseFloat(p.original_monthly_price) : p.originalPrice,
-    billing: p.billing_text || p.billing || '',
-    icon: p.icon || getPlanIcon(p.id),
-    tagType: p.tag_type || p.tagType || 'default',
-    features: Array.isArray(p.features) ? p.features : [],
-  }));
+  // Real API plans
+  const plans = (apiPlans || []).map((p: StudioPlan) => {
+    const price = typeof p.monthly_price === 'string' ? parseFloat(p.monthly_price) : (Number(p.monthly_price) || 0);
+    const originalPrice = p.original_monthly_price ? parseFloat(p.original_monthly_price) : undefined;
+    return {
+      ...p,
+      price,
+      originalPrice,
+      billing: p.billing_text || '',
+      icon: getPlanIcon(p.id),
+      tagType: p.tag_type || 'default',
+      ctaText: p.cta_text,
+      features: Array.isArray(p.features) ? p.features : [],
+    };
+  });
 
   // Active subscription details (syncing API with GalleryContext fallback)
   const activePlanId = activeApiSub?.plan?.id || subscription?.id || 'plan-standard-1y';
@@ -112,35 +111,9 @@ export const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({
   const storageUsed = activeApiSub?.storage?.used_gb ?? subscription?.storageUsedGB ?? 28.7;
   const usedPercentage = activeApiSub?.storage?.used_percentage ?? Math.max(1, Math.min(100, Math.round((storageUsed / storageLimit) * 100)));
 
-  const handleSelectPlan = async (plan: StudioPlan | PlanItem) => {
+  const handleSelectPlan = async (plan: StudioPlan) => {
     if (plan.id === activePlanId || isUpgrading) return;
-
-    // Convert to StudioPlan format if needed
-    const studioPlan: StudioPlan = {
-      id: plan.id,
-      name: plan.name,
-      subtitle: plan.subtitle,
-      tier: (plan as any).tier || (plan.id.includes('elite') ? 'premium' : 'standard'),
-      billing_cycle: (plan as any).billing_cycle || (plan.id.includes('3m') ? 'quarterly' : 'annual'),
-      period_label: (plan as any).period_label || (plan as any).periodLabel || 'Studio Access',
-      duration_months: (plan as any).duration_months || (plan.id.includes('3m') ? 3 : 12),
-      monthly_price: typeof (plan as any).price === 'number' ? (plan as any).price.toString() : (plan as any).monthly_price || '800',
-      original_monthly_price: (plan as any).originalPrice ? (plan as any).originalPrice.toString() : (plan as any).original_monthly_price || null,
-      total_price: (plan as any).total_price || '9600.00',
-      billing_text: (plan as any).billing || (plan as any).billing_text || '',
-      currency: (plan as any).currency || 'INR',
-      tag: (plan as any).tag || '',
-      tag_type: (plan as any).tagType || (plan as any).tag_type || 'default',
-      image_storage: (plan as any).imageStorage || (plan as any).image_storage || '200 GB',
-      video_storage: (plan as any).videoStorage || (plan as any).video_storage || '10 GB',
-      storage_limit_bytes: (plan as any).storage_limit_bytes || 225485783040,
-      features: plan.features || [],
-      cta_text: (plan as any).ctaText || (plan as any).cta_text || `Choose ${plan.name}`,
-      is_active: true,
-      sort_order: (plan as any).sort_order || 1,
-    };
-
-    await handleUpgrade(studioPlan, preferredGateway);
+    await handleUpgrade(plan, preferredGateway);
   };
 
   const handleManageStorage = () => {

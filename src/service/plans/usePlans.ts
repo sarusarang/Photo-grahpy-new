@@ -14,6 +14,8 @@ import type {
   CheckoutOrderPayload,
   CheckoutOrderResponse,
   VerifyPaymentPayload,
+  VerifyPaymentResponse,
+  CancelAutoRenewResponse,
 } from './type';
 
 /**
@@ -35,18 +37,13 @@ export const useStudioPlans = () => {
 };
 
 /**
- * 2. Query: Photographer's current active subscription & live storage metrics
+ * 2. Query: Fetch current active subscription and storage quota metrics
  */
-export const useCurrentSubscription = (enabled = true) => {
+export const useCurrentSubscription = (enabled: boolean = true) => {
   return useQuery<CurrentSubscription | null>({
     queryKey: ['current-subscription'],
     queryFn: async () => {
-      try {
-        return await GetCurrentSubscriptionApi();
-      } catch (error) {
-        console.warn('Could not fetch active subscription from backend:', error);
-        return null;
-      }
+      return await GetCurrentSubscriptionApi();
     },
     enabled,
     staleTime: 60 * 1000,
@@ -57,9 +54,13 @@ export const useCurrentSubscription = (enabled = true) => {
 /**
  * Helper to dynamically load the Razorpay checkout script
  */
+interface RazorpayWindow extends Window {
+  Razorpay?: new (options: Record<string, unknown>) => { open: () => void };
+}
+
 export const loadRazorpayScript = (): Promise<boolean> => {
   return new Promise((resolve) => {
-    if (typeof window !== 'undefined' && (window as any).Razorpay) {
+    if (typeof window !== 'undefined' && (window as unknown as RazorpayWindow).Razorpay) {
       resolve(true);
       return;
     }
@@ -78,7 +79,7 @@ export const loadRazorpayScript = (): Promise<boolean> => {
 export const useCheckoutPlan = () => {
   const queryClient = useQueryClient();
 
-  return useMutation<CheckoutOrderResponse, any, CheckoutOrderPayload>({
+  return useMutation<CheckoutOrderResponse, Error, CheckoutOrderPayload>({
     mutationFn: async (payload) => {
       return await CheckoutPlanApi(payload);
     },
@@ -91,7 +92,7 @@ export const useCheckoutPlan = () => {
         queryClient.invalidateQueries({ queryKey: ['photographer-profile'] });
       }
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast.error('Upgrade Failed', {
         description: error?.message || 'Could not initiate plan checkout. Please try again.',
       });
@@ -105,7 +106,7 @@ export const useCheckoutPlan = () => {
 export const useVerifyPayment = () => {
   const queryClient = useQueryClient();
 
-  return useMutation<any, any, VerifyPaymentPayload>({
+  return useMutation<VerifyPaymentResponse, Error, VerifyPaymentPayload>({
     mutationFn: async (payload) => {
       return await VerifyPaymentApi(payload);
     },
@@ -116,7 +117,7 @@ export const useVerifyPayment = () => {
       queryClient.invalidateQueries({ queryKey: ['current-subscription'] });
       queryClient.invalidateQueries({ queryKey: ['photographer-profile'] });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast.error('Verification Failed', {
         description: error?.message || 'Failed to verify payment with the gateway.',
       });
@@ -130,7 +131,7 @@ export const useVerifyPayment = () => {
 export const useCancelAutoRenew = () => {
   const queryClient = useQueryClient();
 
-  return useMutation({
+  return useMutation<CancelAutoRenewResponse, Error, void>({
     mutationFn: async () => {
       return await CancelAutoRenewApi();
     },
@@ -140,7 +141,7 @@ export const useCancelAutoRenew = () => {
       });
       queryClient.invalidateQueries({ queryKey: ['current-subscription'] });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast.error('Action Failed', {
         description: error?.message || 'Could not update auto-renewal settings.',
       });
@@ -181,7 +182,7 @@ export const usePlanUpgradeFlow = (onSuccess?: (plan: StudioPlan) => void) => {
           plan_id: plan.id,
           gateway: 'razorpay',
         });
-      } catch (err: any) {
+      } catch {
         toast.error('Razorpay Order Error', {
           description: 'Payment gateway order could not be created on the backend. Try Instant Dev mode.',
         });
@@ -200,7 +201,7 @@ export const usePlanUpgradeFlow = (onSuccess?: (plan: StudioPlan) => void) => {
       }
 
       // Open Razorpay Checkout Dialog
-      const options = {
+      const options: Record<string, unknown> = {
         key: order.key_id || 'rzp_test_placeholder',
         amount: order.amount_paise || Number(order.amount || 0) * 100,
         currency: order.currency || 'INR',
@@ -215,16 +216,16 @@ export const usePlanUpgradeFlow = (onSuccess?: (plan: StudioPlan) => void) => {
         theme: {
           color: '#fbbf24', // Amber gold
         },
-        handler: async (response: any) => {
+        handler: async (response: Record<string, string>) => {
           try {
             await verifyMutation.mutateAsync({
               plan_id: plan.id,
               gateway_order_id: response.razorpay_order_id || order.order_id || '',
-              gateway_payment_id: response.razorpay_payment_id,
-              gateway_signature: response.razorpay_signature,
+              gateway_payment_id: response.razorpay_payment_id || '',
+              gateway_signature: response.razorpay_signature || '',
             });
             onSuccess?.(plan);
-          } catch (err: any) {
+          } catch (err: unknown) {
             console.error('Payment verification failed', err);
           }
         },
@@ -237,9 +238,12 @@ export const usePlanUpgradeFlow = (onSuccess?: (plan: StudioPlan) => void) => {
         },
       };
 
-      const rzp = new (window as any).Razorpay(options);
-      rzp.open();
-    } catch (err: any) {
+      const razorpayClass = (window as unknown as RazorpayWindow).Razorpay;
+      if (razorpayClass) {
+        const rzp = new razorpayClass(options);
+        rzp.open();
+      }
+    } catch (err: unknown) {
       console.error('Upgrade flow error:', err);
     } finally {
       setUpgradingPlanId(null);

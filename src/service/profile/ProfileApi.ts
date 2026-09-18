@@ -51,7 +51,7 @@ export const SubmitOnboardingApi = async (
   }
 
   // JSON payload (Option A: without custom image file)
-  const jsonBody: Record<string, any> = {
+  const jsonBody: Record<string, string | number> = {
     name: payload.name,
     phone: payload.phone || "",
     occupation: payload.occupation || "",

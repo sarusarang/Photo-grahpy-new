@@ -22,7 +22,6 @@ export const ClientGalleryNavbar: React.FC<ClientGalleryNavbarProps> = ({
   visible,
   studioName,
   galleryTitle,
-  galleryId,
   allowDownloads = true,
   mediaCount,
   isPreparingZip = false,

@@ -14,17 +14,18 @@ import type {
  * Endpoint: GET /api/plans/ (or /api/subscriptions/)
  */
 export const GetStudioPlansApi = async (): Promise<StudioPlan[]> => {
-  let res: any;
+  let res: unknown;
   try {
     res = await CommonApi('GET', '/api/plans/');
-  } catch (err) {
+  } catch {
     // Graceful routing fallback to alias
     res = await CommonApi('GET', '/api/subscriptions/');
   }
   if (Array.isArray(res)) return res;
-  if (res && Array.isArray(res.results)) return res.results;
-  if (res && Array.isArray(res.data)) return res.data;
-  if (res && Array.isArray(res.plans)) return res.plans;
+  const obj = res as Record<string, unknown> | null;
+  if (obj && Array.isArray(obj.results)) return obj.results as StudioPlan[];
+  if (obj && Array.isArray(obj.data)) return obj.data as StudioPlan[];
+  if (obj && Array.isArray(obj.plans)) return obj.plans as StudioPlan[];
   return [];
 };
 
@@ -35,7 +36,7 @@ export const GetStudioPlansApi = async (): Promise<StudioPlan[]> => {
 export const GetCurrentSubscriptionApi = async (): Promise<CurrentSubscription> => {
   try {
     return (await CommonApi('GET', '/api/plans/current/')) as CurrentSubscription;
-  } catch (err) {
+  } catch {
     // Graceful routing fallback to alias
     return (await CommonApi('GET', '/api/subscriptions/current/')) as CurrentSubscription;
   }
@@ -50,7 +51,7 @@ export const CheckoutPlanApi = async (
 ): Promise<CheckoutOrderResponse> => {
   try {
     return (await CommonApi('POST', '/api/plans/checkout/', payload)) as CheckoutOrderResponse;
-  } catch (err) {
+  } catch {
     return (await CommonApi('POST', '/api/subscriptions/checkout/', payload)) as CheckoutOrderResponse;
   }
 };
@@ -75,7 +76,7 @@ export const VerifyPaymentApi = async (
 
   try {
     return (await CommonApi('POST', '/api/plans/verify/', body)) as VerifyPaymentResponse;
-  } catch (err) {
+  } catch {
     return (await CommonApi('POST', '/api/subscriptions/verify/', body)) as VerifyPaymentResponse;
   }
 };
@@ -87,7 +88,7 @@ export const VerifyPaymentApi = async (
 export const CancelAutoRenewApi = async (): Promise<CancelAutoRenewResponse> => {
   try {
     return (await CommonApi('POST', '/api/plans/cancel/', {})) as CancelAutoRenewResponse;
-  } catch (err) {
+  } catch {
     return (await CommonApi('POST', '/api/subscriptions/cancel/', {})) as CancelAutoRenewResponse;
   }
 };

@@ -47,19 +47,26 @@ export const ResendRegOtpApi = async (data: SendOtpPayload): Promise<SendOtpResp
 export const CheckLoginStatusApi = async (): Promise<CheckLoginResponse> => {
   try {
     return (await CommonApi("GET", "/api/auth/check-login/")) as CheckLoginResponse;
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const err = error as {
+      status?: number;
+      data?: { is_logged_in?: boolean; message?: string };
+      response?: { status?: number; data?: { is_logged_in?: boolean; message?: string } };
+      message?: string;
+    } | null;
+
     // 401 is normal when unauthenticated: { is_logged_in: false, message: "No access token found" }
-    if (error?.status === 401 && error?.data?.is_logged_in === false) {
-      return error.data as CheckLoginResponse;
+    if (err?.status === 401 && err?.data?.is_logged_in === false) {
+      return err.data as CheckLoginResponse;
     }
-    if (error?.response?.status === 401 && error?.response?.data?.is_logged_in === false) {
-      return error.response.data as CheckLoginResponse;
+    if (err?.response?.status === 401 && err?.response?.data?.is_logged_in === false) {
+      return err.response.data as CheckLoginResponse;
     }
     // If backend returns 401 without JSON body or other message
-    if (error?.status === 401 || error?.response?.status === 401) {
+    if (err?.status === 401 || err?.response?.status === 401) {
       return {
         is_logged_in: false,
-        message: error?.message || error?.response?.data?.message || "No access token found",
+        message: err?.message || err?.response?.data?.message || "No access token found",
       };
     }
     throw error;

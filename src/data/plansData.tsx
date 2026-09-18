@@ -1,5 +1,4 @@
 import React from 'react';
-import { Sprout, Crown, Gem } from 'lucide-react';
 
 export interface PlanItem {
   id: string;
@@ -18,78 +17,6 @@ export interface PlanItem {
   videoStorage: string;
 }
 
-export const STUDIO_PLANS: PlanItem[] = [
-  {
-    id: 'plan-standard-3m',
-    name: 'Standard Quarterly',
-    subtitle: 'For 03 Months • Essential Studio Plan',
-    periodLabel: 'For 03 Months',
-    originalPrice: 1100,
-    price: 800,
-    billing: '₹800 / Month • Billed for 03 Months (₹2,400)',
-    icon: Sprout,
-    tag: '3 MONTHS ACCESS',
-    tagType: 'default',
-    imageStorage: '200 GB',
-    videoStorage: '10 GB',
-    features: [
-      '200 GB Image Storage',
-      '10 GB Video Delivery',
-      'For 03 Months Studio Access',
-      'Unlimited Client Proofing & Lightbox',
-      'High-Speed Instant ZIP Bulk Downloads',
-      'Editorial & Masonry Gallery Themes',
-    ],
-    ctaText: 'Choose Standard (3 Months)',
-  },
-  {
-    id: 'plan-standard-1y',
-    name: 'Standard Annual',
-    subtitle: 'For 01 Year • Best Value For Photographers',
-    periodLabel: 'For 01 Year',
-    originalPrice: 1100,
-    price: 800,
-    billing: '₹800 / Month • Billed Annually (₹9,600)',
-    icon: Crown,
-    tag: 'MOST POPULAR',
-    tagType: 'popular',
-    imageStorage: '200 GB',
-    videoStorage: '10 GB',
-    features: [
-      '200 GB Image Storage',
-      '10 GB Video Delivery',
-      'For 01 Year Uninterrupted Hosting',
-      'Unlimited Client Galleries',
-      'All 4 Layout Templates (Editorial, Masonry, Cinematic, Minimal)',
-      'PIN Security & Custom Watermark Suite',
-      'Priority Delivery Speeds',
-    ],
-    ctaText: 'Choose Standard (1 Year)',
-  },
-  {
-    id: 'plan-premium-elite',
-    name: 'Studio Premium Elite',
-    subtitle: '2x Standard Capacity & Power for Commercial Studios',
-    periodLabel: 'Annual • Priority Tier',
-    originalPrice: 2200,
-    price: 1800,
-    billing: '₹1,800 / Month • Billed Annually (₹21,600)',
-    icon: Gem,
-    tag: '2X POWER',
-    tagType: 'default',
-    imageStorage: '1000 GB (1 TB)',
-    videoStorage: '50 GB',
-    features: [
-      '2x Standard Plan Performance & Capacity',
-      '~~600 GB~~ / 1000 GB Image (Can Upgrade)',
-      '50 GB Video Delivery & Streaming',
-      '4K Ultra Video Delivery & High-Bitrate CDN',
-      'Custom Branding & White-Label Domain',
-      'Priority 24/7 Studio VIP Support',
-    ],
-    ctaText: 'Choose Premium Elite',
-  },
-];
 
 /**
  * Helper to render features, including highlighted badges for storage and high-visibility strikethroughs

@@ -191,7 +191,9 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
     setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
     try {
       (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    } catch (_) {}
+    } catch {
+      // Silently handle environments where pointer capture is unavailable
+    }
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
@@ -213,7 +215,9 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
       setIsDragging(false);
       try {
         (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
-      } catch (_) {}
+      } catch {
+        // Silently handle pointer release
+      }
     }
   };
 

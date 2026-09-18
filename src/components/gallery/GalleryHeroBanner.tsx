@@ -28,7 +28,9 @@ export const formatHeroShootDate = (dateStr?: string): string => {
         day: 'numeric',
       }).toUpperCase();
     }
-  } catch { }
+  } catch {
+    // Fallback to raw string
+  }
   return String(dateStr).toUpperCase();
 };
 

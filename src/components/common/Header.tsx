@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { useGallery } from '../../context/GalleryContext';
 import { AnimatedThemeToggler } from '../ui/animated-theme-toggler';
 import { ProfileDropdown } from './ProfileDropdown';
 import { Logo } from './Logo';
@@ -18,7 +17,6 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
   const { photographer, user } = useAuth();
-  const { galleries } = useGallery();
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
 
 

@@ -5,6 +5,7 @@ import { useGallery } from '../../context/GalleryContext';
 import {
   Settings,
   ExternalLink,
+  Globe,
   HelpCircle,
   LogOut,
   ChevronRight,
@@ -60,6 +61,7 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ isOpen, onClos
   };
 
   const clientGallerySlug = galleries[0]?.slug || 'sarang-wedding-editorial';
+  const portfolioId = user?.username || photographer.id || 'studio';
 
   return (
     <div
@@ -164,7 +166,29 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ isOpen, onClos
           <ChevronRight className="w-4 h-4 text-neutral-400 dark:text-neutral-500 group-hover:text-neutral-900 dark:group-hover:text-white group-hover:translate-x-0.5 transition-all shrink-0 ml-2" />
         </Link>
 
-        {/* 2. Public Client View */}
+        {/* 2. Portfolio Studio Customizer */}
+        <Link
+          to="/dashboard/portfolio"
+          onClick={onClose}
+          className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800/60 transition-colors group cursor-pointer text-left"
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-neutral-100 dark:bg-neutral-800/70 border border-neutral-200/80 dark:border-neutral-700/50 flex items-center justify-center text-neutral-600 dark:text-neutral-300 group-hover:text-amber-500 group-hover:border-amber-400/40 transition-colors shrink-0">
+              <Globe className="w-4 h-4" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-semibold text-neutral-900 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
+                Portfolio Studio & Templates
+              </p>
+              <p className="text-[11px] text-neutral-500 dark:text-neutral-400 leading-tight truncate mt-0.5">
+                Customize visuals, layout templates, and live preview
+              </p>
+            </div>
+          </div>
+          <ChevronRight className="w-4 h-4 text-neutral-400 dark:text-neutral-500 group-hover:text-neutral-900 dark:group-hover:text-white group-hover:translate-x-0.5 transition-all shrink-0 ml-2" />
+        </Link>
+
+        {/* 3. Public Client View */}
         <Link
           to={`/gallery/${clientGallerySlug}`}
           target="_blank"

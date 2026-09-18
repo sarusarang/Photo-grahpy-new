@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { FolderKanban, GraduationCap, Settings, Eye, Sparkles, ArrowRight, ShieldCheck } from 'lucide-react';
+import { FolderKanban, GraduationCap, Eye, Sparkles, ArrowRight } from 'lucide-react';
 import { useGallery } from '../context/GalleryContext';
 
 export const LandingPlaceholder: React.FC = () => {

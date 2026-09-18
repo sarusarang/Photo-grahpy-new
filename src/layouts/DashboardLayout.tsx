@@ -13,6 +13,7 @@ export const DashboardLayout: React.FC = () => {
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+  const [templatesSheetOpen, setTemplatesSheetOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
     try {
       const saved = localStorage.getItem('photo_saas_sidebar_collapsed');
@@ -52,8 +53,6 @@ export const DashboardLayout: React.FC = () => {
       </div>
     );
   }
-
-  const [templatesSheetOpen, setTemplatesSheetOpen] = useState(false);
 
   return (
     <div className="h-screen bg-[#f8f9fa] dark:bg-[#0c0d12] text-neutral-900 dark:text-neutral-100 flex flex-col antialiased overflow-hidden transition-colors">

@@ -19,7 +19,10 @@ export const useSmoothScroll = () => useContext(SmoothScrollContext);
 export const useLenisScroll = (callback: (scroll: number, direction: number) => void) => {
   const { lenis } = useSmoothScroll();
   const cbRef = useRef(callback);
-  cbRef.current = callback;
+
+  useEffect(() => {
+    cbRef.current = callback;
+  });
 
   useEffect(() => {
     if (!lenis) {
@@ -32,7 +35,7 @@ export const useLenisScroll = (callback: (scroll: number, direction: number) => 
       return () => window.removeEventListener('scroll', handleWindowScroll);
     }
 
-    const handler = (e: any) => {
+    const handler = (e: { scroll: number; direction: number }) => {
       cbRef.current(e.scroll, e.direction);
     };
 

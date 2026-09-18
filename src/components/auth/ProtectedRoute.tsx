@@ -1,16 +1,15 @@
 import React from 'react';
-import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-import { Camera, AlertTriangle, RefreshCw, LogIn } from 'lucide-react';
+import { Camera } from 'lucide-react';
 
 interface ProtectedRouteProps {
   children?: React.ReactNode;
 }
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
-  const { isAuthenticated, isLoading, checkLoginError, refetchAuth } = useAuth();
+  const { isAuthenticated, isLoading, checkLoginError } = useAuth();
   const location = useLocation();
-  const navigate = useNavigate();
 
 
   // 1. Loading State during session validation (only brief, if not authenticated)

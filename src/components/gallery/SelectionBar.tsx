@@ -5,7 +5,6 @@ import {
   X,
   Share2,
   Loader2,
-  CheckSquare,
 } from 'lucide-react';
 
 interface SelectionBarProps {

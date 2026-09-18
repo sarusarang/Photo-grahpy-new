@@ -1,5 +1,4 @@
 import React from 'react';
-import { ArrowUp } from 'lucide-react';
 
 interface ClientGalleryFooterProps {
   galleryTitle: string;
@@ -14,9 +13,6 @@ export const ClientGalleryFooter: React.FC<ClientGalleryFooterProps> = ({
   mediaCount,
   theme = 'editorial',
 }) => {
-  const handleScrollTop = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
 
   const getThemeStyles = () => {
     switch (theme) {
@@ -113,22 +109,8 @@ export const ClientGalleryFooter: React.FC<ClientGalleryFooterProps> = ({
                   (e.currentTarget as HTMLElement).style.display = 'none';
                 }}
               />
-             
             </div>
           </div>
-
-          <span className={`hidden sm:inline ${st.dot}`}>•</span>
-
-          {/* Back to top Button */}
-          <button
-            type="button"
-            onClick={handleScrollTop}
-            className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium transition-all duration-200 cursor-pointer active:scale-95 ${st.button}`}
-            title="Scroll back to top"
-          >
-            <ArrowUp className="w-3.5 h-3.5" />
-            <span>Back to top</span>
-          </button>
         </div>
       </div>
     </footer>

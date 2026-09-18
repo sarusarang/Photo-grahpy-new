@@ -1,13 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
 import { useGallery } from '../../context/GalleryContext';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../components/ui/Toast';
-import type { GalleryTemplateId, MediaItem } from '../../types';
-import { EditorialLayout } from '../../components/gallery/EditorialLayout';
-import { MasonryLayout } from '../../components/gallery/MasonryLayout';
-import { CinematicLayout } from '../../components/gallery/CinematicLayout';
-import { MinimalLayout } from '../../components/gallery/MinimalLayout';
+import type { GalleryTemplateId } from '../../types';
+import { GalleryTemplateRenderer } from '../../components/gallery/templates';
 import { LightboxModal } from '../../components/gallery/LightboxModal';
 import { SlideshowModal } from '../../components/gallery/SlideshowModal';
 import { MusicPickerModal } from '../../components/gallery/MusicPickerModal';
@@ -16,17 +13,11 @@ import { SelectionBar } from '../../components/gallery/SelectionBar';
 import { MediaShareModal } from '../../components/gallery/MediaShareModal';
 import { ClientGalleryNavbar } from '../../components/gallery/ClientGalleryNavbar';
 import { SmoothScrollProvider, useLenisScroll } from '../../components/common/SmoothScroll';
-import {
-  Share2,
-  Lock,
-  Sparkles,
-  Loader2,
-  CheckSquare,
-} from 'lucide-react';
+import { Lock } from 'lucide-react';
 
 const ClientGalleryContent: React.FC = () => {
   const { galleryId } = useParams<{ galleryId: string }>();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const { getGalleryByIdOrSlug, toggleMediaFavorite } = useGallery();
   const { photographer } = useAuth();
   const { showToast } = useToast();
@@ -264,58 +255,20 @@ const ClientGalleryContent: React.FC = () => {
         onDownloadAll={handleDownloadAll}
       />
 
-      {/* Dynamic Gallery Template Rendering: 1 of 4 genuine bespoke wedding designs */}
-      {activeTemplate === 'editorial' && (
-        <EditorialLayout
-          gallery={gallery}
-          onOpenLightbox={(idx) => setLightboxIndex(idx)}
-          onToggleFavorite={(mId) => toggleMediaFavorite(gallery.id, mId)}
-          selectedMediaIds={selectedMediaIds}
-          onToggleSelectMedia={handleToggleSelectMedia}
-          onStartSlideshow={handleStartSlideshow}
-          studioName={photographer.studioName || 'ATELIER PHOTOGRAPHY'}
-          onShareGallery={() => {
-            navigator.clipboard.writeText(window.location.href);
-            showToast('Link Copied', 'Gallery link copied to clipboard.', 'success');
-          }}
-        />
-      )}
-
-      {activeTemplate === 'masonry' && (
-        <MasonryLayout
-          gallery={gallery}
-          onOpenLightbox={(idx) => setLightboxIndex(idx)}
-          onToggleFavorite={(mId) => toggleMediaFavorite(gallery.id, mId)}
-          selectedMediaIds={selectedMediaIds}
-          onToggleSelectMedia={handleToggleSelectMedia}
-          onStartSlideshow={handleStartSlideshow}
-          studioName={photographer.studioName}
-        />
-      )}
-
-      {activeTemplate === 'cinematic' && (
-        <CinematicLayout
-          gallery={gallery}
-          onOpenLightbox={(idx) => setLightboxIndex(idx)}
-          onToggleFavorite={(mId) => toggleMediaFavorite(gallery.id, mId)}
-          selectedMediaIds={selectedMediaIds}
-          onToggleSelectMedia={handleToggleSelectMedia}
-          onStartSlideshow={handleStartSlideshow}
-          studioName={photographer.studioName}
-        />
-      )}
-
-      {activeTemplate === 'minimal' && (
-        <MinimalLayout
-          gallery={gallery}
-          onOpenLightbox={(idx) => setLightboxIndex(idx)}
-          onToggleFavorite={(mId) => toggleMediaFavorite(gallery.id, mId)}
-          selectedMediaIds={selectedMediaIds}
-          onToggleSelectMedia={handleToggleSelectMedia}
-          onStartSlideshow={handleStartSlideshow}
-          studioName={photographer.studioName}
-        />
-      )}
+      {/* Dynamic Gallery Template Rendering: Bespoke Wedding & Fine-Art Designs */}
+      <GalleryTemplateRenderer
+        template={activeTemplate}
+        gallery={gallery}
+        onOpenLightbox={(idx) => setLightboxIndex(idx)}
+        onToggleFavorite={(mId) => toggleMediaFavorite(gallery.id, mId)}
+        selectedMediaIds={selectedMediaIds}
+        onToggleSelectMedia={handleToggleSelectMedia}
+        onStartSlideshow={handleStartSlideshow}
+        studioName={photographer.studioName || 'ATELIER PHOTOGRAPHY'}
+        onShareGallery={() => {
+          setIsShareSelectedOpen(true);
+        }}
+      />
 
 
       {/* Multi-Select Floating Action Toolbar (Appears when photos are selected) */}
@@ -374,7 +327,11 @@ const ClientGalleryContent: React.FC = () => {
       <MediaShareModal
         isOpen={isShareSelectedOpen}
         onClose={() => setIsShareSelectedOpen(false)}
-        mediaItems={gallery.media.filter((m) => selectedMediaIds.has(m.id))}
+        mediaItems={
+          selectedMediaIds.size > 0
+            ? gallery.media.filter((m) => selectedMediaIds.has(m.id))
+            : gallery.media
+        }
         galleryTitle={gallery.title}
         gallerySlug={gallery.slug || gallery.id}
         clientName={gallery.clientName}

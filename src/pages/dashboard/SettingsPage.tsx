@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useGallery } from '../../context/GalleryContext';
 import { useToast } from '../../components/ui/Toast';
 import { UpgradePlanModal } from '../../components/common/UpgradePlanModal';
 import { PersonalInformationSection } from '../../components/settings/PersonalInformationSection';
 import { renderPlanFeature } from '../../data/plansData';
-import { useStudioPlans, useCurrentSubscription, usePlanUpgradeFlow, useCancelAutoRenew } from '@/service/plans/usePlans';
+import { useStudioPlans, useCurrentSubscription, usePlanUpgradeFlow } from '@/service/plans/usePlans';
 import type { StudioPlan } from '@/service/plans/type';
 import {
   User,
@@ -14,43 +14,26 @@ import {
   Cloud,
   Bell,
   Shield,
-  Mail,
-  Phone,
-  MapPin,
-  FileText,
-  Bookmark,
-  Camera,
-  Upload,
-  Trash2,
-  Info,
-  Calendar,
-  LayoutGrid,
-  Image as ImageIcon,
-  Film,
-  ChevronRight,
   Crown,
   Check,
   Zap,
   RotateCcw,
   LogOut,
-  Sparkles,
-  Lock,
   Loader2,
   Sprout,
   Gem,
-  Globe,
-  Headphones,
   ArrowRight,
-  Sliders,
-  Briefcase,
   RefreshCw,
   AlertCircle,
   PackageOpen,
+  Globe,
+  Headphones,
+  ExternalLink,
 } from 'lucide-react';
 
 export const SettingsPage: React.FC = () => {
-  const { photographer, updateProfile, logout, resetProfile, isLoggingOut } = useAuth();
-  const { subscription, availablePlans, upgradeSubscription, resetAllDemoData, galleries } = useGallery();
+  const { photographer, user, updateProfile, logout, resetProfile, isLoggingOut } = useAuth();
+  const { subscription, upgradeSubscription, resetAllDemoData } = useGallery();
   const { showToast } = useToast();
   const navigate = useNavigate();
 
@@ -71,8 +54,6 @@ export const SettingsPage: React.FC = () => {
     upgradeSubscription(plan.id);
     showToast('Subscription Activated', `Switched to ${plan.name} successfully!`, 'success');
   });
-
-  const cancelAutoRenewMutation = useCancelAutoRenew();
 
   // Drive settings state
   const [defaultTemplate, setDefaultTemplate] = useState('editorial');
@@ -151,7 +132,7 @@ export const SettingsPage: React.FC = () => {
           return (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
+              onClick={() => setActiveTab(tab.id as typeof activeTab)}
               className={`flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all shrink-0 cursor-pointer active:scale-95 ${
                 isActive
                   ? 'bg-amber-400 text-neutral-950 font-bold shadow-sm shadow-amber-500/10'
@@ -167,9 +148,53 @@ export const SettingsPage: React.FC = () => {
 
       {/* 3. Main Content Grid for Profile Tab */}
       {activeTab === 'profile' && (
-        <PersonalInformationSection
-          onManagePlan={() => setActiveTab('billing')}
-        />
+        <div className="space-y-6">
+          {/* Public Portfolio Quick Access Card */}
+          <div className="p-5 sm:p-6 rounded-3xl bg-gradient-to-r from-amber-500/10 via-neutral-900/50 to-neutral-900/80 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+            <div className="flex items-center gap-3.5 min-w-0">
+              <div className="w-12 h-12 rounded-2xl bg-amber-400/20 border border-amber-400/40 text-amber-500 flex items-center justify-center shrink-0">
+                <Globe className="w-6 h-6" />
+              </div>
+              <div className="min-w-0">
+                <h3 className="text-base font-bold text-neutral-900 dark:text-white tracking-tight flex items-center gap-2">
+                  <span>Your Public Monograph Portfolio</span>
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-mono text-[10px] font-bold">
+                    Live
+                  </span>
+                </h3>
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate mt-0.5">
+                  {window.location.origin}/portfolio/{user?.username || photographer.id || 'studio'}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(`${window.location.origin}/portfolio/${user?.username || photographer.id || 'studio'}`);
+                  showToast('Public portfolio link copied to clipboard!', 'success');
+                }}
+                className="px-3.5 py-2 rounded-xl bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 text-xs font-semibold transition-colors cursor-pointer"
+              >
+                Copy Link
+              </button>
+
+              <Link
+                to={`/portfolio/${user?.username || photographer.id || 'studio'}`}
+                target="_blank"
+                className="px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 text-xs font-bold flex items-center gap-1.5 transition-all hover:scale-105 active:scale-95 shadow-xs"
+              >
+                <span>Preview</span>
+                <ExternalLink className="w-3.5 h-3.5 stroke-[2.5]" />
+              </Link>
+            </div>
+          </div>
+
+          <PersonalInformationSection
+            onManagePlan={() => setActiveTab('billing')}
+          />
+        </div>
       )}
 
       {/* Tab 2: Plan & Billing */}
@@ -180,15 +205,20 @@ export const SettingsPage: React.FC = () => {
         const billingStorageUsed = activeApiSub?.storage?.used_gb ?? subscription?.storageUsedGB ?? 28.7;
         const billingUsedPct = activeApiSub?.storage?.used_percentage ?? Math.max(1, Math.min(100, Math.round((billingStorageUsed / billingStorageLimit) * 100)));
 
-        const billingPlans = (apiPlans || []).map((p: any) => ({
-          ...p,
-          price: typeof p.monthly_price === 'string' ? parseFloat(p.monthly_price) : (p.price || 0),
-          originalPrice: p.original_monthly_price ? parseFloat(p.original_monthly_price) : p.originalPrice,
-          billing: p.billing_text || p.billing || '',
-          icon: p.icon || (p.id.includes('elite') ? Gem : p.id.includes('1y') ? Crown : Sprout),
-          tagType: p.tag_type || p.tagType || 'default',
-          features: Array.isArray(p.features) ? p.features : [],
-        }));
+        const billingPlans = (apiPlans || []).map((p: StudioPlan) => {
+          const price = typeof p.monthly_price === 'string' ? parseFloat(p.monthly_price) : (Number(p.monthly_price) || 0);
+          const originalPrice = p.original_monthly_price ? parseFloat(p.original_monthly_price) : undefined;
+          return {
+            ...p,
+            price,
+            originalPrice,
+            billing: p.billing_text || (p.billing_cycle === 'annual' ? 'billed annually' : 'billed monthly'),
+            icon: p.id.includes('elite') ? Gem : p.id.includes('1y') || p.id.includes('annual') ? Crown : Sprout,
+            tagType: p.tag_type || 'default',
+            ctaText: p.cta_text,
+            features: Array.isArray(p.features) ? p.features : [],
+          };
+        });
 
         return (
           <div className="space-y-6 fade-up">
@@ -350,7 +380,7 @@ export const SettingsPage: React.FC = () => {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                {billingPlans.map((plan: any) => {
+                {billingPlans.map((plan) => {
                   const isCurrent = billingActivePlanId === plan.id;
                   const Icon = plan.icon;
                   const isCardUpgrading = upgradingPlanId === plan.id;

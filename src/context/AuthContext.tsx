@@ -9,10 +9,10 @@ export interface AuthContextType {
   isLoggingOut: boolean;
   user: AuthUser | null;
   photographer: PhotographerProfile;
-  checkLoginError: any;
+  checkLoginError: Error | null;
   login: (userData?: Partial<AuthUser>, profileData?: Partial<PhotographerProfile>) => void;
   logout: () => Promise<void>;
-  refetchAuth: () => Promise<any>;
+  refetchAuth: () => Promise<unknown>;
   updateProfile: (updates: Partial<PhotographerProfile>) => void;
   completeOnboarding: (data: Partial<PhotographerProfile>) => void;
   resetProfile: () => void;
@@ -22,17 +22,20 @@ const STORAGE_KEY = 'photo_saas_auth_v2';
 const PROFILE_KEY = 'photo_saas_profile_v2';
 const USER_KEY = 'photo_saas_user_v2';
 
-import { INITIAL_PHOTOGRAPHER } from '../data/demoData';
-
 const createEmptyProfile = (u?: Partial<AuthUser> | null): PhotographerProfile => ({
-  ...INITIAL_PHOTOGRAPHER,
-  id: u?.id?.toString() || INITIAL_PHOTOGRAPHER.id,
-  studioName: u?.fullname ? `${u.fullname} Studio` : INITIAL_PHOTOGRAPHER.studioName,
-  fullName: u?.fullname || u?.username || INITIAL_PHOTOGRAPHER.fullName,
-  email: u?.email || INITIAL_PHOTOGRAPHER.email,
-  phone: u?.phone || INITIAL_PHOTOGRAPHER.phone,
-  avatarUrl: u?.avatar_url || INITIAL_PHOTOGRAPHER.avatarUrl,
-  isOnboarded: true,
+  id: u?.id?.toString() || '',
+  studioName: u?.fullname ? `${u.fullname} Studio` : 'Studio',
+  fullName: u?.fullname || u?.username || '',
+  email: u?.email || '',
+  phone: u?.phone || '',
+  location: '',
+  bio: '',
+  avatarUrl: u?.avatar_url || '',
+  websiteUrl: '',
+  instagramHandle: '',
+  watermarkText: '© EX SHARE',
+  enableWatermark: false,
+  isOnboarded: Boolean(u?.id),
 });
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -40,7 +43,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
-    return saved !== null ? JSON.parse(saved) : true;
+    return saved !== null ? JSON.parse(saved) : false;
   });
 
   const [user, setUser] = useState<AuthUser | null>(() => {
@@ -57,14 +60,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return createEmptyProfile();
       }
     }
-    return INITIAL_PHOTOGRAPHER;
+    return createEmptyProfile();
   });
 
   // Query check-login API
   const {
     data: checkLoginData,
     isLoading: isCheckingLogin,
-    isFetching: isFetchingLogin,
     error: checkLoginError,
     refetch: refetchAuth,
   } = useCheckLogin();

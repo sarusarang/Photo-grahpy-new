@@ -1,15 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useGallery } from '../../context/GalleryContext';
+import { useAuth } from '../../context/AuthContext';
+import { getInquiries } from '../../services/inquiryService';
 import {
+  LayoutDashboard,
   FolderKanban,
+  MessageSquare,
+  Globe,
   GraduationCap,
   Settings as SettingsIcon,
-  LayoutGrid,
   Cloud,
   Zap,
   PanelLeftClose,
   PanelLeftOpen,
+  ArrowUpRight,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -26,7 +31,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onCloseMobile,
 }) => {
   const { galleries, subscription } = useGallery();
-  const navigate = useNavigate();
   const location = useLocation();
 
   const [internalCollapsed, setInternalCollapsed] = useState<boolean>(() => {
@@ -40,7 +44,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const isCollapsed = controlledCollapsed !== undefined ? controlledCollapsed : internalCollapsed;
 
-  const toggleCollapse = () => {
+  const toggleCollapse = React.useCallback(() => {
     if (onToggleCollapse) {
       onToggleCollapse();
     } else {
@@ -50,7 +54,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         return next;
       });
     }
-  };
+  }, [onToggleCollapse]);
 
   // Keyboard shortcut: Ctrl+B or Cmd+B to toggle sidebar
   useEffect(() => {
@@ -72,12 +76,40 @@ export const Sidebar: React.FC<SidebarProps> = ({
     Math.round((subscription.storageUsedGB / subscription.storageLimitGB) * 100)
   );
 
-  const navItems = [
+  const { photographer, user } = useAuth();
+  const portfolioId = user?.username || photographer.id || 'studio';
+  const newInquiriesCount = React.useMemo(() => {
+    return getInquiries().filter((i) => i.status === 'new').length;
+  }, []);
+
+  const navItems: Array<{
+    to: string;
+    label: string;
+    icon: React.ElementType;
+    badge?: string;
+    isExternal?: boolean;
+  }> = [
+    {
+      to: '/dashboard/overview',
+      label: 'Overview',
+      icon: LayoutDashboard,
+    },
     {
       to: '/dashboard/drive',
       label: 'Drive',
       icon: FolderKanban,
       badge: (galleries.length || 5).toString(),
+    },
+    {
+      to: '/dashboard/inquiries',
+      label: 'Inquiries',
+      icon: MessageSquare,
+      badge: newInquiriesCount > 0 ? `${newInquiriesCount} New` : undefined,
+    },
+    {
+      to: '/dashboard/portfolio',
+      label: 'Portfolio',
+      icon: Globe,
     },
     {
       to: '/dashboard/tutorials',
@@ -89,13 +121,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
       label: 'Settings',
       icon: SettingsIcon,
     },
-  ];
-
-  const clientTemplates = [
-    { id: 'editorial', name: '1. Editorial', sub: 'Vogue spread' },
-    { id: 'masonry', name: '2. Masonry', sub: 'Dynamic grid' },
-    { id: 'cinematic', name: '3. Cinematic', sub: 'Darkroom' },
-    { id: 'minimal', name: '4. Minimal', sub: 'Clean art' },
   ];
 
   return (
@@ -149,6 +174,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
               key={`${item.to}-${idx}`}
               to={item.to}
               onClick={onCloseMobile}
+              target={item.isExternal ? '_blank' : undefined}
+              rel={item.isExternal ? 'noopener noreferrer' : undefined}
               className={`group relative flex items-center rounded-2xl text-xs transition-all duration-300 ease-[cubic-bezier(0.2,0,0,1)] ${
                 effectiveCollapsed
                   ? 'justify-center w-12 h-12 mx-auto hover:scale-105 active:scale-95'
@@ -171,7 +198,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       : 'text-neutral-500 dark:text-neutral-400 group-hover:text-neutral-900 dark:group-hover:text-white stroke-[1.9]'
                   }`}
                 />
-                {!effectiveCollapsed && <span className="text-sm truncate">{item.label}</span>}
+                {!effectiveCollapsed && (
+                  <span className="text-sm truncate flex items-center gap-1.5">
+                    <span>{item.label}</span>
+                    {item.isExternal && <ArrowUpRight className="w-3 h-3 text-neutral-400 opacity-60 group-hover:opacity-100" />}
+                  </span>
+                )}
               </div>
 
               {!effectiveCollapsed && item.badge && (
@@ -209,59 +241,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
           );
         })}
       </nav>
-
-      {/* CLIENT TEMPLATES Section */}
-      {!effectiveCollapsed ? (
-        <div className="px-3 pt-3 pb-2 transition-opacity duration-200">
-          <div className="px-3 pb-2 flex items-center justify-between">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
-              Client Templates
-            </span>
-            <LayoutGrid className="w-3.5 h-3.5 text-neutral-500 dark:text-neutral-400" />
-          </div>
-
-          <div className="space-y-1">
-            {clientTemplates.map((tpl) => (
-              <Link
-                key={tpl.id}
-                to={`/gallery/${galleries[0]?.slug || 'sarang-wedding-editorial'}?previewTemplate=${tpl.id}`}
-                target="_blank"
-                className="flex items-center justify-between px-3 py-2 rounded-xl text-xs text-neutral-800 dark:text-neutral-200 hover:text-black dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-900/60 transition-colors group"
-              >
-                <div className="flex items-center gap-2.5 font-medium">
-                  <LayoutGrid className="w-3.5 h-3.5 text-neutral-500 dark:text-neutral-400 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors" />
-                  <span>{tpl.name}</span>
-                </div>
-                <span className="text-[11px] text-neutral-500 dark:text-neutral-400 font-mono font-normal">
-                  {tpl.sub}
-                </span>
-              </Link>
-            ))}
-          </div>
-        </div>
-      ) : (
-        <div className="px-2.5 py-2 flex flex-col items-center">
-          <div className="group relative w-12 h-12 flex items-center justify-center rounded-2xl text-neutral-500 dark:text-neutral-400 hover:text-amber-500 hover:bg-neutral-100 dark:hover:bg-neutral-900/70 hover:scale-105 active:scale-95 transition-all cursor-pointer">
-            <LayoutGrid className="w-[22px] h-[22px] shrink-0 stroke-[1.9]" />
-            <div className="hidden group-hover:flex flex-col absolute left-full ml-3 p-2.5 bg-neutral-900 text-white text-xs rounded-2xl shadow-2xl border border-neutral-800 whitespace-nowrap z-50 gap-1.5 min-w-[170px] animate-in fade-in zoom-in-95 duration-150">
-              <span className="text-[10px] uppercase font-bold tracking-wider text-neutral-400 font-mono px-2 py-0.5">
-                Client Templates
-              </span>
-              {clientTemplates.map((tpl) => (
-                <Link
-                  key={tpl.id}
-                  to={`/gallery/${galleries[0]?.slug || 'sarang-wedding-editorial'}?previewTemplate=${tpl.id}`}
-                  target="_blank"
-                  className="flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs text-neutral-300 hover:text-white hover:bg-neutral-800 transition-colors"
-                >
-                  <span>{tpl.name}</span>
-                  <span className="text-[10px] text-neutral-400 font-mono ml-3">{tpl.sub}</span>
-                </Link>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Spacer to push storage card to bottom */}
       <div className="flex-1" />
