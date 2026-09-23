@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useGallery } from '../../context/GalleryContext';
 import { useToast } from '../../components/ui/Toast';
 import { GALLERY_TEMPLATES, isVideoMedia, DEFAULT_CINEMATIC_VIDEOS } from '../../data/demoData';
@@ -10,6 +10,7 @@ import { ShareModal } from '../../components/gallery/ShareModal';
 import { LightboxModal } from '../../components/gallery/LightboxModal';
 import { ConfirmDeleteModal } from '../../components/common/ConfirmDeleteModal';
 import { MoveToSectionModal } from '../../components/gallery/MoveToSectionModal';
+import { GalleryAnalyticsView } from '../../components/gallery/GalleryAnalyticsView';
 import {
   ArrowLeft,
   UploadCloud,
@@ -36,6 +37,7 @@ import {
   ShieldCheck,
   FolderInput,
   Plus,
+  BarChart3,
 } from 'lucide-react';
 import {
   getExpiryStatus,
@@ -47,6 +49,7 @@ import {
 export const GalleryDetailPage: React.FC = () => {
   const { galleryId } = useParams<{ galleryId: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const {
     getGalleryByIdOrSlug,
     updateGallery,
@@ -65,8 +68,27 @@ export const GalleryDetailPage: React.FC = () => {
 
   const gallery = getGalleryByIdOrSlug(galleryId || '');
 
-  // Sub-tabs: 'media' | 'design' | 'settings'
-  const [activeTab, setActiveTab] = useState<'media' | 'design' | 'settings'>('media');
+  // Sub-tabs: 'media' | 'analytics' | 'design' | 'settings'
+  const initialTab =
+    (searchParams.get('tab') as 'media' | 'analytics' | 'design' | 'settings') || 'media';
+  const [activeTab, setActiveTab] = useState<'media' | 'analytics' | 'design' | 'settings'>(initialTab);
+
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam === 'analytics' || tabParam === 'media' || tabParam === 'design' || tabParam === 'settings') {
+      setActiveTab(tabParam);
+    }
+  }, [searchParams]);
+
+  const handleTabChange = (tab: 'media' | 'analytics' | 'design' | 'settings') => {
+    setActiveTab(tab);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set('tab', tab);
+      return next;
+    });
+  };
+
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
@@ -259,33 +281,51 @@ export const GalleryDetailPage: React.FC = () => {
       {/* Navigation Sub-Tabs (Smooth Horizontal Swipe on Mobile) */}
       <div className="flex items-center gap-2 border-b border-neutral-200 dark:border-neutral-800/80 pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 overflow-x-auto no-scrollbar flex-nowrap">
         <button
-          onClick={() => setActiveTab('media')}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold shrink-0 transition-all cursor-pointer ${activeTab === 'media'
+          onClick={() => handleTabChange('media')}
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold shrink-0 transition-all cursor-pointer ${
+            activeTab === 'media'
               ? 'bg-amber-500/15 dark:bg-neutral-800 text-amber-700 dark:text-white border border-amber-500/30 dark:border-neutral-700 shadow-sm'
               : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-900'
-            }`}
+          }`}
         >
           <ImageIcon className="w-4 h-4 text-amber-500 dark:text-amber-400" />
           <span>Photos & Videos ({gallery.media.length})</span>
         </button>
 
         <button
-          onClick={() => setActiveTab('design')}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold shrink-0 transition-all cursor-pointer ${activeTab === 'design'
+          onClick={() => handleTabChange('analytics')}
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold shrink-0 transition-all cursor-pointer ${
+            activeTab === 'analytics'
               ? 'bg-amber-500/15 dark:bg-neutral-800 text-amber-700 dark:text-white border border-amber-500/30 dark:border-neutral-700 shadow-sm'
               : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-900'
-            }`}
+          }`}
+        >
+          <BarChart3 className="w-4 h-4 text-amber-500 dark:text-amber-400" />
+          <span>Analytics</span>
+          <span className="px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-700 dark:text-amber-400 font-mono text-[10px] font-bold">
+            {gallery.viewsCount || 0} views
+          </span>
+        </button>
+
+        <button
+          onClick={() => handleTabChange('design')}
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold shrink-0 transition-all cursor-pointer ${
+            activeTab === 'design'
+              ? 'bg-amber-500/15 dark:bg-neutral-800 text-amber-700 dark:text-white border border-amber-500/30 dark:border-neutral-700 shadow-sm'
+              : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-900'
+          }`}
         >
           <Layers className="w-4 h-4 text-amber-500 dark:text-amber-400" />
           <span>Design & Layout ({gallery.templateId})</span>
         </button>
 
         <button
-          onClick={() => setActiveTab('settings')}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold shrink-0 transition-all cursor-pointer ${activeTab === 'settings'
+          onClick={() => handleTabChange('settings')}
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold shrink-0 transition-all cursor-pointer ${
+            activeTab === 'settings'
               ? 'bg-amber-500/15 dark:bg-neutral-800 text-amber-700 dark:text-white border border-amber-500/30 dark:border-neutral-700 shadow-sm'
               : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-900'
-            }`}
+          }`}
         >
           <Settings className="w-4 h-4 text-amber-500 dark:text-amber-400" />
           <span>Gallery Settings</span>
@@ -1525,6 +1565,14 @@ export const GalleryDetailPage: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Tab: Gallery Analytics View */}
+      {activeTab === 'analytics' && (
+        <GalleryAnalyticsView
+          gallery={gallery}
+          onOpenLightbox={(idx) => setLightboxIndex(idx)}
+        />
       )}
 
       {/* Tab 3: Gallery Settings & Password & Delete */}

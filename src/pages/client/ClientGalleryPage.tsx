@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
 import { useGallery } from '../../context/GalleryContext';
 import { useAuth } from '../../context/AuthContext';
@@ -15,6 +15,11 @@ import { ClientGalleryNavbar } from '../../components/gallery/ClientGalleryNavba
 import { SmoothScrollProvider, useLenisScroll } from '../../components/common/SmoothScroll';
 import { Lock, Clock, Calendar, AlertTriangle, Mail, Sparkles } from 'lucide-react';
 import { isGalleryExpired, getExpiryStatus, extendExpiryByDays } from '../../utils/expiryUtils';
+import {
+  recordGalleryView,
+  recordGalleryDownload,
+  recordGalleryFavorite,
+} from '../../services/galleryAnalyticsService';
 
 const ClientGalleryContent: React.FC = () => {
   const { galleryId } = useParams<{ galleryId: string }>();
@@ -24,6 +29,15 @@ const ClientGalleryContent: React.FC = () => {
   const { showToast } = useToast();
 
   const gallery = getGalleryByIdOrSlug(galleryId || '');
+
+  // Track gallery view once on mount
+  const hasTrackedViewRef = useRef(false);
+  useEffect(() => {
+    if (gallery && !hasTrackedViewRef.current) {
+      hasTrackedViewRef.current = true;
+      recordGalleryView(gallery);
+    }
+  }, [gallery?.id]);
 
   // Active template: preview query param (from dashboard) or gallery's set template
   const queryTemplate = searchParams.get('previewTemplate') as GalleryTemplateId | null;
@@ -231,6 +245,16 @@ const ClientGalleryContent: React.FC = () => {
     setSelectedMediaIds(new Set());
   };
 
+  // Toggle favorite with analytics tracking
+  const handleToggleFavorite = (mediaId: string) => {
+    if (!gallery) return;
+    toggleMediaFavorite(gallery.id, mediaId);
+    const item = gallery.media.find((m) => m.id === mediaId);
+    if (!item?.isFavorite) {
+      recordGalleryFavorite(gallery, item?.title);
+    }
+  };
+
   // Handle "Download All" action
   const handleDownloadAll = () => {
     setIsPreparingZip(true);
@@ -243,6 +267,7 @@ const ClientGalleryContent: React.FC = () => {
           setTimeout(() => {
             setIsPreparingZip(false);
             setZipProgress(100);
+            recordGalleryDownload(gallery, gallery.media.length, true);
             showToast(
               'Master ZIP Ready',
               `Downloaded all ${gallery.media.length} original full-resolution files.`,
@@ -276,6 +301,7 @@ const ClientGalleryContent: React.FC = () => {
           setTimeout(() => {
             setIsPreparingSelectedZip(false);
             setSelectedZipProgress(100);
+            recordGalleryDownload(gallery, selectedMediaIds.size, false);
             showToast(
               'Selected Archive Ready',
               `Downloaded ${selectedMediaIds.size} selected high-resolution photographs.`,
@@ -390,7 +416,7 @@ const ClientGalleryContent: React.FC = () => {
         template={activeTemplate}
         gallery={gallery}
         onOpenLightbox={(idx) => setLightboxIndex(idx)}
-        onToggleFavorite={(mId) => toggleMediaFavorite(gallery.id, mId)}
+        onToggleFavorite={handleToggleFavorite}
         selectedMediaIds={selectedMediaIds}
         onToggleSelectMedia={handleToggleSelectMedia}
         onStartSlideshow={handleStartSlideshow}
@@ -445,7 +471,7 @@ const ClientGalleryContent: React.FC = () => {
           mediaList={gallery.media}
           currentIndex={lightboxIndex}
           onNavigate={(newIdx) => setLightboxIndex(newIdx)}
-          onToggleFavorite={(mId) => toggleMediaFavorite(gallery.id, mId)}
+          onToggleFavorite={handleToggleFavorite}
           studioName={photographer.studioName}
           allowDownloads={gallery.allowDownloads}
           galleryTitle={gallery.title}

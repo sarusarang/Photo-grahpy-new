@@ -18,6 +18,7 @@ import {
   ChevronDown,
   Check,
   X,
+  BarChart3,
 } from 'lucide-react';
 
 export const DrivePage: React.FC = () => {
@@ -583,12 +584,30 @@ export const DrivePage: React.FC = () => {
 
                   {/* Card Bottom Meta & Actions */}
                   <div className="flex items-center justify-between text-xs pt-2.5 border-t border-neutral-100 dark:border-neutral-800/70">
-                    <span className="text-neutral-500 dark:text-neutral-400 flex items-center gap-1.5 text-[11px] sm:text-xs font-mono font-medium">
-                      <Calendar className="w-3.5 h-3.5 text-neutral-400 dark:text-neutral-500" />
-                      {gal.eventDate}
-                    </span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/dashboard/drive/${gal.id}?tab=analytics`);
+                      }}
+                      className="text-neutral-500 dark:text-neutral-400 hover:text-amber-600 dark:hover:text-amber-400 flex items-center gap-1.5 text-[11px] sm:text-xs font-mono font-medium transition-colors cursor-pointer group/stat"
+                      title="View Gallery Analytics"
+                    >
+                      <BarChart3 className="w-3.5 h-3.5 text-amber-500 group-hover/stat:scale-110 transition-transform" />
+                      <span>{gal.viewsCount || 0} views</span>
+                    </button>
 
                     <div className="flex items-center gap-1">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/dashboard/drive/${gal.id}?tab=analytics`);
+                        }}
+                        className="p-1.5 rounded-lg text-neutral-500 dark:text-neutral-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-500/10 transition-colors cursor-pointer"
+                        title="Gallery Analytics"
+                      >
+                        <BarChart3 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                      </button>
+
                       <Link
                         to={`/gallery/${gal.slug || gal.id}`}
                         target="_blank"
@@ -624,6 +643,7 @@ export const DrivePage: React.FC = () => {
                 <th className="py-3.5 px-4">Shoot Date</th>
                 <th className="py-3.5 px-4">Media</th>
                 <th className="py-3.5 px-4">Storage</th>
+                <th className="py-3.5 px-4">Views</th>
                 <th className="py-3.5 px-4">Design</th>
                 <th className="py-3.5 px-6 text-right">Actions</th>
               </tr>
@@ -666,6 +686,19 @@ export const DrivePage: React.FC = () => {
                     <td className="py-4 px-4 font-mono text-amber-600 dark:text-amber-400 group-hover:text-amber-500 font-bold text-xs transition-colors">
                       {sizeMB} MB
                     </td>
+                    <td className="py-4 px-4 font-mono text-xs">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/dashboard/drive/${gal.id}?tab=analytics`);
+                        }}
+                        className="flex items-center gap-1.5 text-neutral-700 dark:text-neutral-300 hover:text-amber-600 dark:hover:text-amber-400 font-semibold cursor-pointer"
+                        title="View Gallery Analytics"
+                      >
+                        <BarChart3 className="w-3.5 h-3.5 text-amber-500" />
+                        <span>{gal.viewsCount || 0}</span>
+                      </button>
+                    </td>
                     <td className="py-4 px-4">
                       <span className="px-2.5 py-1 rounded-full bg-neutral-100 dark:bg-neutral-800/90 text-neutral-700 dark:text-neutral-300 text-[10px] uppercase font-mono font-semibold border border-transparent group-hover:border-amber-400/40 group-hover:bg-neutral-200/80 dark:group-hover:bg-neutral-700/60 transition-all">
                         {gal.templateId}
@@ -673,6 +706,16 @@ export const DrivePage: React.FC = () => {
                     </td>
                     <td className="py-4 px-6 text-right">
                       <div className="inline-flex items-center gap-1.5">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/dashboard/drive/${gal.id}?tab=analytics`);
+                          }}
+                          className="p-1.5 rounded-lg text-neutral-400 group-hover:text-neutral-600 dark:text-neutral-500 dark:group-hover:text-neutral-300 hover:!text-amber-500 dark:hover:!text-amber-400 hover:bg-neutral-200/60 dark:hover:bg-neutral-700/60 transition-colors cursor-pointer"
+                          title="Gallery Analytics"
+                        >
+                          <BarChart3 className="w-4 h-4" />
+                        </button>
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
