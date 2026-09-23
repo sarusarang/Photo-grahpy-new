@@ -13,12 +13,13 @@ import { SelectionBar } from '../../components/gallery/SelectionBar';
 import { MediaShareModal } from '../../components/gallery/MediaShareModal';
 import { ClientGalleryNavbar } from '../../components/gallery/ClientGalleryNavbar';
 import { SmoothScrollProvider, useLenisScroll } from '../../components/common/SmoothScroll';
-import { Lock } from 'lucide-react';
+import { Lock, Clock, Calendar, AlertTriangle, Mail, Sparkles } from 'lucide-react';
+import { isGalleryExpired, getExpiryStatus, extendExpiryByDays } from '../../utils/expiryUtils';
 
 const ClientGalleryContent: React.FC = () => {
   const { galleryId } = useParams<{ galleryId: string }>();
   const [searchParams] = useSearchParams();
-  const { getGalleryByIdOrSlug, toggleMediaFavorite } = useGallery();
+  const { getGalleryByIdOrSlug, toggleMediaFavorite, updateGallery } = useGallery();
   const { photographer } = useAuth();
   const { showToast } = useToast();
 
@@ -73,6 +74,120 @@ const ClientGalleryContent: React.FC = () => {
         >
           Go to Studio Drive
         </Link>
+      </div>
+    );
+  }
+
+  // Check gallery access validity window
+  const isExpired = isGalleryExpired(gallery.expiresAt);
+  const expiryStatus = getExpiryStatus(gallery.expiresAt);
+
+  // If the time window has passed, block client access with a luxury branded expired view
+  if (isExpired) {
+    return (
+      <div className="min-h-screen bg-[#07080b] text-white flex flex-col items-center justify-center p-4 sm:p-6 relative overflow-hidden selection:bg-amber-400 selection:text-black">
+        {/* Ambient background with blurred cover */}
+        <div className="absolute inset-0 z-0">
+          <img
+            src={gallery.coverImage}
+            alt={gallery.title}
+            className="w-full h-full object-cover object-center opacity-15 filter blur-3xl scale-110"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#07080b] via-[#07080b]/80 to-[#07080b]" />
+        </div>
+
+        {/* Photographer Management Override Banner (if photographer is authenticated) */}
+        {photographer && (
+          <div className="relative z-20 w-full max-w-xl mb-6 p-4 rounded-2xl bg-amber-500/15 border border-amber-500/30 backdrop-blur-xl flex flex-col sm:flex-row items-center justify-between gap-3 animate-in fade-in slide-in-from-top-4">
+            <div className="flex items-center gap-2.5 text-xs font-mono">
+              <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
+              <span>
+                <strong>Photographer Admin:</strong> This gallery link is currently expired for clients.
+              </span>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => {
+                  const nextIso = extendExpiryByDays(7, gallery.expiresAt);
+                  updateGallery(gallery.id, { expiresAt: nextIso });
+                  showToast('Access Extended', 'Reopened client link for 7 days.', 'success');
+                }}
+                className="px-3 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 text-xs font-mono font-bold transition-all cursor-pointer"
+              >
+                +7 Days
+              </button>
+              <button
+                onClick={() => {
+                  const nextIso = extendExpiryByDays(30, gallery.expiresAt);
+                  updateGallery(gallery.id, { expiresAt: nextIso });
+                  showToast('Access Extended', 'Reopened client link for 30 days.', 'success');
+                }}
+                className="px-3 py-1.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-white text-xs font-mono transition-all cursor-pointer"
+              >
+                +30 Days
+              </button>
+              <Link
+                to={`/dashboard/drive/${gallery.id}`}
+                className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-mono transition-all"
+              >
+                Settings
+              </Link>
+            </div>
+          </div>
+        )}
+
+        {/* Central Expired Notice Card */}
+        <div className="relative z-10 max-w-lg w-full rounded-3xl bg-neutral-900/80 border border-neutral-800/90 backdrop-blur-2xl p-8 sm:p-10 shadow-2xl text-center space-y-6 animate-in zoom-in-95 duration-300">
+          <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 mx-auto flex items-center justify-center shadow-inner">
+            <Clock className="w-8 h-8 stroke-[1.8]" />
+          </div>
+
+          <div className="space-y-2">
+            <span className="text-[11px] uppercase font-mono tracking-widest text-amber-400 font-bold block">
+              Access Window Closed
+            </span>
+            <h1 className="text-2xl sm:text-3xl font-serif font-bold text-white tracking-tight">
+              {gallery.title}
+            </h1>
+            <p className="text-xs sm:text-sm text-neutral-400 font-light leading-relaxed">
+              The client access period for this private collection closed on{' '}
+              <span className="text-white font-medium">{expiryStatus.humanFormatted}</span>.
+            </p>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-neutral-950/60 border border-neutral-800 text-left space-y-2 text-xs font-mono text-neutral-400">
+            <div className="flex items-center justify-between">
+              <span>Collection:</span>
+              <span className="text-white font-bold truncate max-w-[200px]">{gallery.title}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span>Client:</span>
+              <span className="text-white">{gallery.clientName}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span>Studio:</span>
+              <span className="text-amber-400">{photographer.studioName || 'Atelier Studio'}</span>
+            </div>
+          </div>
+
+          <div className="space-y-3 pt-2">
+            <a
+              href={`mailto:${photographer.email}?subject=${encodeURIComponent(
+                `Request Extended Access: ${gallery.title}`
+              )}&body=${encodeURIComponent(
+                `Hello ${photographer.fullName || photographer.studioName},\n\nOur client viewing link for "${gallery.title}" has expired. Could you please extend or renew access to our gallery?\n\nClient Name: ${gallery.clientName}\n\nThank you!`
+              )}`}
+              className="w-full py-3.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-amber-500/20 cursor-pointer"
+            >
+              <Mail className="w-4 h-4 stroke-[2.5]" />
+              <span>Request Extended Access</span>
+            </a>
+
+            <p className="text-[11px] text-neutral-500 font-mono">
+              Contact your photographer to renew access to your private photographs and film stories.
+            </p>
+          </div>
+        </div>
       </div>
     );
   }
@@ -251,9 +366,24 @@ const ClientGalleryContent: React.FC = () => {
         mediaCount={gallery.media.length}
         isPreparingZip={isPreparingZip}
         zipProgress={zipProgress}
+        expiryText={
+          expiryStatus.hasExpiry && !expiryStatus.isExpired
+            ? `Access: ${expiryStatus.remainingText}`
+            : undefined
+        }
         onStartSlideshow={() => handleStartSlideshow(0)}
         onDownloadAll={handleDownloadAll}
       />
+
+      {/* Gentle Expiry Warning Banner (only if expiring in less than 48 hours) */}
+      {expiryStatus.isExpiringSoon && !expiryStatus.isExpired && (
+        <div className="bg-gradient-to-r from-amber-500/20 via-amber-500/10 to-amber-500/20 border-b border-amber-500/30 text-amber-200 px-4 py-2 text-center text-xs font-mono flex items-center justify-center gap-2 backdrop-blur-md sticky top-0 z-30 animate-in fade-in">
+          <Clock className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+          <span>
+            <strong>Access Deadline:</strong> This gallery link will close on {expiryStatus.humanFormatted} ({expiryStatus.remainingText}). Please download your photos soon.
+          </span>
+        </div>
+      )}
 
       {/* Dynamic Gallery Template Rendering: Bespoke Wedding & Fine-Art Designs */}
       <GalleryTemplateRenderer

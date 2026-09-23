@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useGallery } from '../../context/GalleryContext';
+import { useEvent } from '../../context/EventContext';
 import { useAuth } from '../../context/AuthContext';
 import { getInquiries } from '../../services/inquiryService';
 import {
   LayoutDashboard,
   FolderKanban,
+  Calendar,
   MessageSquare,
   Globe,
   GraduationCap,
@@ -31,6 +33,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onCloseMobile,
 }) => {
   const { galleries, subscription } = useGallery();
+  const { activeLiveEvents, upcomingEvents } = useEvent();
   const location = useLocation();
 
   const [internalCollapsed, setInternalCollapsed] = useState<boolean>(() => {
@@ -99,6 +102,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
       label: 'Drive',
       icon: FolderKanban,
       badge: (galleries.length || 5).toString(),
+    },
+    {
+      to: '/dashboard/events',
+      label: 'Events',
+      icon: Calendar,
+      badge:
+        activeLiveEvents.length > 0
+          ? 'LIVE'
+          : upcomingEvents.length > 0
+          ? `${upcomingEvents.length} Up`
+          : undefined,
     },
     {
       to: '/dashboard/inquiries',
@@ -208,13 +222,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
               {!effectiveCollapsed && item.badge && (
                 <span
-                  className={`text-xs px-2 py-0.5 rounded-full font-mono font-bold shrink-0 ${
-                    isActive
+                  className={`text-xs px-2 py-0.5 rounded-full font-mono font-bold shrink-0 flex items-center gap-1 ${
+                    item.badge === 'LIVE'
+                      ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-500'
+                      : isActive
                       ? 'bg-amber-200 dark:bg-neutral-800 text-amber-900 dark:text-white'
                       : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700'
                   }`}
                 >
-                  {item.badge}
+                  {item.badge === 'LIVE' && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />}
+                  <span>{item.badge}</span>
                 </span>
               )}
 

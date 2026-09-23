@@ -47,6 +47,15 @@ const ClientGalleryPage = lazy(() =>
     default: m.ClientGalleryPage,
   }))
 );
+const EventsPage = lazy(() =>
+  import('./pages/dashboard/EventsPage').then((m) => ({ default: m.EventsPage }))
+);
+const EventDetailPage = lazy(() =>
+  import('./pages/dashboard/EventDetailPage').then((m) => ({ default: m.EventDetailPage }))
+);
+const GuestEventPage = lazy(() =>
+  import('./pages/events/GuestEventPage').then((m) => ({ default: m.GuestEventPage }))
+);
 
 function LoadingScreen() {
   return (
@@ -101,6 +110,8 @@ export default function App() {
             <Route path="home" element={<Navigate to="/dashboard/overview" replace />} />
             <Route path="drive" element={<DrivePage />} />
             <Route path="drive/:galleryId" element={<GalleryDetailPage />} />
+            <Route path="events" element={<EventsPage />} />
+            <Route path="events/:eventId" element={<EventDetailPage />} />
             <Route path="inquiries" element={<InquiriesPage />} />
             <Route path="portfolio" element={<PortfolioStudioPage />} />
             <Route path="tutorials" element={<TutorialPage />} />
@@ -112,6 +123,9 @@ export default function App() {
 
           {/* Public Client Gallery Route (Separate Layout) */}
           <Route path="/gallery/:galleryId" element={<ClientGalleryPage />} />
+
+          {/* Public Guest Event QR Code Destination (Editorial Template with AI-Only Search) */}
+          <Route path="/events/:eventId" element={<GuestEventPage />} />
 
           {/* Catch all fallback */}
           <Route path="*" element={<Navigate to="/dashboard/overview" replace />} />

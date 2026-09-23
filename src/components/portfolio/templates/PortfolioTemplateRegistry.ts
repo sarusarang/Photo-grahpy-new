@@ -16,6 +16,9 @@ export interface PortfolioTemplateProps {
     message: string;
   }) => Promise<boolean>;
   isPreview?: boolean;
+  isEditable?: boolean;
+  onUpdateConfig?: (updates: Partial<PortfolioConfig>) => void;
+  onSwitchTemplate?: (templateId: string) => void;
 }
 
 export type PortfolioTemplateComponent = React.FC<PortfolioTemplateProps>;

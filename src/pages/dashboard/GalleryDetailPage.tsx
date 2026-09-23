@@ -29,7 +29,17 @@ import {
   ShieldAlert,
   X,
   Check,
+  Clock,
+  Calendar,
+  AlertTriangle,
+  ShieldCheck,
 } from 'lucide-react';
+import {
+  getExpiryStatus,
+  calculateExpiryPreset,
+  extendExpiryByDays,
+  type ExpiryPresetId,
+} from '../../utils/expiryUtils';
 
 export const GalleryDetailPage: React.FC = () => {
   const { galleryId } = useParams<{ galleryId: string }>();
@@ -81,6 +91,7 @@ export const GalleryDetailPage: React.FC = () => {
   const [editPassword, setEditPassword] = useState(gallery?.password || '');
   const [editProtected, setEditProtected] = useState(gallery?.isPasswordProtected || false);
   const [editAllowDownloads, setEditAllowDownloads] = useState(gallery?.allowDownloads ?? true);
+  const [editExpiresAt, setEditExpiresAt] = useState<string | undefined>(gallery?.expiresAt);
 
   if (!gallery) {
     return (
@@ -150,6 +161,7 @@ export const GalleryDetailPage: React.FC = () => {
       isPasswordProtected: editProtected,
       password: editProtected ? editPassword : '',
       allowDownloads: editAllowDownloads,
+      expiresAt: editExpiresAt || undefined,
     });
     showToast('Saved', 'Gallery settings updated successfully.', 'success');
   };
@@ -1468,6 +1480,137 @@ export const GalleryDetailPage: React.FC = () => {
                 onChange={(e) => setEditAllowDownloads(e.target.checked)}
                 className="w-4 h-4 accent-amber-500 rounded cursor-pointer"
               />
+            </div>
+
+            {/* Link Access Time Window & Expiry */}
+            <div className="p-4 sm:p-5 rounded-2xl bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-amber-500/15 text-amber-500">
+                    <Clock className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-neutral-900 dark:text-white">
+                      Link Access Validity & Expiry
+                    </p>
+                    <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                      Restrict client viewing and downloading to a specific time period
+                    </p>
+                  </div>
+                </div>
+
+                {/* Status indicator */}
+                {(() => {
+                  const status = getExpiryStatus(editExpiresAt);
+                  if (status.isExpired) {
+                    return (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-500/15 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-[11px] font-mono font-bold">
+                        <AlertTriangle className="w-3 h-3" />
+                        <span>Expired</span>
+                      </span>
+                    );
+                  }
+                  if (status.hasExpiry) {
+                    return (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-[11px] font-mono">
+                        <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
+                        <span>{status.remainingText}</span>
+                      </span>
+                    );
+                  }
+                  return (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-neutral-200 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 text-[11px] font-mono">
+                      <ShieldCheck className="w-3 h-3 text-emerald-500" />
+                      <span>Permanent</span>
+                    </span>
+                  );
+                })()}
+              </div>
+
+              {/* Quick Presets */}
+              <div className="pt-2">
+                <span className="text-[10px] uppercase font-mono text-neutral-500 dark:text-neutral-400 block mb-1.5 font-semibold">
+                  Quick Presets:
+                </span>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {[
+                    { id: '24h', label: '24 Hours' },
+                    { id: '7d', label: '7 Days' },
+                    { id: '30d', label: '30 Days' },
+                    { id: 'never', label: 'Never (Always Active)' },
+                  ].map((preset) => {
+                    const status = getExpiryStatus(editExpiresAt);
+                    const isSelected =
+                      preset.id === 'never' && !status.hasExpiry;
+                    return (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        onClick={() => {
+                          const nextIso = calculateExpiryPreset(preset.id as ExpiryPresetId);
+                          setEditExpiresAt(nextIso);
+                        }}
+                        className={`px-3 py-1.5 rounded-xl font-mono text-[11px] transition-all cursor-pointer ${
+                          isSelected
+                            ? 'bg-amber-400 text-neutral-950 font-bold'
+                            : 'bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800'
+                        }`}
+                      >
+                        {preset.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Custom Date Time Picker */}
+              <div className="pt-2 border-t border-neutral-200 dark:border-neutral-800">
+                <label className="text-[10px] uppercase font-mono text-neutral-500 dark:text-neutral-400 block mb-1">
+                  Or Set Specific Expiry Date & Time:
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="datetime-local"
+                    value={
+                      editExpiresAt
+                        ? (() => {
+                            try {
+                              return new Date(editExpiresAt).toISOString().slice(0, 16);
+                            } catch {
+                              return '';
+                            }
+                          })()
+                        : ''
+                    }
+                    onChange={(e) => {
+                      if (!e.target.value) {
+                        setEditExpiresAt(undefined);
+                      } else {
+                        setEditExpiresAt(new Date(e.target.value).toISOString());
+                      }
+                    }}
+                    className="flex-1 px-3 py-2 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-xs text-neutral-900 dark:text-white font-mono focus:outline-none focus:border-amber-400"
+                  />
+                  {editExpiresAt && (
+                    <button
+                      type="button"
+                      onClick={() => setEditExpiresAt(undefined)}
+                      className="px-3 py-2 rounded-xl bg-neutral-200 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 text-xs font-mono hover:text-rose-500 transition-colors cursor-pointer"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {editExpiresAt && (
+                <div className="text-[11px] font-mono text-neutral-500 dark:text-neutral-400 flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-amber-500" />
+                  <span>
+                    Valid until: <strong>{getExpiryStatus(editExpiresAt).humanFormatted}</strong>
+                  </span>
+                </div>
+              )}
             </div>
 
             <button

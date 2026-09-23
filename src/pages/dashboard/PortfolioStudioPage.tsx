@@ -564,8 +564,9 @@ export const PortfolioStudioPage: React.FC = () => {
                 <div
                   key={tpl.id}
                   onClick={() => {
-                    setConfig({ ...config, templateId: tpl.id });
-                    showToast(`Switched to ${tpl.name}`, 'Click Save & Publish to apply.', 'info');
+                    const next = savePortfolioConfig({ templateId: tpl.id });
+                    setConfig(next);
+                    showToast(`Active Template: ${tpl.name}`, 'Switched and saved to your portfolio.', 'success');
                   }}
                   className={`group rounded-2xl overflow-hidden bg-white dark:bg-[#13141b] border-2 transition-all cursor-pointer shadow-sm flex flex-col ${
                     isSelected

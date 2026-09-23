@@ -4,6 +4,7 @@ import App from './App.tsx'
 import { BrowserRouter } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext.tsx'
 import { GalleryProvider } from './context/GalleryContext.tsx'
+import { EventProvider } from './context/EventContext.tsx'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 
@@ -20,9 +21,9 @@ createRoot(document.getElementById('root')!).render(
       <AuthProvider>
 
         <GalleryProvider>
-
-          <App />
-
+          <EventProvider>
+            <App />
+          </EventProvider>
         </GalleryProvider>
 
       </AuthProvider>

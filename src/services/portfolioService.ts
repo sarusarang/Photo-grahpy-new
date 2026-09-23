@@ -24,6 +24,33 @@ export const AVAILABLE_TEMPLATES: PortfolioTemplateMeta[] = [
   },
 ];
 
+export const CURATED_HERO_PRESETS = [
+  {
+    title: 'Luxury Editorial Wedding',
+    url: 'https://images.unsplash.com/photo-1519741497674-611481863552?w=1920&auto=format&fit=crop&q=85',
+  },
+  {
+    title: 'Palace Royal Ceremony',
+    url: 'https://images.unsplash.com/photo-1583939003579-730e3918a45a?w=1920&auto=format&fit=crop&q=85',
+  },
+  {
+    title: 'Cinematic Noir Moody',
+    url: 'https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?w=1920&auto=format&fit=crop&q=85',
+  },
+  {
+    title: 'Amalfi Coast Sunset',
+    url: 'https://images.unsplash.com/photo-1469371670807-013ccf25f16a?w=1920&auto=format&fit=crop&q=85',
+  },
+  {
+    title: 'Minimal Haute Couture',
+    url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=1920&auto=format&fit=crop&q=85',
+  },
+  {
+    title: 'Architecture & Daylight',
+    url: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1920&auto=format&fit=crop&q=85',
+  },
+];
+
 export const DEFAULT_PORTFOLIO_PROJECTS: PortfolioProject[] = [
   {
     id: 'proj-1',

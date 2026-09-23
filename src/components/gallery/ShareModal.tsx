@@ -2,7 +2,15 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { Gallery } from '../../types';
 import { useToast } from '../ui/Toast';
+import { useGallery } from '../../context/GalleryContext';
 import { useScrollLock } from '../../hooks/useScrollLock';
+import {
+  getExpiryStatus,
+  calculateExpiryPreset,
+  extendExpiryByDays,
+  EXPIRY_PRESETS,
+  type ExpiryPresetId,
+} from '../../utils/expiryUtils';
 import {
   X,
   Copy,
@@ -14,6 +22,12 @@ import {
   Mail,
   Share2,
   Lock,
+  Clock,
+  Calendar,
+  AlertTriangle,
+  ShieldCheck,
+  RotateCcw,
+  Sparkles,
 } from 'lucide-react';
 
 interface ShareModalProps {
@@ -24,8 +38,24 @@ interface ShareModalProps {
 
 export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, gallery }) => {
   const { showToast } = useToast();
+  const { updateGallery } = useGallery();
   const [copied, setCopied] = useState(false);
   const [showQR, setShowQR] = useState(false);
+  const [showCustomExpiry, setShowCustomExpiry] = useState(false);
+
+  // Formatted expiry details
+  const expiryStatus = getExpiryStatus(gallery.expiresAt);
+
+  const [customDateTime, setCustomDateTime] = useState(() => {
+    if (gallery.expiresAt) {
+      try {
+        return new Date(gallery.expiresAt).toISOString().slice(0, 16);
+      } catch {
+        return '';
+      }
+    }
+    return '';
+  });
 
   // Lock background scroll
   useScrollLock(isOpen);
@@ -34,6 +64,11 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, gallery
 
   // Build full public URL
   const publicUrl = `${window.location.origin}/gallery/${gallery.slug || gallery.id}`;
+
+  const expiryNote =
+    expiryStatus.hasExpiry && !expiryStatus.isExpired
+      ? ` • Access valid until ${expiryStatus.humanFormatted}`
+      : '';
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(publicUrl);
@@ -44,13 +79,13 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, gallery
 
   const handleWhatsApp = () => {
     const text = encodeURIComponent(
-      `Hello ${gallery.clientName}! Your private photography collection "${gallery.title}" is ready for viewing and download here: ${publicUrl}`
+      `Hello ${gallery.clientName}! Your private photography collection "${gallery.title}" is ready for viewing here: ${publicUrl}${expiryNote}`
     );
     window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
   };
 
   const handleTelegram = () => {
-    const text = encodeURIComponent(`Private Photo Gallery: ${gallery.title}`);
+    const text = encodeURIComponent(`Private Photo Gallery: ${gallery.title}${expiryNote}`);
     window.open(`https://t.me/share/url?url=${encodeURIComponent(publicUrl)}&text=${text}`, '_blank');
   };
 
@@ -73,30 +108,85 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, gallery
   const handleEmail = () => {
     const subject = encodeURIComponent(`Your Photo Gallery: ${gallery.title}`);
     const body = encodeURIComponent(
-      `Dear ${gallery.clientName},\n\nYour photos and videos are ready to view and download at:\n${publicUrl}\n\nBest regards,\n${gallery.title}`
+      `Dear ${gallery.clientName},\n\nYour private photos and cinematic collection are ready to view and download at:\n${publicUrl}\n\n${
+        expiryStatus.hasExpiry && !expiryStatus.isExpired
+          ? `Please note that this gallery link is scheduled to remain active until ${expiryStatus.humanFormatted}.\n\n`
+          : ''
+      }Best regards,\n${gallery.title}`
     );
     window.location.href = `mailto:${gallery.clientEmail || ''}?subject=${subject}&body=${body}`;
   };
 
+  // Expiry preset selection
+  const handleSelectPreset = (presetId: ExpiryPresetId) => {
+    if (presetId === 'custom') {
+      setShowCustomExpiry(true);
+      return;
+    }
+    setShowCustomExpiry(false);
+    const nextIso = calculateExpiryPreset(presetId);
+    updateGallery(gallery.id, { expiresAt: nextIso });
+    const status = getExpiryStatus(nextIso);
+    showToast(
+      'Link Validity Updated',
+      nextIso
+        ? `Link active until ${status.humanFormatted} (${status.remainingText}).`
+        : 'Link set to permanent access with no expiry.',
+      'success'
+    );
+  };
+
+  const handleApplyCustomExpiry = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!customDateTime) return;
+    const nextIso = new Date(customDateTime).toISOString();
+    updateGallery(gallery.id, { expiresAt: nextIso });
+    const status = getExpiryStatus(nextIso);
+    setShowCustomExpiry(false);
+    showToast(
+      'Custom Expiry Applied',
+      `Client access scheduled to close on ${status.humanFormatted}.`,
+      'success'
+    );
+  };
+
+  const handleExtendDays = (days: number) => {
+    const nextIso = extendExpiryByDays(days, gallery.expiresAt);
+    updateGallery(gallery.id, { expiresAt: nextIso });
+    const status = getExpiryStatus(nextIso);
+    showToast('Access Extended', `Link renewed until ${status.humanFormatted}.`, 'success');
+  };
+
+  const handleRemoveExpiry = () => {
+    updateGallery(gallery.id, { expiresAt: undefined });
+    setShowCustomExpiry(false);
+    showToast('Expiry Removed', 'Gallery link will now remain permanently accessible.', 'info');
+  };
+
   return createPortal(
-    <div data-lenis-prevent="true" className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/70 backdrop-blur-md overlay-animate overscroll-contain">
-      <div data-lenis-prevent="true" className="relative w-full sm:max-w-xl md:max-w-2xl bg-white dark:bg-neutral-950 border-t sm:border border-neutral-200 dark:border-neutral-800 rounded-t-[28px] sm:rounded-3xl p-5 sm:p-7 pb-safe shadow-2xl overflow-hidden max-h-[92vh] sm:max-h-[90vh] overflow-y-auto sheet-animate sm:modal-animate text-neutral-900 dark:text-neutral-100 overscroll-contain">
+    <div data-lenis-prevent="true" className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/75 backdrop-blur-md overlay-animate overscroll-contain">
+      <div data-lenis-prevent="true" className="relative w-full sm:max-w-xl md:max-w-2xl bg-white dark:bg-[#0c0d12] border-t sm:border border-neutral-200 dark:border-neutral-800 rounded-t-[28px] sm:rounded-3xl p-5 sm:p-7 pb-safe shadow-2xl overflow-hidden max-h-[92vh] sm:max-h-[90vh] overflow-y-auto sheet-animate sm:modal-animate text-neutral-900 dark:text-neutral-100 overscroll-contain">
         {/* Mobile Grab Handle */}
         <div className="w-10 h-1 rounded-full bg-neutral-300 dark:bg-neutral-700 mx-auto mb-3 sm:hidden" />
 
+        {/* Header */}
         <div className="flex items-center justify-between pb-4 sm:pb-5 border-b border-neutral-200 dark:border-neutral-800">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-500 shrink-0">
               <Share2 className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
             <div>
-              <h2 className="text-lg sm:text-xl font-serif text-neutral-900 dark:text-white tracking-tight font-bold">Share Client Gallery</h2>
-              <p className="text-[11px] sm:text-xs text-neutral-500 dark:text-neutral-400 truncate max-w-[240px] sm:max-w-[260px]">{gallery.title}</p>
+              <h2 className="text-lg sm:text-xl font-serif text-neutral-900 dark:text-white tracking-tight font-bold">
+                Share Client Gallery
+              </h2>
+              <p className="text-[11px] sm:text-xs text-neutral-500 dark:text-neutral-400 truncate max-w-[240px] sm:max-w-[260px]">
+                {gallery.title}
+              </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-neutral-400 hover:text-neutral-900 dark:hover:text-white rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+            className="p-2 text-neutral-400 hover:text-neutral-900 dark:hover:text-white rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -125,6 +215,149 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, gallery
           </div>
         </div>
 
+        {/* ─── LINK ACCESS TIME PERIOD & EXPIRATION CARD ─── */}
+        <div className="mt-5 p-4 rounded-2xl bg-gradient-to-br from-neutral-50 via-neutral-100/60 to-neutral-50 dark:from-neutral-900/90 dark:via-neutral-900/60 dark:to-neutral-900/90 border border-neutral-200 dark:border-neutral-800 space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <div className={`p-1.5 rounded-lg ${expiryStatus.isExpired ? 'bg-rose-500/20 text-rose-500' : expiryStatus.hasExpiry ? 'bg-amber-500/20 text-amber-500' : 'bg-emerald-500/20 text-emerald-500'}`}>
+                <Clock className="w-4 h-4" />
+              </div>
+              <div>
+                <span className="text-xs font-bold text-neutral-900 dark:text-white block">
+                  Link Access Validity Window
+                </span>
+                <span className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                  Control how long clients can view and download this template
+                </span>
+              </div>
+            </div>
+
+            {/* Current Status Badge */}
+            <div>
+              {expiryStatus.isExpired ? (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-500/15 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-[11px] font-mono font-bold">
+                  <AlertTriangle className="w-3 h-3 stroke-[2.5]" />
+                  <span>Access Expired</span>
+                </span>
+              ) : expiryStatus.hasExpiry ? (
+                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-mono font-semibold border ${
+                  expiryStatus.isExpiringSoon
+                    ? 'bg-amber-500/15 border-amber-500/30 text-amber-600 dark:text-amber-400 animate-pulse'
+                    : 'bg-emerald-500/15 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
+                }`}>
+                  <span className="w-1.5 h-1.5 rounded-full bg-current" />
+                  <span>{expiryStatus.remainingText}</span>
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-neutral-200 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 text-[11px] font-mono">
+                  <ShieldCheck className="w-3 h-3 text-emerald-500" />
+                  <span>Permanent Access</span>
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* If expired banner */}
+          {expiryStatus.isExpired && (
+            <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/25 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+              <div className="text-xs text-rose-700 dark:text-rose-300 font-mono">
+                Closed on {expiryStatus.humanFormatted}. Clients cannot view photos.
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => handleExtendDays(7)}
+                  className="px-2.5 py-1 rounded-lg bg-rose-500 hover:bg-rose-600 text-white font-mono text-[11px] font-bold transition-all cursor-pointer"
+                >
+                  +7 Days
+                </button>
+                <button
+                  onClick={() => handleExtendDays(30)}
+                  className="px-2.5 py-1 rounded-lg bg-neutral-900 dark:bg-neutral-800 hover:bg-neutral-800 text-white font-mono text-[11px] transition-all cursor-pointer"
+                >
+                  +30 Days
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Quick Preset Buttons */}
+          <div className="space-y-1.5 pt-1">
+            <span className="text-[10px] uppercase font-mono tracking-wider text-neutral-500 dark:text-neutral-400 block font-semibold">
+              Set Link Duration:
+            </span>
+            <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5">
+              {[
+                { id: '24h', label: '24 Hours' },
+                { id: '48h', label: '48 Hours' },
+                { id: '7d', label: '7 Days' },
+                { id: '14d', label: '14 Days' },
+                { id: '30d', label: '30 Days' },
+                { id: '90d', label: '90 Days' },
+                { id: 'custom', label: 'Custom Date' },
+                { id: 'never', label: 'Never Expires' },
+              ].map((preset) => {
+                const isSelected =
+                  preset.id === 'never' && !expiryStatus.hasExpiry;
+                return (
+                  <button
+                    key={preset.id}
+                    onClick={() => handleSelectPreset(preset.id as ExpiryPresetId)}
+                    className={`px-2.5 py-1.5 rounded-xl font-mono text-[11px] transition-all cursor-pointer text-center truncate ${
+                      isSelected
+                        ? 'bg-amber-400 text-neutral-950 font-bold shadow-xs'
+                        : 'bg-white dark:bg-neutral-800/80 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700/60'
+                    }`}
+                  >
+                    {preset.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Custom Date Picker Accordion */}
+          {showCustomExpiry && (
+            <form onSubmit={handleApplyCustomExpiry} className="pt-2 border-t border-neutral-200 dark:border-neutral-800 flex flex-col sm:flex-row items-center gap-2">
+              <input
+                type="datetime-local"
+                value={customDateTime}
+                onChange={(e) => setCustomDateTime(e.target.value)}
+                required
+                className="w-full sm:flex-1 px-3 py-1.5 rounded-xl bg-white dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 text-xs text-neutral-900 dark:text-white font-mono focus:outline-none focus:border-amber-400"
+              />
+              <button
+                type="submit"
+                className="w-full sm:w-auto px-4 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 font-bold font-mono text-xs cursor-pointer shadow-sm"
+              >
+                Apply
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowCustomExpiry(false)}
+                className="text-xs text-neutral-400 hover:text-neutral-200 px-2 font-mono cursor-pointer"
+              >
+                Cancel
+              </button>
+            </form>
+          )}
+
+          {/* Detailed expiry info notice */}
+          {expiryStatus.hasExpiry && !expiryStatus.isExpired && (
+            <div className="flex items-center justify-between text-[11px] font-mono text-neutral-500 dark:text-neutral-400 pt-1">
+              <span className="flex items-center gap-1 truncate">
+                <Calendar className="w-3.5 h-3.5 text-amber-500" />
+                <span>Valid until: <strong>{expiryStatus.humanFormatted}</strong></span>
+              </span>
+              <button
+                onClick={handleRemoveExpiry}
+                className="text-neutral-400 hover:text-rose-500 transition-colors ml-2 underline shrink-0 cursor-pointer"
+              >
+                Remove Limit
+              </button>
+            </div>
+          )}
+        </div>
+
         {/* Direct Link Box */}
         <div className="mt-5">
           <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-400 mb-2">
@@ -139,7 +372,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, gallery
             />
             <button
               onClick={handleCopyLink}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
                 copied
                   ? 'bg-emerald-500 text-neutral-950 font-bold'
                   : 'bg-neutral-200 dark:bg-neutral-800 hover:bg-neutral-300 dark:hover:bg-neutral-700 text-neutral-800 dark:text-white'
@@ -253,12 +486,12 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, gallery
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 hover:underline font-semibold"
           >
-            <ExternalLink className="w-3.5 h-3.5" /> Preview Client Gallery
+            <ExternalLink className="w-3.5 h-3.5" /> Preview Client View
           </a>
 
           <button
             onClick={onClose}
-            className="px-5 py-2 rounded-xl bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 text-xs font-semibold transition-colors"
+            className="px-5 py-2 rounded-xl bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 text-xs font-semibold transition-colors cursor-pointer"
           >
             Done
           </button>

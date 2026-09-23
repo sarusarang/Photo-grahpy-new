@@ -6,8 +6,10 @@ import {
   Settings as SettingsIcon,
   LayoutGrid,
   Plus,
+  Calendar,
 } from 'lucide-react';
 import { useGallery } from '../../context/GalleryContext';
+import { useEvent } from '../../context/EventContext';
 
 interface MobileNavProps {
   onOpenCreateModal?: () => void;
@@ -19,6 +21,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({
   onOpenTemplatesSheet,
 }) => {
   const { galleries } = useGallery();
+  const { activeLiveEvents } = useEvent();
 
   return (
     <nav
@@ -29,7 +32,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({
       <NavLink
         to="/dashboard/drive"
         className={({ isActive }) =>
-          `flex flex-col items-center justify-center min-w-[56px] py-1 rounded-2xl text-[10px] font-medium transition-all active:scale-90 select-none ${
+          `flex flex-col items-center justify-center min-w-[50px] py-1 rounded-2xl text-[10px] font-medium transition-all active:scale-90 select-none ${
             isActive
               ? 'text-amber-500 font-bold'
               : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
@@ -51,6 +54,34 @@ export const MobileNav: React.FC<MobileNavProps> = ({
               )}
             </div>
             <span className="tracking-tight">Drive</span>
+          </>
+        )}
+      </NavLink>
+
+      {/* 2. Events Tab (with Live indicator) */}
+      <NavLink
+        to="/dashboard/events"
+        className={({ isActive }) =>
+          `flex flex-col items-center justify-center min-w-[50px] py-1 rounded-2xl text-[10px] font-medium transition-all active:scale-90 select-none ${
+            isActive
+              ? 'text-amber-500 font-bold'
+              : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
+          }`
+        }
+      >
+        {({ isActive }) => (
+          <>
+            <div className="relative p-1">
+              <Calendar
+                className={`w-5 h-5 transition-transform ${
+                  isActive ? 'text-amber-500 scale-105 stroke-[2.3]' : 'text-neutral-500 dark:text-neutral-400'
+                }`}
+              />
+              {activeLiveEvents.length > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-400 rounded-full animate-ping ring-2 ring-white dark:ring-[#0c0d12]" />
+              )}
+            </div>
+            <span className="tracking-tight">Events</span>
           </>
         )}
       </NavLink>

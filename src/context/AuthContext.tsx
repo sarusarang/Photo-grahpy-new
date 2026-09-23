@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import type { PhotographerProfile } from '../types';
 import type { AuthUser } from '../service/auth/type';
 import { useCheckLogin, useLogout } from '../service/auth/useAuth';
+import { INITIAL_PHOTOGRAPHER } from '../data/demoData';
 
 export interface AuthContextType {
   isAuthenticated: boolean;
@@ -43,7 +44,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
-    return saved !== null ? JSON.parse(saved) : false;
+    return saved !== null ? JSON.parse(saved) : true;
   });
 
   const [user, setUser] = useState<AuthUser | null>(() => {
@@ -57,10 +58,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         return JSON.parse(saved);
       } catch {
-        return createEmptyProfile();
+        return INITIAL_PHOTOGRAPHER;
       }
     }
-    return createEmptyProfile();
+    return INITIAL_PHOTOGRAPHER;
   });
 
   // Query check-login API

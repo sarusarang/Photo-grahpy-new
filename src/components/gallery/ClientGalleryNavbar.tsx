@@ -1,5 +1,5 @@
 import React from 'react';
-import { Play, Download, Loader2 } from 'lucide-react';
+import { Play, Download, Loader2, Clock } from 'lucide-react';
 
 export interface ClientGalleryNavbarProps {
   visible: boolean;
@@ -10,6 +10,7 @@ export interface ClientGalleryNavbarProps {
   mediaCount: number;
   isPreparingZip?: boolean;
   zipProgress?: number;
+  expiryText?: string;
   onStartSlideshow: () => void;
   onDownloadAll: () => void;
 }
@@ -26,6 +27,7 @@ export const ClientGalleryNavbar: React.FC<ClientGalleryNavbarProps> = ({
   mediaCount,
   isPreparingZip = false,
   zipProgress = 0,
+  expiryText,
   onStartSlideshow,
   onDownloadAll,
 }) => {
@@ -55,6 +57,12 @@ export const ClientGalleryNavbar: React.FC<ClientGalleryNavbarProps> = ({
         <span className="text-neutral-300 truncate max-w-[160px] sm:max-w-xs font-medium">
           {galleryTitle}
         </span>
+        {expiryText && (
+          <span className="hidden md:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-neutral-900 border border-amber-500/30 text-amber-300 text-[10px] font-mono shrink-0">
+            <Clock className="w-3 h-3 text-amber-400" />
+            <span>{expiryText}</span>
+          </span>
+        )}
       </div>
 
       <div className="flex items-center gap-2.5 shrink-0">
