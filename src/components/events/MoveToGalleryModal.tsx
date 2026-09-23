@@ -189,38 +189,45 @@ export const MoveToGalleryModal: React.FC<MoveToGalleryModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md overlay-animate overflow-y-auto">
-      <div className="relative w-full max-w-4xl rounded-3xl bg-[#101116] border border-neutral-800 text-white shadow-2xl p-6 sm:p-8 my-6 sheet-animate max-h-[92vh] flex flex-col">
+    <div
+      role="dialog"
+      aria-modal="true"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 md:p-6 bg-black/60 dark:bg-black/80 backdrop-blur-sm sm:backdrop-blur-md overlay-animate overflow-y-auto"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="relative w-full max-w-4xl bg-white dark:bg-[#101116] border border-neutral-200 dark:border-neutral-800 text-neutral-900 dark:text-white shadow-2xl rounded-3xl my-auto modal-animate max-h-[min(92vh,840px)] flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between pb-4 border-b border-neutral-800/80 shrink-0">
+        <div className="flex items-center justify-between p-5 sm:p-6 pb-4 border-b border-neutral-200 dark:border-neutral-800/80 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center">
+            <div className="w-11 h-11 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-500 dark:text-amber-400 flex items-center justify-center">
               <FolderKanban className="w-6 h-6" />
             </div>
             <div>
-              <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-amber-400">
+              <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-amber-600 dark:text-amber-400 block">
                 Studio Drive Integration
               </span>
-              <h3 className="text-xl font-serif font-bold text-white tracking-tight">
+              <h3 className="text-xl font-serif font-bold text-neutral-900 dark:text-white tracking-tight">
                 Move Event to Gallery & Categorize Photos
               </h3>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-full text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors"
+            className="p-2 rounded-full text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Modal Scrollable Body */}
-        <div className="flex-1 overflow-y-auto py-5 space-y-6 pr-1">
+        <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-6">
           {/* Step 1: Destination Gallery Selection */}
-          <div className="bg-neutral-950/80 border border-neutral-800/80 rounded-2xl p-4 sm:p-5 space-y-4">
+          <div className="bg-neutral-50 dark:bg-neutral-950/80 border border-neutral-200 dark:border-neutral-800/80 rounded-2xl p-4 sm:p-5 space-y-4">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-mono font-bold uppercase tracking-wider text-neutral-300 flex items-center gap-2">
-                <FolderPlus className="w-4 h-4 text-amber-400" />
+              <span className="text-xs font-mono font-bold uppercase tracking-wider text-neutral-700 dark:text-neutral-300 flex items-center gap-2">
+                <FolderPlus className="w-4 h-4 text-amber-500" />
                 <span>1. Choose Gallery Destination</span>
               </span>
             </div>
@@ -232,18 +239,18 @@ export const MoveToGalleryModal: React.FC<MoveToGalleryModalProps> = ({
                 onClick={() => setTargetMode('new')}
                 className={`p-4 rounded-xl text-left border transition-all cursor-pointer ${
                   targetMode === 'new'
-                    ? 'bg-amber-400/10 border-amber-400 text-white ring-1 ring-amber-400'
-                    : 'bg-neutral-900 border-neutral-800 text-neutral-400 hover:border-neutral-700'
+                    ? 'bg-amber-400/10 border-amber-400 text-neutral-900 dark:text-white ring-1 ring-amber-400'
+                    : 'bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400 hover:border-neutral-300 dark:hover:border-neutral-700'
                 }`}
               >
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-mono font-bold uppercase tracking-wider text-amber-400">
+                  <span className="text-xs font-mono font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
                     Create New Gallery
                   </span>
-                  {targetMode === 'new' && <Check className="w-4 h-4 text-amber-400" />}
+                  {targetMode === 'new' && <Check className="w-4 h-4 text-amber-500" />}
                 </div>
-                <p className="text-sm font-semibold text-white">Create Fresh Collection</p>
-                <p className="text-[11px] text-neutral-400 mt-1">
+                <p className="text-sm font-semibold text-neutral-900 dark:text-white">Create Fresh Collection</p>
+                <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-1">
                   Creates a dedicated client proofing gallery in Studio Drive.
                 </p>
               </button>
@@ -254,18 +261,18 @@ export const MoveToGalleryModal: React.FC<MoveToGalleryModalProps> = ({
                 onClick={() => setTargetMode('existing')}
                 className={`p-4 rounded-xl text-left border transition-all cursor-pointer ${
                   targetMode === 'existing'
-                    ? 'bg-amber-400/10 border-amber-400 text-white ring-1 ring-amber-400'
-                    : 'bg-neutral-900 border-neutral-800 text-neutral-400 hover:border-neutral-700'
+                    ? 'bg-amber-400/10 border-amber-400 text-neutral-900 dark:text-white ring-1 ring-amber-400'
+                    : 'bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400 hover:border-neutral-300 dark:hover:border-neutral-700'
                 }`}
               >
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-mono font-bold uppercase tracking-wider text-amber-400">
+                  <span className="text-xs font-mono font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
                     Merge Into Existing
                   </span>
-                  {targetMode === 'existing' && <Check className="w-4 h-4 text-amber-400" />}
+                  {targetMode === 'existing' && <Check className="w-4 h-4 text-amber-500" />}
                 </div>
-                <p className="text-sm font-semibold text-white">Append to Drive Collection</p>
-                <p className="text-[11px] text-neutral-400 mt-1">
+                <p className="text-sm font-semibold text-neutral-900 dark:text-white">Append to Drive Collection</p>
+                <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-1">
                   Adds these photos into an existing client drive folder.
                 </p>
               </button>
@@ -274,22 +281,22 @@ export const MoveToGalleryModal: React.FC<MoveToGalleryModalProps> = ({
             {/* Input for New Gallery Name or Dropdown for Existing */}
             {targetMode === 'new' ? (
               <div className="space-y-1.5 pt-1">
-                <label className="text-xs font-mono text-neutral-400">Gallery Title in Drive</label>
+                <label className="text-xs font-mono text-neutral-700 dark:text-neutral-400 font-medium">Gallery Title in Drive</label>
                 <input
                   type="text"
                   value={newGalleryTitle}
                   onChange={(e) => setNewGalleryTitle(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl bg-neutral-900 border border-neutral-800 text-sm text-white focus:outline-none focus:border-amber-400"
+                  className="w-full px-4 py-2.5 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-sm text-neutral-900 dark:text-white focus:outline-none focus:border-amber-400"
                   placeholder="e.g. Royal Palace Wedding • Ananya & Kabir"
                 />
               </div>
             ) : (
               <div className="space-y-1.5 pt-1">
-                <label className="text-xs font-mono text-neutral-400">Select Existing Gallery</label>
+                <label className="text-xs font-mono text-neutral-700 dark:text-neutral-400 font-medium">Select Existing Gallery</label>
                 <select
                   value={selectedExistingGalleryId}
                   onChange={(e) => setSelectedExistingGalleryId(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl bg-neutral-900 border border-neutral-800 text-sm text-white focus:outline-none focus:border-amber-400"
+                  className="w-full px-4 py-2.5 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-sm text-neutral-900 dark:text-white focus:outline-none focus:border-amber-400"
                 >
                   {galleries.map((gal) => (
                     <option key={gal.id} value={gal.id}>
@@ -302,15 +309,15 @@ export const MoveToGalleryModal: React.FC<MoveToGalleryModalProps> = ({
           </div>
 
           {/* Step 2: Categorization Workspace */}
-          <div className="bg-neutral-950/80 border border-neutral-800/80 rounded-2xl p-4 sm:p-5 space-y-4">
+          <div className="bg-neutral-50 dark:bg-neutral-950/80 border border-neutral-200 dark:border-neutral-800/80 rounded-2xl p-4 sm:p-5 space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <span className="text-xs font-mono font-bold uppercase tracking-wider text-neutral-300 flex items-center gap-2">
-                <Tag className="w-4 h-4 text-amber-400" />
+              <span className="text-xs font-mono font-bold uppercase tracking-wider text-neutral-800 dark:text-neutral-300 flex items-center gap-2">
+                <Tag className="w-4 h-4 text-amber-500" />
                 <span>2. Categorize Event Photos Under Titles</span>
               </span>
               <div className="flex items-center gap-2">
                 {selectedMediaIds.size > 0 && (
-                  <span className="text-xs font-mono text-amber-300 font-bold bg-amber-400/10 px-2.5 py-1 rounded-lg border border-amber-400/20">
+                  <span className="text-xs font-mono text-amber-700 dark:text-amber-300 font-bold bg-amber-400/10 px-2.5 py-1 rounded-lg border border-amber-400/20">
                     {selectedMediaIds.size} Selected
                   </span>
                 )}
@@ -321,7 +328,7 @@ export const MoveToGalleryModal: React.FC<MoveToGalleryModalProps> = ({
                       ? handleDeselectAll
                       : handleSelectAll
                   }
-                  className="px-3 py-1 rounded-lg bg-neutral-900 hover:bg-neutral-800 text-neutral-300 text-xs font-mono border border-neutral-800 transition-colors cursor-pointer"
+                  className="px-3 py-1 rounded-lg bg-white dark:bg-neutral-900 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300 text-xs font-mono border border-neutral-200 dark:border-neutral-800 transition-colors cursor-pointer"
                 >
                   {selectedMediaIds.size === event.media.length ? 'Deselect All' : 'Select All'}
                 </button>
@@ -330,7 +337,7 @@ export const MoveToGalleryModal: React.FC<MoveToGalleryModalProps> = ({
 
             {/* Category Assign Buttons (Pills Bar) */}
             <div className="space-y-2">
-              <span className="text-[11px] font-mono text-neutral-400 block">
+              <span className="text-[11px] font-mono text-neutral-500 dark:text-neutral-400 block">
                 Select photos below, then click a category title to assign them:
               </span>
 
@@ -342,11 +349,11 @@ export const MoveToGalleryModal: React.FC<MoveToGalleryModalProps> = ({
                       key={cat}
                       type="button"
                       onClick={() => applyCategoryToSelected(cat)}
-                      className="group px-3 py-1.5 rounded-xl bg-neutral-900 hover:bg-amber-400 hover:text-neutral-950 text-neutral-200 text-xs font-mono font-semibold border border-neutral-800 transition-all flex items-center gap-2 cursor-pointer"
+                      className="group px-3 py-1.5 rounded-xl bg-white dark:bg-neutral-900 hover:bg-amber-400 hover:text-neutral-950 text-neutral-800 dark:text-neutral-200 text-xs font-mono font-semibold border border-neutral-200 dark:border-neutral-800 shadow-2xs transition-all flex items-center gap-2 cursor-pointer"
                       title={`Assign selected photos to ${cat}`}
                     >
                       <span>{cat}</span>
-                      <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-neutral-800 group-hover:bg-neutral-950 group-hover:text-amber-400 text-neutral-400 font-bold">
+                      <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-neutral-100 dark:bg-neutral-800 group-hover:bg-neutral-950 group-hover:text-amber-400 text-neutral-600 dark:text-neutral-400 font-bold">
                         {count}
                       </span>
                     </button>
@@ -362,7 +369,7 @@ export const MoveToGalleryModal: React.FC<MoveToGalleryModalProps> = ({
                       value={newCategoryInput}
                       onChange={(e) => setNewCategoryInput(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && handleAddCategory()}
-                      className="px-3 py-1 rounded-xl bg-neutral-900 border border-amber-400 text-xs font-mono text-white focus:outline-none uppercase w-36"
+                      className="px-3 py-1 rounded-xl bg-white dark:bg-neutral-900 border border-amber-400 text-xs font-mono text-neutral-900 dark:text-white focus:outline-none uppercase w-36"
                       autoFocus
                     />
                     <button
@@ -375,7 +382,7 @@ export const MoveToGalleryModal: React.FC<MoveToGalleryModalProps> = ({
                     <button
                       type="button"
                       onClick={() => setShowAddCustomInput(false)}
-                      className="p-1 text-neutral-400 hover:text-white"
+                      className="p-1 text-neutral-400 hover:text-neutral-700 dark:hover:text-white"
                     >
                       <X className="w-4 h-4" />
                     </button>
@@ -384,7 +391,7 @@ export const MoveToGalleryModal: React.FC<MoveToGalleryModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setShowAddCustomInput(true)}
-                    className="px-3 py-1.5 rounded-xl bg-neutral-900/50 hover:bg-neutral-800 text-amber-400 text-xs font-mono border border-dashed border-amber-400/40 hover:border-amber-400 flex items-center gap-1.5 transition-colors cursor-pointer"
+                    className="px-3 py-1.5 rounded-xl bg-white/80 dark:bg-neutral-900/50 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-amber-600 dark:text-amber-400 text-xs font-mono border border-dashed border-amber-500/40 hover:border-amber-500 flex items-center gap-1.5 transition-colors cursor-pointer"
                   >
                     <Plus className="w-3.5 h-3.5" />
                     <span>New Category Title</span>
@@ -394,14 +401,14 @@ export const MoveToGalleryModal: React.FC<MoveToGalleryModalProps> = ({
             </div>
 
             {/* Filter Tabs to View Specific Category */}
-            <div className="flex items-center gap-1.5 pt-2 border-t border-neutral-900 overflow-x-auto pb-1">
+            <div className="flex items-center gap-1.5 pt-2 border-t border-neutral-200 dark:border-neutral-900 overflow-x-auto pb-1">
               <button
                 type="button"
                 onClick={() => setActiveCategoryFilter('all')}
                 className={`px-3 py-1 rounded-lg text-xs font-mono transition-colors cursor-pointer whitespace-nowrap ${
                   activeCategoryFilter === 'all'
-                    ? 'bg-white/10 text-white font-bold'
-                    : 'text-neutral-500 hover:text-neutral-300'
+                    ? 'bg-neutral-200 dark:bg-white/10 text-neutral-900 dark:text-white font-bold'
+                    : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200'
                 }`}
               >
                 All Photos ({event.media.length})
@@ -416,8 +423,8 @@ export const MoveToGalleryModal: React.FC<MoveToGalleryModalProps> = ({
                     onClick={() => setActiveCategoryFilter(cat)}
                     className={`px-3 py-1 rounded-lg text-xs font-mono transition-colors cursor-pointer whitespace-nowrap ${
                       activeCategoryFilter === cat
-                        ? 'bg-amber-400/15 text-amber-300 font-bold border border-amber-400/30'
-                        : 'text-neutral-500 hover:text-neutral-300'
+                        ? 'bg-amber-400/15 text-amber-700 dark:text-amber-300 font-bold border border-amber-400/30'
+                        : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200'
                     }`}
                   >
                     {cat} ({count})
@@ -439,7 +446,7 @@ export const MoveToGalleryModal: React.FC<MoveToGalleryModalProps> = ({
                     className={`relative aspect-[4/3] rounded-xl overflow-hidden group border-2 transition-all cursor-pointer bg-neutral-900 ${
                       isSelected
                         ? 'border-amber-400 ring-2 ring-amber-400/60 scale-[1.01]'
-                        : 'border-neutral-800 hover:border-neutral-700'
+                        : 'border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700'
                     }`}
                   >
                     <img
@@ -478,10 +485,10 @@ export const MoveToGalleryModal: React.FC<MoveToGalleryModalProps> = ({
           </div>
         </div>
 
-        {/* Modal Footer & Move Action */}
-        <div className="pt-4 border-t border-neutral-800/80 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
-          <div className="text-xs font-mono text-neutral-400 flex items-center gap-2">
-            <Layers className="w-4 h-4 text-amber-400" />
+        {/* Modal Footer & Move Action (Fixed Footer) */}
+        <div className="p-4 sm:p-6 pt-3 border-t border-neutral-200 dark:border-neutral-800/80 bg-neutral-50/80 dark:bg-[#101116]/90 backdrop-blur-xs flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
+          <div className="text-xs font-mono text-neutral-500 dark:text-neutral-400 flex items-center gap-2">
+            <Layers className="w-4 h-4 text-amber-500" />
             <span>
               Moving {event.media.length} photos into {assignedSectionsList.length} gallery
               categories
@@ -492,7 +499,7 @@ export const MoveToGalleryModal: React.FC<MoveToGalleryModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-neutral-300 text-xs font-mono transition-colors cursor-pointer"
+              className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl bg-white dark:bg-neutral-900 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-800 text-xs font-mono transition-colors cursor-pointer"
             >
               Cancel
             </button>

@@ -296,7 +296,7 @@ export const EventDetailPage: React.FC = () => {
                 className={`py-1.5 px-3 rounded-full text-xs font-mono font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
                   event.autoSyncEnabled
                     ? 'bg-emerald-500 text-neutral-950 shadow-md shadow-emerald-500/20'
-                    : 'bg-neutral-200 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400'
+                    : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-400 border border-neutral-200 dark:border-transparent'
                 }`}
               >
                 {event.autoSyncEnabled ? (
@@ -319,7 +319,7 @@ export const EventDetailPage: React.FC = () => {
               <button
                 type="button"
                 onClick={handleManualTetherShot}
-                className="py-2.5 px-4 rounded-xl bg-neutral-100 dark:bg-neutral-900 hover:bg-neutral-200 dark:hover:bg-neutral-800 text-neutral-900 dark:text-neutral-200 text-xs font-mono font-bold border border-neutral-300 dark:border-neutral-800 flex items-center gap-2 transition-all cursor-pointer"
+                className="py-2.5 px-4 rounded-xl bg-neutral-100 dark:bg-neutral-900 hover:bg-neutral-200 dark:hover:bg-neutral-800 text-neutral-800 dark:text-neutral-200 text-xs font-mono font-bold border border-neutral-300 dark:border-neutral-800 flex items-center gap-2 transition-all cursor-pointer"
               >
                 <Camera className="w-4 h-4 text-amber-500" />
                 <span>Simulate 1 Live Shot</span>
@@ -346,8 +346,8 @@ export const EventDetailPage: React.FC = () => {
             </div>
 
             {event.autoSyncEnabled && (
-              <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-mono flex items-center gap-2 animate-in fade-in">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+              <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs font-mono flex items-center gap-2 animate-in fade-in">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
                 <span>
                   <strong>Camera Tether Active:</strong> New shots taken on your camera land in
                   the guest stream in real time.
@@ -369,35 +369,35 @@ export const EventDetailPage: React.FC = () => {
               </div>
               <button
                 onClick={() => setIsQRModalOpen(true)}
-                className="text-xs font-mono text-amber-500 hover:underline"
+                className="text-xs font-mono text-amber-600 dark:text-amber-500 hover:underline cursor-pointer"
               >
                 Change Expiry
               </button>
             </div>
 
             <div className="flex items-center gap-4 bg-neutral-50 dark:bg-neutral-950/70 border border-neutral-200 dark:border-neutral-800/80 rounded-2xl p-4">
-              <div className="p-2 bg-white rounded-xl border border-neutral-200 shrink-0">
+              <div className="p-2 bg-white rounded-xl border border-neutral-200 shrink-0 shadow-xs">
                 <img src={qrApiUrl} alt="QR Code" className="w-24 h-24 object-contain" />
               </div>
               <div className="space-y-1.5 text-xs font-mono text-neutral-600 dark:text-neutral-400">
-                <div className="flex items-center gap-1.5 text-emerald-500 font-bold">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-500 font-bold">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                   <span>Valid for Guests</span>
                 </div>
-                <p className="text-[11px] text-neutral-500">
+                <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
                   Expires: {new Date(event.qrSettings.expiresAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ({event.qrSettings.durationHours}h preset)
                 </p>
                 <div className="pt-1 flex items-center gap-2">
                   <button
                     onClick={handleCopyGuestLink}
-                    className="p-1.5 rounded-lg bg-neutral-200 dark:bg-neutral-800 hover:bg-neutral-300 dark:hover:bg-neutral-700 text-neutral-900 dark:text-white text-[11px] font-mono flex items-center gap-1 cursor-pointer transition-colors"
+                    className="p-1.5 rounded-lg bg-neutral-200 dark:bg-neutral-800 hover:bg-neutral-300 dark:hover:bg-neutral-700 text-neutral-800 dark:text-white text-[11px] font-mono flex items-center gap-1 cursor-pointer transition-colors border border-neutral-300/60 dark:border-transparent"
                   >
                     {copied ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
                     <span>{copied ? 'Copied' : 'Copy Link'}</span>
                   </button>
                   <button
                     onClick={() => setIsPrintStandOpen(true)}
-                    className="p-1.5 rounded-lg bg-amber-400/10 hover:bg-amber-400/20 text-amber-500 border border-amber-500/30 text-[11px] font-mono flex items-center gap-1 cursor-pointer transition-colors"
+                    className="p-1.5 rounded-lg bg-amber-400/10 hover:bg-amber-400/20 text-amber-600 dark:text-amber-500 border border-amber-500/30 text-[11px] font-mono flex items-center gap-1 cursor-pointer transition-colors"
                   >
                     <Printer className="w-3 h-3" />
                     <span>Print Stand</span>
@@ -418,7 +418,7 @@ export const EventDetailPage: React.FC = () => {
               Live Photos Stream ({event.media.length})
             </h3>
           </div>
-          <span className="text-xs font-mono text-neutral-400">
+          <span className="text-xs font-mono text-neutral-500 dark:text-neutral-400">
             Instant AI Face Search is active for all photos
           </span>
         </div>
@@ -429,7 +429,7 @@ export const EventDetailPage: React.FC = () => {
             <p className="font-serif italic text-neutral-700 dark:text-neutral-300 text-base">
               No photos uploaded to this event yet
             </p>
-            <p className="text-xs text-neutral-500 font-mono">
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 font-mono">
               Click "Upload Photos" above or simulate a live camera shot.
             </p>
           </div>

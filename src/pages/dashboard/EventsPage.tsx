@@ -131,47 +131,47 @@ export const EventsPage: React.FC = () => {
       {/* ─── Metric Highlights ─── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="p-4 rounded-2xl bg-white dark:bg-[#111218] border border-neutral-200 dark:border-neutral-800/80 shadow-xs">
-          <div className="flex items-center justify-between text-neutral-500">
-            <span className="text-[11px] font-mono uppercase tracking-wider">Live & Active</span>
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+          <div className="flex items-center justify-between text-neutral-600 dark:text-neutral-400">
+            <span className="text-[11px] font-mono uppercase tracking-wider font-medium">Live & Active</span>
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
           </div>
           <p className="text-2xl font-serif font-bold text-neutral-900 dark:text-white mt-1">
             {activeLiveEvents.length}
           </p>
-          <span className="text-[10px] text-neutral-400 font-mono">Live shooting & tethering</span>
+          <span className="text-[10px] text-neutral-500 dark:text-neutral-400 font-mono">Live shooting & tethering</span>
         </div>
 
         <div className="p-4 rounded-2xl bg-white dark:bg-[#111218] border border-neutral-200 dark:border-neutral-800/80 shadow-xs">
-          <div className="flex items-center justify-between text-neutral-500">
-            <span className="text-[11px] font-mono uppercase tracking-wider">Guest QR Scans</span>
+          <div className="flex items-center justify-between text-neutral-600 dark:text-neutral-400">
+            <span className="text-[11px] font-mono uppercase tracking-wider font-medium">Guest QR Scans</span>
             <QrCode className="w-4 h-4 text-amber-500" />
           </div>
           <p className="text-2xl font-serif font-bold text-neutral-900 dark:text-white mt-1">
             {totalScans}
           </p>
-          <span className="text-[10px] text-neutral-400 font-mono">Smartphone scans at tables</span>
+          <span className="text-[10px] text-neutral-500 dark:text-neutral-400 font-mono">Smartphone scans at tables</span>
         </div>
 
         <div className="p-4 rounded-2xl bg-white dark:bg-[#111218] border border-neutral-200 dark:border-neutral-800/80 shadow-xs">
-          <div className="flex items-center justify-between text-neutral-500">
-            <span className="text-[11px] font-mono uppercase tracking-wider">AI Face Searches</span>
+          <div className="flex items-center justify-between text-neutral-600 dark:text-neutral-400">
+            <span className="text-[11px] font-mono uppercase tracking-wider font-medium">AI Face Searches</span>
             <Sparkles className="w-4 h-4 text-amber-500" />
           </div>
           <p className="text-2xl font-serif font-bold text-neutral-900 dark:text-white mt-1">
             {totalSearches}
           </p>
-          <span className="text-[10px] text-neutral-400 font-mono">Selfie matches delivered</span>
+          <span className="text-[10px] text-neutral-500 dark:text-neutral-400 font-mono">Selfie matches delivered</span>
         </div>
 
         <div className="p-4 rounded-2xl bg-white dark:bg-[#111218] border border-neutral-200 dark:border-neutral-800/80 shadow-xs">
-          <div className="flex items-center justify-between text-neutral-500">
-            <span className="text-[11px] font-mono uppercase tracking-wider">Live Cloud Photos</span>
+          <div className="flex items-center justify-between text-neutral-600 dark:text-neutral-400">
+            <span className="text-[11px] font-mono uppercase tracking-wider font-medium">Live Cloud Photos</span>
             <Camera className="w-4 h-4 text-amber-500" />
           </div>
           <p className="text-2xl font-serif font-bold text-neutral-900 dark:text-white mt-1">
             {totalPhotos}
           </p>
-          <span className="text-[10px] text-neutral-400 font-mono">Instant tethered imagery</span>
+          <span className="text-[10px] text-neutral-500 dark:text-neutral-400 font-mono">Instant tethered imagery</span>
         </div>
       </div>
 
@@ -183,7 +183,7 @@ export const EventsPage: React.FC = () => {
             className={`py-2 px-4 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-2 whitespace-nowrap ${
               activeTab === 'live'
                 ? 'bg-amber-400 text-neutral-950 shadow-md shadow-amber-400/20'
-                : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-900'
+                : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-900'
             }`}
           >
             <span className="w-2 h-2 rounded-full bg-emerald-500" />
@@ -195,7 +195,7 @@ export const EventsPage: React.FC = () => {
             className={`py-2 px-4 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-2 whitespace-nowrap ${
               activeTab === 'upcoming'
                 ? 'bg-amber-400 text-neutral-950 shadow-md shadow-amber-400/20'
-                : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-900'
+                : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-900'
             }`}
           >
             <Calendar className="w-3.5 h-3.5" />
@@ -207,7 +207,7 @@ export const EventsPage: React.FC = () => {
             className={`py-2 px-4 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-2 whitespace-nowrap ${
               activeTab === 'past'
                 ? 'bg-amber-400 text-neutral-950 shadow-md shadow-amber-400/20'
-                : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-900'
+                : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-900'
             }`}
           >
             <FolderKanban className="w-3.5 h-3.5" />
@@ -223,7 +223,7 @@ export const EventsPage: React.FC = () => {
             placeholder="Search events, clients, venues..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-xs text-neutral-900 dark:text-white focus:outline-none focus:border-amber-400 font-mono"
+            className="w-full pl-9 pr-3 py-2 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-xs text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:border-amber-400 font-mono"
           />
         </div>
       </div>
@@ -336,7 +336,7 @@ export const EventsPage: React.FC = () => {
                   {/* Client & Photo stats */}
                   <div className="grid grid-cols-3 gap-2 py-2 px-3 rounded-2xl bg-neutral-50 dark:bg-neutral-950/60 border border-neutral-200/80 dark:border-neutral-800 text-center">
                     <div>
-                      <span className="text-[9px] font-mono uppercase text-neutral-400 block">
+                      <span className="text-[9px] font-mono uppercase text-neutral-500 dark:text-neutral-400 block font-medium">
                         Photos
                       </span>
                       <span className="text-sm font-serif font-bold text-neutral-900 dark:text-white">
@@ -344,18 +344,18 @@ export const EventsPage: React.FC = () => {
                       </span>
                     </div>
                     <div>
-                      <span className="text-[9px] font-mono uppercase text-neutral-400 block">
+                      <span className="text-[9px] font-mono uppercase text-neutral-500 dark:text-neutral-400 block font-medium">
                         QR Scans
                       </span>
-                      <span className="text-sm font-serif font-bold text-amber-500">
+                      <span className="text-sm font-serif font-bold text-amber-600 dark:text-amber-500">
                         {event.stats.qrScans}
                       </span>
                     </div>
                     <div>
-                      <span className="text-[9px] font-mono uppercase text-neutral-400 block">
+                      <span className="text-[9px] font-mono uppercase text-neutral-500 dark:text-neutral-400 block font-medium">
                         AI Matches
                       </span>
-                      <span className="text-sm font-serif font-bold text-emerald-500">
+                      <span className="text-sm font-serif font-bold text-emerald-600 dark:text-emerald-500">
                         {event.stats.matchesFound}
                       </span>
                     </div>
@@ -367,7 +367,7 @@ export const EventsPage: React.FC = () => {
                     <div className="flex items-center gap-2">
                       <Link
                         to={`/dashboard/events/${event.id}`}
-                        className="flex-1 py-2.5 px-3 rounded-xl bg-neutral-900 dark:bg-neutral-800 hover:bg-neutral-800 dark:hover:bg-neutral-700 text-white text-xs font-mono font-bold flex items-center justify-center gap-2 transition-all cursor-pointer"
+                        className="flex-1 py-2.5 px-3 rounded-xl bg-neutral-900 dark:bg-neutral-800 hover:bg-neutral-800 dark:hover:bg-neutral-700 text-white text-xs font-mono font-bold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs"
                       >
                         <Camera className="w-3.5 h-3.5 text-amber-400" />
                         <span>Manage & Live Feed</span>
@@ -376,7 +376,7 @@ export const EventsPage: React.FC = () => {
                       {/* QR Modal Trigger */}
                       <button
                         onClick={() => setQrModalEvent(event)}
-                        className="py-2.5 px-3 rounded-xl bg-amber-400/10 hover:bg-amber-400/20 text-amber-500 border border-amber-500/30 text-xs font-mono font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                        className="py-2.5 px-3 rounded-xl bg-amber-400/10 hover:bg-amber-400/20 text-amber-600 dark:text-amber-500 border border-amber-500/30 text-xs font-mono font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
                         title="View & Configure QR Code"
                       >
                         <QrCode className="w-3.5 h-3.5" />
@@ -385,11 +385,11 @@ export const EventsPage: React.FC = () => {
                     </div>
 
                     {/* Secondary Actions: Move to Gallery & Guest Link Preview */}
-                    <div className="flex items-center justify-between text-xs font-mono pt-1 text-neutral-500">
+                    <div className="flex items-center justify-between text-xs font-mono pt-1 text-neutral-600 dark:text-neutral-400">
                       {!isMoved ? (
                         <button
                           onClick={() => setMoveToGalleryEvent(event)}
-                          className="text-amber-500 hover:text-amber-400 font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                          className="text-amber-600 dark:text-amber-500 hover:text-amber-500 dark:hover:text-amber-400 font-bold flex items-center gap-1 cursor-pointer transition-colors"
                         >
                           <Layers className="w-3.5 h-3.5" />
                           <span>Move to Gallery</span>
@@ -397,7 +397,7 @@ export const EventsPage: React.FC = () => {
                       ) : (
                         <Link
                           to={`/dashboard/drive/${event.associatedGalleryId || 'gal-lake-como'}`}
-                          className="text-emerald-500 hover:underline flex items-center gap-1"
+                          className="text-emerald-600 dark:text-emerald-500 hover:underline flex items-center gap-1 font-medium"
                         >
                           <CheckCircle2 className="w-3.5 h-3.5" />
                           <span>View in Drive</span>
@@ -407,7 +407,7 @@ export const EventsPage: React.FC = () => {
                       <Link
                         to={`/events/${event.id}`}
                         target="_blank"
-                        className="hover:text-neutral-900 dark:hover:text-white flex items-center gap-1"
+                        className="hover:text-neutral-900 dark:hover:text-white text-neutral-600 dark:text-neutral-400 flex items-center gap-1 transition-colors"
                         title="Open guest scanning template"
                       >
                         <span>Guest View</span>

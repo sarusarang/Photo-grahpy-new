@@ -9,7 +9,7 @@ import { useAuth } from '../context/AuthContext';
 import { X } from 'lucide-react';
 
 export const DashboardLayout: React.FC = () => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, login } = useAuth();
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
@@ -38,17 +38,25 @@ export const DashboardLayout: React.FC = () => {
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-[#0c0d12] text-white flex flex-col items-center justify-center p-6">
-        <div className="max-w-md w-full p-8 rounded-3xl bg-neutral-900 border border-neutral-800 text-center space-y-4">
+        <div className="max-w-md w-full p-8 rounded-3xl bg-neutral-900 border border-neutral-800 text-center space-y-4 shadow-2xl">
           <h2 className="text-2xl font-serif">Photographer Sign In Required</h2>
           <p className="text-xs text-neutral-400">
             Please log in with your demo photographer account to access your studio drive.
           </p>
-          <button
-            onClick={() => navigate('/login')}
-            className="w-full py-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 font-bold text-xs uppercase tracking-wider transition-all"
-          >
-            Go to Login
-          </button>
+          <div className="space-y-2 pt-2">
+            <button
+              onClick={() => login()}
+              className="w-full py-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 font-bold text-xs uppercase tracking-wider transition-all cursor-pointer shadow-lg shadow-amber-400/20"
+            >
+              Continue as Demo Studio
+            </button>
+            <button
+              onClick={() => navigate('/login')}
+              className="w-full py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-mono text-xs transition-colors cursor-pointer"
+            >
+              Go to Login
+            </button>
+          </div>
         </div>
       </div>
     );
