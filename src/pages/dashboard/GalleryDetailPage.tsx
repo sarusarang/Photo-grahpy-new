@@ -302,7 +302,7 @@ export const GalleryDetailPage: React.FC = () => {
         >
           <BarChart3 className="w-4 h-4 text-amber-500 dark:text-amber-400" />
           <span>Analytics</span>
-          <span className="px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-700 dark:text-amber-400 font-mono text-[10px] font-bold">
+          <span className="px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-700 dark:text-amber-400 text-[10px] font-bold">
             {gallery.viewsCount || 0} views
           </span>
         </button>

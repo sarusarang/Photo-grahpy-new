@@ -589,7 +589,7 @@ export const DrivePage: React.FC = () => {
                         e.stopPropagation();
                         navigate(`/dashboard/drive/${gal.id}?tab=analytics`);
                       }}
-                      className="text-neutral-500 dark:text-neutral-400 hover:text-amber-600 dark:hover:text-amber-400 flex items-center gap-1.5 text-[11px] sm:text-xs font-mono font-medium transition-colors cursor-pointer group/stat"
+                      className="text-neutral-500 dark:text-neutral-400 hover:text-amber-600 dark:hover:text-amber-400 flex items-center gap-1.5 text-[11px] sm:text-xs font-medium transition-colors cursor-pointer group/stat"
                       title="View Gallery Analytics"
                     >
                       <BarChart3 className="w-3.5 h-3.5 text-amber-500 group-hover/stat:scale-110 transition-transform" />
@@ -686,7 +686,7 @@ export const DrivePage: React.FC = () => {
                     <td className="py-4 px-4 font-mono text-amber-600 dark:text-amber-400 group-hover:text-amber-500 font-bold text-xs transition-colors">
                       {sizeMB} MB
                     </td>
-                    <td className="py-4 px-4 font-mono text-xs">
+                    <td className="py-4 px-4 text-xs">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();

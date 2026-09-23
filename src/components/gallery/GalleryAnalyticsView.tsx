@@ -96,7 +96,7 @@ export const GalleryAnalyticsView: React.FC<GalleryAnalyticsViewProps> = ({
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-5 sm:p-6 rounded-3xl bg-white dark:bg-[#121319] border border-neutral-200 dark:border-neutral-800 shadow-sm dark:shadow-xl">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <span className="px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 font-mono font-bold text-[10px] uppercase tracking-wider border border-amber-500/20">
+            <span className="px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold text-[10px] uppercase tracking-wider border border-amber-500/20">
               Live Intelligence
             </span>
             <span className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
@@ -163,17 +163,17 @@ export const GalleryAnalyticsView: React.FC<GalleryAnalyticsViewProps> = ({
         {/* Total Views */}
         <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#121319] border border-neutral-200 dark:border-neutral-800 shadow-sm dark:shadow-md space-y-2 hover:border-amber-500/40 transition-colors group">
           <div className="flex items-center justify-between text-neutral-400">
-            <span className="text-[10px] font-mono uppercase tracking-wider font-semibold text-neutral-500 dark:text-neutral-400">
+            <span className="text-[11px] uppercase tracking-wider font-semibold text-neutral-500 dark:text-neutral-400">
               Gallery Views
             </span>
             <div className="p-1.5 rounded-lg bg-amber-500/10 text-amber-500 group-hover:scale-110 transition-transform">
               <Eye className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-2xl sm:text-3xl font-serif font-bold text-neutral-900 dark:text-white">
+          <div className="text-2xl sm:text-3xl font-bold tracking-tight text-neutral-900 dark:text-white">
             {analytics.totalViews.toLocaleString()}
           </div>
-          <p className="text-[11px] text-emerald-600 dark:text-emerald-400 flex items-center gap-1 font-mono font-medium">
+          <p className="text-[11px] text-emerald-600 dark:text-emerald-400 flex items-center gap-1 font-medium">
             <TrendingUp className="w-3 h-3" />
             <span>+19% this week</span>
           </p>
@@ -182,17 +182,17 @@ export const GalleryAnalyticsView: React.FC<GalleryAnalyticsViewProps> = ({
         {/* Unique Visitors */}
         <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#121319] border border-neutral-200 dark:border-neutral-800 shadow-sm dark:shadow-md space-y-2 hover:border-blue-500/40 transition-colors group">
           <div className="flex items-center justify-between text-neutral-400">
-            <span className="text-[10px] font-mono uppercase tracking-wider font-semibold text-neutral-500 dark:text-neutral-400">
+            <span className="text-[11px] uppercase tracking-wider font-semibold text-neutral-500 dark:text-neutral-400">
               Unique Visitors
             </span>
             <div className="p-1.5 rounded-lg bg-blue-500/10 text-blue-500 group-hover:scale-110 transition-transform">
               <Users className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-2xl sm:text-3xl font-serif font-bold text-neutral-900 dark:text-white">
+          <div className="text-2xl sm:text-3xl font-bold tracking-tight text-neutral-900 dark:text-white">
             {analytics.uniqueVisitors.toLocaleString()}
           </div>
-          <p className="text-[11px] text-neutral-500 dark:text-neutral-400 font-mono">
+          <p className="text-[11px] text-neutral-500 dark:text-neutral-400 font-medium">
             Couples & invited guests
           </p>
         </div>
@@ -200,17 +200,17 @@ export const GalleryAnalyticsView: React.FC<GalleryAnalyticsViewProps> = ({
         {/* Photo Impressions */}
         <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#121319] border border-neutral-200 dark:border-neutral-800 shadow-sm dark:shadow-md space-y-2 hover:border-violet-500/40 transition-colors group">
           <div className="flex items-center justify-between text-neutral-400">
-            <span className="text-[10px] font-mono uppercase tracking-wider font-semibold text-neutral-500 dark:text-neutral-400">
+            <span className="text-[11px] uppercase tracking-wider font-semibold text-neutral-500 dark:text-neutral-400">
               Photo Opens
             </span>
             <div className="p-1.5 rounded-lg bg-violet-500/10 text-violet-500 group-hover:scale-110 transition-transform">
               <Sparkles className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-2xl sm:text-3xl font-serif font-bold text-neutral-900 dark:text-white">
+          <div className="text-2xl sm:text-3xl font-bold tracking-tight text-neutral-900 dark:text-white">
             {analytics.photoImpressions.toLocaleString()}
           </div>
-          <p className="text-[11px] text-neutral-500 dark:text-neutral-400 font-mono">
+          <p className="text-[11px] text-neutral-500 dark:text-neutral-400 font-medium">
             Lightbox & full previews
           </p>
         </div>
@@ -218,17 +218,17 @@ export const GalleryAnalyticsView: React.FC<GalleryAnalyticsViewProps> = ({
         {/* Total Downloads */}
         <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#121319] border border-neutral-200 dark:border-neutral-800 shadow-sm dark:shadow-md space-y-2 hover:border-emerald-500/40 transition-colors group">
           <div className="flex items-center justify-between text-neutral-400">
-            <span className="text-[10px] font-mono uppercase tracking-wider font-semibold text-neutral-500 dark:text-neutral-400">
+            <span className="text-[11px] uppercase tracking-wider font-semibold text-neutral-500 dark:text-neutral-400">
               Downloads
             </span>
             <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-500 group-hover:scale-110 transition-transform">
               <Download className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-2xl sm:text-3xl font-serif font-bold text-neutral-900 dark:text-white">
+          <div className="text-2xl sm:text-3xl font-bold tracking-tight text-neutral-900 dark:text-white">
             {analytics.totalDownloads.toLocaleString()}
           </div>
-          <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-mono font-medium">
+          <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
             {analytics.fullZipDownloads} Master ZIPs
           </p>
         </div>
@@ -236,17 +236,17 @@ export const GalleryAnalyticsView: React.FC<GalleryAnalyticsViewProps> = ({
         {/* Client Favorites */}
         <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#121319] border border-neutral-200 dark:border-neutral-800 shadow-sm dark:shadow-md space-y-2 hover:border-rose-500/40 transition-colors group">
           <div className="flex items-center justify-between text-neutral-400">
-            <span className="text-[10px] font-mono uppercase tracking-wider font-semibold text-neutral-500 dark:text-neutral-400">
+            <span className="text-[11px] uppercase tracking-wider font-semibold text-neutral-500 dark:text-neutral-400">
               Heart Favorites
             </span>
             <div className="p-1.5 rounded-lg bg-rose-500/10 text-rose-500 group-hover:scale-110 transition-transform">
               <Heart className="w-4 h-4 fill-rose-500/20" />
             </div>
           </div>
-          <div className="text-2xl sm:text-3xl font-serif font-bold text-neutral-900 dark:text-white">
+          <div className="text-2xl sm:text-3xl font-bold tracking-tight text-neutral-900 dark:text-white">
             {analytics.favoritesCount.toLocaleString()}
           </div>
-          <p className="text-[11px] text-rose-600 dark:text-rose-400 font-mono">
+          <p className="text-[11px] text-rose-600 dark:text-rose-400 font-medium">
             Selected for album print
           </p>
         </div>
@@ -254,17 +254,17 @@ export const GalleryAnalyticsView: React.FC<GalleryAnalyticsViewProps> = ({
         {/* Engagement Duration */}
         <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#121319] border border-neutral-200 dark:border-neutral-800 shadow-sm dark:shadow-md space-y-2 hover:border-amber-500/40 transition-colors group">
           <div className="flex items-center justify-between text-neutral-400">
-            <span className="text-[10px] font-mono uppercase tracking-wider font-semibold text-neutral-500 dark:text-neutral-400">
+            <span className="text-[11px] uppercase tracking-wider font-semibold text-neutral-500 dark:text-neutral-400">
               Avg Session
             </span>
             <div className="p-1.5 rounded-lg bg-amber-500/10 text-amber-500 group-hover:scale-110 transition-transform">
               <Clock className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-2xl sm:text-3xl font-serif font-bold text-neutral-900 dark:text-white">
+          <div className="text-2xl sm:text-3xl font-bold tracking-tight text-neutral-900 dark:text-white">
             {analytics.avgSessionDuration}
           </div>
-          <p className="text-[11px] text-neutral-500 dark:text-neutral-400 font-mono">
+          <p className="text-[11px] text-neutral-500 dark:text-neutral-400 font-medium">
             Bounce rate: {analytics.bounceRate}
           </p>
         </div>
@@ -284,7 +284,7 @@ export const GalleryAnalyticsView: React.FC<GalleryAnalyticsViewProps> = ({
           </div>
 
           {/* Chart Legend */}
-          <div className="flex items-center gap-4 text-xs font-mono">
+          <div className="flex items-center gap-4 text-xs font-medium">
             <div className="flex items-center gap-1.5">
               <span className="w-3 h-3 rounded-md bg-amber-400" />
               <span className="text-neutral-600 dark:text-neutral-300">Views</span>
@@ -300,7 +300,7 @@ export const GalleryAnalyticsView: React.FC<GalleryAnalyticsViewProps> = ({
         <div className="relative pt-6">
           {/* Hover Detail Card */}
           {hoveredBarIndex !== null && analytics.timeline[hoveredBarIndex] && (
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 z-20 px-3.5 py-1.5 rounded-xl bg-neutral-900 text-white border border-neutral-700 shadow-xl text-xs font-mono flex items-center gap-3 pointer-events-none animate-in fade-in zoom-in-95 duration-150">
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 z-20 px-3.5 py-1.5 rounded-xl bg-neutral-900 text-white border border-neutral-700 shadow-xl text-xs font-medium flex items-center gap-3 pointer-events-none animate-in fade-in zoom-in-95 duration-150">
               <span className="text-neutral-400">{analytics.timeline[hoveredBarIndex].date}:</span>
               <span className="text-amber-400 font-bold">
                 {analytics.timeline[hoveredBarIndex].views} views
@@ -345,7 +345,7 @@ export const GalleryAnalyticsView: React.FC<GalleryAnalyticsViewProps> = ({
                   </div>
 
                   {/* Date Label on bottom */}
-                  <span className="text-[9px] sm:text-[10px] text-neutral-400 dark:text-neutral-500 font-mono mt-2 truncate max-w-full text-center group-hover:text-amber-500 dark:group-hover:text-amber-400">
+                  <span className="text-[10px] text-neutral-400 dark:text-neutral-500 font-medium mt-2 truncate max-w-full text-center group-hover:text-amber-500 dark:group-hover:text-amber-400">
                     {analytics.timeline.length > 14 ? day.shortDate : day.date}
                   </span>
                 </div>
@@ -374,7 +374,7 @@ export const GalleryAnalyticsView: React.FC<GalleryAnalyticsViewProps> = ({
           <div className="space-y-4 pt-1">
             {/* Mobile */}
             <div className="space-y-1.5">
-              <div className="flex items-center justify-between text-xs font-mono">
+              <div className="flex items-center justify-between text-xs">
                 <span className="flex items-center gap-2 text-neutral-700 dark:text-neutral-200">
                   <Smartphone className="w-3.5 h-3.5 text-amber-500" />
                   <span>Mobile (iPhone & Android)</span>
@@ -393,7 +393,7 @@ export const GalleryAnalyticsView: React.FC<GalleryAnalyticsViewProps> = ({
 
             {/* Desktop */}
             <div className="space-y-1.5">
-              <div className="flex items-center justify-between text-xs font-mono">
+              <div className="flex items-center justify-between text-xs">
                 <span className="flex items-center gap-2 text-neutral-700 dark:text-neutral-200">
                   <Monitor className="w-3.5 h-3.5 text-blue-500" />
                   <span>Desktop (Mac & Windows)</span>
@@ -412,7 +412,7 @@ export const GalleryAnalyticsView: React.FC<GalleryAnalyticsViewProps> = ({
 
             {/* Tablet */}
             <div className="space-y-1.5">
-              <div className="flex items-center justify-between text-xs font-mono">
+              <div className="flex items-center justify-between text-xs">
                 <span className="flex items-center gap-2 text-neutral-700 dark:text-neutral-200">
                   <Tablet className="w-3.5 h-3.5 text-purple-500" />
                   <span>Tablet (iPad & Galaxy Tab)</span>
@@ -447,49 +447,49 @@ export const GalleryAnalyticsView: React.FC<GalleryAnalyticsViewProps> = ({
 
           <div className="grid grid-cols-2 gap-3 pt-1">
             <div className="p-3.5 rounded-2xl bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-200/80 dark:border-neutral-800/80 space-y-1">
-              <span className="text-[10px] font-mono text-neutral-500 dark:text-neutral-400 uppercase tracking-wider block">
+              <span className="text-[11px] text-neutral-500 dark:text-neutral-400 uppercase tracking-wider block font-semibold">
                 Direct Private Link
               </span>
-              <div className="text-xl font-bold text-neutral-900 dark:text-white">
+              <div className="text-xl font-bold tracking-tight text-neutral-900 dark:text-white">
                 {analytics.trafficSources.directLink}%
               </div>
-              <span className="text-[10px] text-amber-600 dark:text-amber-400 font-mono">
+              <span className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
                 SMS & WhatsApp
               </span>
             </div>
 
             <div className="p-3.5 rounded-2xl bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-200/80 dark:border-neutral-800/80 space-y-1">
-              <span className="text-[10px] font-mono text-neutral-500 dark:text-neutral-400 uppercase tracking-wider block">
+              <span className="text-[11px] text-neutral-500 dark:text-neutral-400 uppercase tracking-wider block font-semibold">
                 Studio Email Delivery
               </span>
-              <div className="text-xl font-bold text-neutral-900 dark:text-white">
+              <div className="text-xl font-bold tracking-tight text-neutral-900 dark:text-white">
                 {analytics.trafficSources.email}%
               </div>
-              <span className="text-[10px] text-blue-600 dark:text-blue-400 font-mono">
+              <span className="text-[11px] text-blue-600 dark:text-blue-400 font-medium">
                 Official invitation
               </span>
             </div>
 
             <div className="p-3.5 rounded-2xl bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-200/80 dark:border-neutral-800/80 space-y-1">
-              <span className="text-[10px] font-mono text-neutral-500 dark:text-neutral-400 uppercase tracking-wider block">
+              <span className="text-[11px] text-neutral-500 dark:text-neutral-400 uppercase tracking-wider block font-semibold">
                 Social & Bio Link
               </span>
-              <div className="text-xl font-bold text-neutral-900 dark:text-white">
+              <div className="text-xl font-bold tracking-tight text-neutral-900 dark:text-white">
                 {analytics.trafficSources.social}%
               </div>
-              <span className="text-[10px] text-purple-600 dark:text-purple-400 font-mono">
+              <span className="text-[11px] text-purple-600 dark:text-purple-400 font-medium">
                 Instagram highlights
               </span>
             </div>
 
             <div className="p-3.5 rounded-2xl bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-200/80 dark:border-neutral-800/80 space-y-1">
-              <span className="text-[10px] font-mono text-neutral-500 dark:text-neutral-400 uppercase tracking-wider block">
+              <span className="text-[11px] text-neutral-500 dark:text-neutral-400 uppercase tracking-wider block font-semibold">
                 Event Table QR
               </span>
-              <div className="text-xl font-bold text-neutral-900 dark:text-white">
+              <div className="text-xl font-bold tracking-tight text-neutral-900 dark:text-white">
                 {analytics.trafficSources.qrCode}%
               </div>
-              <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono">
+              <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
                 Physical printouts
               </span>
             </div>
@@ -508,13 +508,13 @@ export const GalleryAnalyticsView: React.FC<GalleryAnalyticsViewProps> = ({
               Ranked by client views, favorites, and individual downloads.
             </p>
           </div>
-          <span className="text-xs font-mono text-neutral-400">
+          <span className="text-xs text-neutral-400 font-medium">
             {gallery.media.length} total media items in collection
           </span>
         </div>
 
         {analytics.topPhotos.length === 0 ? (
-          <div className="p-8 text-center text-neutral-400 font-mono text-xs">
+          <div className="p-8 text-center text-neutral-400 text-xs font-medium">
             No media items available to compute rankings yet.
           </div>
         ) : (
@@ -534,12 +534,12 @@ export const GalleryAnalyticsView: React.FC<GalleryAnalyticsViewProps> = ({
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
 
                   {/* Rank Badge */}
-                  <span className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-full bg-black/80 backdrop-blur-md text-amber-400 font-mono font-bold text-[10px] border border-amber-400/30">
+                  <span className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-full bg-black/80 backdrop-blur-md text-amber-400 font-bold text-[10px] border border-amber-400/30">
                     #{index + 1} Most Viewed
                   </span>
 
                   {photo.sectionTitle && (
-                    <span className="absolute bottom-2.5 left-2.5 px-2 py-0.5 rounded-md bg-white/10 backdrop-blur-md text-white font-mono text-[9px] uppercase tracking-wider">
+                    <span className="absolute bottom-2.5 left-2.5 px-2 py-0.5 rounded-md bg-white/10 backdrop-blur-md text-white text-[9px] uppercase tracking-wider font-semibold">
                       {photo.sectionTitle}
                     </span>
                   )}
@@ -551,21 +551,21 @@ export const GalleryAnalyticsView: React.FC<GalleryAnalyticsViewProps> = ({
                     {photo.title}
                   </h4>
 
-                  <div className="grid grid-cols-3 divide-x divide-neutral-200 dark:divide-neutral-800 text-center font-mono pt-1 border-t border-neutral-100 dark:border-neutral-800/80">
+                  <div className="grid grid-cols-3 divide-x divide-neutral-200 dark:divide-neutral-800 text-center pt-1 border-t border-neutral-100 dark:border-neutral-800/80">
                     <div>
-                      <span className="text-[9px] text-neutral-400 uppercase block">Views</span>
+                      <span className="text-[10px] text-neutral-400 uppercase block font-medium">Views</span>
                       <span className="text-xs font-bold text-neutral-900 dark:text-white">
                         {photo.views}
                       </span>
                     </div>
                     <div>
-                      <span className="text-[9px] text-neutral-400 uppercase block">Favs</span>
+                      <span className="text-[10px] text-neutral-400 uppercase block font-medium">Favs</span>
                       <span className="text-xs font-bold text-rose-500">
                         {photo.favorites}
                       </span>
                     </div>
                     <div>
-                      <span className="text-[9px] text-neutral-400 uppercase block">Downloads</span>
+                      <span className="text-[10px] text-neutral-400 uppercase block font-medium">Downloads</span>
                       <span className="text-xs font-bold text-emerald-500">
                         {photo.downloads}
                       </span>
@@ -587,7 +587,7 @@ export const GalleryAnalyticsView: React.FC<GalleryAnalyticsViewProps> = ({
               Recent Client Activity Log
             </h3>
           </div>
-          <span className="text-xs font-mono text-neutral-400">
+          <span className="text-xs text-neutral-400 font-medium">
             Last updated: {new Date(analytics.lastUpdated).toLocaleTimeString()}
           </span>
         </div>
@@ -627,12 +627,12 @@ export const GalleryAnalyticsView: React.FC<GalleryAnalyticsViewProps> = ({
                       {act.title}
                     </span>
                     {act.device && (
-                      <span className="px-1.5 py-0.5 rounded-md bg-neutral-100 dark:bg-neutral-800 text-[10px] font-mono text-neutral-500 uppercase">
+                      <span className="px-1.5 py-0.5 rounded-md bg-neutral-100 dark:bg-neutral-800 text-[10px] text-neutral-500 uppercase font-medium">
                         {act.device}
                       </span>
                     )}
                     {act.location && (
-                      <span className="text-[11px] font-mono text-neutral-400">
+                      <span className="text-[11px] text-neutral-400 font-medium">
                         • {act.location}
                       </span>
                     )}
@@ -643,7 +643,7 @@ export const GalleryAnalyticsView: React.FC<GalleryAnalyticsViewProps> = ({
                 </div>
               </div>
 
-              <div className="text-[11px] font-mono text-neutral-400 dark:text-neutral-500 shrink-0">
+              <div className="text-[11px] text-neutral-400 dark:text-neutral-500 shrink-0 font-medium">
                 {act.timeAgo}
               </div>
             </div>
