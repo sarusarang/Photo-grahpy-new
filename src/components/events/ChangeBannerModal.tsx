@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Image as ImageIcon, Sparkles, Upload, Check, Eye } from 'lucide-react';
 import type { LiveEvent } from '../../types/event';
 import { CURATED_EVENT_BANNERS } from '../../data/eventData';
@@ -22,6 +23,21 @@ export const ChangeBannerModal: React.FC<ChangeBannerModalProps> = ({
   const [activeTab, setActiveTab] = useState<'event-photos' | 'presets' | 'upload'>('event-photos');
   const [selectedBannerUrl, setSelectedBannerUrl] = useState<string>(event.bannerUrl);
   const [customUrlInput, setCustomUrlInput] = useState('');
+
+  // Lock background scroll & handle escape key
+  useEffect(() => {
+    if (!isOpen) return;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -47,16 +63,19 @@ export const ChangeBannerModal: React.FC<ChangeBannerModalProps> = ({
     reader.readAsDataURL(file);
   };
 
-  return (
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 md:p-6 bg-black/60 dark:bg-black/80 backdrop-blur-sm sm:backdrop-blur-md overlay-animate overflow-y-auto"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 md:p-6 bg-black/60 dark:bg-black/80 backdrop-blur-sm sm:backdrop-blur-md overlay-animate overflow-y-auto"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="relative w-full max-w-3xl bg-white dark:bg-[#111218] border border-neutral-200 dark:border-neutral-800 text-neutral-900 dark:text-white shadow-2xl rounded-3xl my-auto modal-animate max-h-[min(90vh,780px)] flex flex-col overflow-hidden">
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="relative w-full max-w-3xl bg-white dark:bg-[#111218] border border-neutral-200 dark:border-neutral-800 text-neutral-900 dark:text-white shadow-2xl rounded-3xl my-auto modal-animate max-h-[min(90vh,780px)] flex flex-col overflow-hidden"
+      >
         {/* Modal Header */}
         <div className="flex items-center justify-between p-5 sm:p-6 pb-4 border-b border-neutral-200 dark:border-neutral-800/80 shrink-0">
           <div className="flex items-center gap-3">
@@ -284,6 +303,7 @@ export const ChangeBannerModal: React.FC<ChangeBannerModalProps> = ({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

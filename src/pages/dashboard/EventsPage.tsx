@@ -135,7 +135,7 @@ export const EventsPage: React.FC = () => {
             <span className="text-[11px] font-mono uppercase tracking-wider font-medium">Live & Active</span>
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
           </div>
-          <p className="text-2xl font-serif font-bold text-neutral-900 dark:text-white mt-1">
+          <p className="text-2xl font-sans font-bold tabular-nums text-neutral-900 dark:text-white mt-1">
             {activeLiveEvents.length}
           </p>
           <span className="text-[10px] text-neutral-500 dark:text-neutral-400 font-mono">Live shooting & tethering</span>
@@ -146,7 +146,7 @@ export const EventsPage: React.FC = () => {
             <span className="text-[11px] font-mono uppercase tracking-wider font-medium">Guest QR Scans</span>
             <QrCode className="w-4 h-4 text-amber-500" />
           </div>
-          <p className="text-2xl font-serif font-bold text-neutral-900 dark:text-white mt-1">
+          <p className="text-2xl font-sans font-bold tabular-nums text-neutral-900 dark:text-white mt-1">
             {totalScans}
           </p>
           <span className="text-[10px] text-neutral-500 dark:text-neutral-400 font-mono">Smartphone scans at tables</span>
@@ -157,7 +157,7 @@ export const EventsPage: React.FC = () => {
             <span className="text-[11px] font-mono uppercase tracking-wider font-medium">AI Face Searches</span>
             <Sparkles className="w-4 h-4 text-amber-500" />
           </div>
-          <p className="text-2xl font-serif font-bold text-neutral-900 dark:text-white mt-1">
+          <p className="text-2xl font-sans font-bold tabular-nums text-neutral-900 dark:text-white mt-1">
             {totalSearches}
           </p>
           <span className="text-[10px] text-neutral-500 dark:text-neutral-400 font-mono">Selfie matches delivered</span>
@@ -168,7 +168,7 @@ export const EventsPage: React.FC = () => {
             <span className="text-[11px] font-mono uppercase tracking-wider font-medium">Live Cloud Photos</span>
             <Camera className="w-4 h-4 text-amber-500" />
           </div>
-          <p className="text-2xl font-serif font-bold text-neutral-900 dark:text-white mt-1">
+          <p className="text-2xl font-sans font-bold tabular-nums text-neutral-900 dark:text-white mt-1">
             {totalPhotos}
           </p>
           <span className="text-[10px] text-neutral-500 dark:text-neutral-400 font-mono">Instant tethered imagery</span>
@@ -339,7 +339,7 @@ export const EventsPage: React.FC = () => {
                       <span className="text-[9px] font-mono uppercase text-neutral-500 dark:text-neutral-400 block font-medium">
                         Photos
                       </span>
-                      <span className="text-sm font-serif font-bold text-neutral-900 dark:text-white">
+                      <span className="text-sm font-sans font-bold tabular-nums text-neutral-900 dark:text-white">
                         {event.media.length}
                       </span>
                     </div>
@@ -347,7 +347,7 @@ export const EventsPage: React.FC = () => {
                       <span className="text-[9px] font-mono uppercase text-neutral-500 dark:text-neutral-400 block font-medium">
                         QR Scans
                       </span>
-                      <span className="text-sm font-serif font-bold text-amber-600 dark:text-amber-500">
+                      <span className="text-sm font-sans font-bold tabular-nums text-amber-600 dark:text-amber-500">
                         {event.stats.qrScans}
                       </span>
                     </div>
@@ -355,7 +355,7 @@ export const EventsPage: React.FC = () => {
                       <span className="text-[9px] font-mono uppercase text-neutral-500 dark:text-neutral-400 block font-medium">
                         AI Matches
                       </span>
-                      <span className="text-sm font-serif font-bold text-emerald-600 dark:text-emerald-500">
+                      <span className="text-sm font-sans font-bold tabular-nums text-emerald-600 dark:text-emerald-500">
                         {event.stats.matchesFound}
                       </span>
                     </div>
