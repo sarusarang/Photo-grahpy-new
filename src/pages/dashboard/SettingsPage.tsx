@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useGallery } from '../../context/GalleryContext';
 import { useToast } from '../../components/ui/Toast';
+import { CustomSelect } from '../../components/ui/CustomSelect';
 import { UpgradePlanModal } from '../../components/common/UpgradePlanModal';
 import { PersonalInformationSection } from '../../components/settings/PersonalInformationSection';
 import { renderPlanFeature } from '../../data/plansData';
@@ -564,16 +565,16 @@ export const SettingsPage: React.FC = () => {
               <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-400 mb-2">
                 Default Layout For New Galleries
               </label>
-              <select
+              <CustomSelect
                 value={defaultTemplate}
-                onChange={(e) => setDefaultTemplate(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 text-neutral-900 dark:text-white text-xs focus:outline-none focus:border-amber-400"
-              >
-                <option value="editorial">Editorial (Haute couture & fine-art spacing)</option>
-                <option value="masonry">Masonry (Dynamic high-density grid)</option>
-                <option value="cinematic">Cinematic (Darkroom with ambient reels)</option>
-                <option value="minimal">Minimal (Clean gallery art layout)</option>
-              </select>
+                onChange={(val) => setDefaultTemplate(String(val))}
+                options={[
+                  { value: 'editorial', label: 'Editorial', description: 'Haute couture & fine-art spacing' },
+                  { value: 'masonry', label: 'Masonry', description: 'Dynamic high-density grid' },
+                  { value: 'cinematic', label: 'Cinematic', description: 'Darkroom with ambient reels' },
+                  { value: 'minimal', label: 'Minimal', description: 'Clean gallery art layout' },
+                ]}
+              />
             </div>
 
             {/* Studio Watermarking */}

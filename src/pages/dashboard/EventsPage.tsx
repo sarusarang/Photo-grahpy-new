@@ -49,11 +49,6 @@ export const EventsPage: React.FC = () => {
   const [bannerModalEvent, setBannerModalEvent] = useState<LiveEvent | null>(null);
   const [moveToGalleryEvent, setMoveToGalleryEvent] = useState<LiveEvent | null>(null);
 
-  // Overall statistics
-  const totalScans = events.reduce((sum, e) => sum + (e.stats.qrScans || 0), 0);
-  const totalSearches = events.reduce((sum, e) => sum + (e.stats.aiSearches || 0), 0);
-  const totalPhotos = events.reduce((sum, e) => sum + (e.media.length || 0), 0);
-
   // Filter events based on active tab and search query
   const filteredEvents = (
     activeTab === 'live'
@@ -128,52 +123,6 @@ export const EventsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* ─── Metric Highlights ─── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-4 rounded-2xl bg-white dark:bg-[#111218] border border-neutral-200 dark:border-neutral-800/80 shadow-xs">
-          <div className="flex items-center justify-between text-neutral-600 dark:text-neutral-400">
-            <span className="text-[11px] font-mono uppercase tracking-wider font-medium">Live & Active</span>
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-          </div>
-          <p className="text-2xl font-sans font-bold tabular-nums text-neutral-900 dark:text-white mt-1">
-            {activeLiveEvents.length}
-          </p>
-          <span className="text-[10px] text-neutral-500 dark:text-neutral-400 font-mono">Live shooting & tethering</span>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-white dark:bg-[#111218] border border-neutral-200 dark:border-neutral-800/80 shadow-xs">
-          <div className="flex items-center justify-between text-neutral-600 dark:text-neutral-400">
-            <span className="text-[11px] font-mono uppercase tracking-wider font-medium">Guest QR Scans</span>
-            <QrCode className="w-4 h-4 text-amber-500" />
-          </div>
-          <p className="text-2xl font-sans font-bold tabular-nums text-neutral-900 dark:text-white mt-1">
-            {totalScans}
-          </p>
-          <span className="text-[10px] text-neutral-500 dark:text-neutral-400 font-mono">Smartphone scans at tables</span>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-white dark:bg-[#111218] border border-neutral-200 dark:border-neutral-800/80 shadow-xs">
-          <div className="flex items-center justify-between text-neutral-600 dark:text-neutral-400">
-            <span className="text-[11px] font-mono uppercase tracking-wider font-medium">AI Face Searches</span>
-            <Sparkles className="w-4 h-4 text-amber-500" />
-          </div>
-          <p className="text-2xl font-sans font-bold tabular-nums text-neutral-900 dark:text-white mt-1">
-            {totalSearches}
-          </p>
-          <span className="text-[10px] text-neutral-500 dark:text-neutral-400 font-mono">Selfie matches delivered</span>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-white dark:bg-[#111218] border border-neutral-200 dark:border-neutral-800/80 shadow-xs">
-          <div className="flex items-center justify-between text-neutral-600 dark:text-neutral-400">
-            <span className="text-[11px] font-mono uppercase tracking-wider font-medium">Live Cloud Photos</span>
-            <Camera className="w-4 h-4 text-amber-500" />
-          </div>
-          <p className="text-2xl font-sans font-bold tabular-nums text-neutral-900 dark:text-white mt-1">
-            {totalPhotos}
-          </p>
-          <span className="text-[10px] text-neutral-500 dark:text-neutral-400 font-mono">Instant tethered imagery</span>
-        </div>
-      </div>
 
       {/* ─── Tabs & Search Bar ─── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-200 dark:border-neutral-800 pb-3">

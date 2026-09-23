@@ -97,6 +97,12 @@ export const EventDetailPage: React.FC = () => {
     guestUrl
   )}&margin=8`;
 
+  const totalSizeMB = event.media.reduce((acc, m) => acc + (m.sizeMB || 3.5), 0).toFixed(1);
+  const matchRate =
+    event.stats.aiSearches > 0
+      ? Math.min(100, Math.round((event.stats.matchesFound / event.stats.aiSearches) * 100))
+      : 94;
+
   const handleCopyGuestLink = () => {
     navigator.clipboard.writeText(guestUrl);
     setCopied(true);
@@ -246,23 +252,127 @@ export const EventDetailPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex items-center gap-4 text-xs font-mono text-neutral-300 bg-black/40 backdrop-blur-md px-4 py-2 rounded-2xl border border-white/10 shrink-0">
-              <div>
-                <span className="text-[10px] uppercase text-neutral-400 block">Photos</span>
-                <span className="text-base font-bold text-white">{event.media.length}</span>
+            <div className="flex items-center gap-2 text-xs font-mono text-neutral-200 bg-black/50 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-white/15 shrink-0">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="font-semibold text-white">Live Event Engine Active</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ─── Animated Event Performance & Live Metrics ─── */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+            <h3 className="text-xs font-mono uppercase tracking-widest text-neutral-600 dark:text-neutral-400 font-bold">
+              Live Event Performance & Analytics
+            </h3>
+          </div>
+          <span className="text-[11px] font-mono text-neutral-400 dark:text-neutral-500">
+            Updated in real-time
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Card 1: Cloud Photos */}
+          <div className="group relative p-5 rounded-3xl bg-white dark:bg-[#101117] border border-neutral-200 dark:border-neutral-800/80 shadow-xs hover:shadow-xl hover:border-amber-400/50 hover:-translate-y-1 transition-all duration-300">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-mono uppercase tracking-wider font-semibold text-neutral-500 dark:text-neutral-400">
+                Live Cloud Photos
+              </span>
+              <div className="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <Camera className="w-4 h-4" />
               </div>
-              <div className="h-6 w-px bg-white/20" />
-              <div>
-                <span className="text-[10px] uppercase text-neutral-400 block">Scans</span>
-                <span className="text-base font-bold text-amber-400">{event.stats.qrScans}</span>
-              </div>
-              <div className="h-6 w-px bg-white/20" />
-              <div>
-                <span className="text-[10px] uppercase text-neutral-400 block">AI Matches</span>
-                <span className="text-base font-bold text-emerald-400">
-                  {event.stats.matchesFound}
+            </div>
+            <div className="mt-3 flex items-baseline gap-2">
+              <span className="text-3xl font-sans font-bold tabular-nums text-neutral-900 dark:text-white">
+                {event.media.length}
+              </span>
+              <span className="text-xs font-mono text-neutral-400 dark:text-neutral-500">
+                ({totalSizeMB} MB)
+              </span>
+            </div>
+            <div className="mt-2 flex items-center gap-1.5 text-[11px] font-mono">
+              {event.autoSyncEnabled ? (
+                <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1 font-medium">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+                  Auto-sync tethered
                 </span>
+              ) : (
+                <span className="text-neutral-500 dark:text-neutral-400">
+                  Ready for live upload
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Card 2: Guest QR Scans */}
+          <div className="group relative p-5 rounded-3xl bg-white dark:bg-[#101117] border border-neutral-200 dark:border-neutral-800/80 shadow-xs hover:shadow-xl hover:border-amber-400/50 hover:-translate-y-1 transition-all duration-300">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-mono uppercase tracking-wider font-semibold text-neutral-500 dark:text-neutral-400">
+                Guest QR Scans
+              </span>
+              <div className="w-8 h-8 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-500 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <QrCode className="w-4 h-4" />
               </div>
+            </div>
+            <div className="mt-3 flex items-baseline gap-2">
+              <span className="text-3xl font-sans font-bold tabular-nums text-neutral-900 dark:text-white">
+                {event.stats.qrScans}
+              </span>
+              <span className="text-xs font-mono text-emerald-600 dark:text-emerald-400 font-semibold">
+                +12% live
+              </span>
+            </div>
+            <div className="mt-2 flex items-center gap-1.5 text-[11px] font-mono text-neutral-500 dark:text-neutral-400">
+              <span>At table stands & cards</span>
+            </div>
+          </div>
+
+          {/* Card 3: AI Face Searches */}
+          <div className="group relative p-5 rounded-3xl bg-white dark:bg-[#101117] border border-neutral-200 dark:border-neutral-800/80 shadow-xs hover:shadow-xl hover:border-amber-400/50 hover:-translate-y-1 transition-all duration-300">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-mono uppercase tracking-wider font-semibold text-neutral-500 dark:text-neutral-400">
+                AI Face Searches
+              </span>
+              <div className="w-8 h-8 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-500 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <Sparkles className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="mt-3 flex items-baseline gap-2">
+              <span className="text-3xl font-sans font-bold tabular-nums text-neutral-900 dark:text-white">
+                {event.stats.aiSearches}
+              </span>
+              <span className="text-xs font-mono text-purple-600 dark:text-purple-400 font-medium">
+                Selfies processed
+              </span>
+            </div>
+            <div className="mt-2 flex items-center gap-1.5 text-[11px] font-mono text-neutral-500 dark:text-neutral-400">
+              <span>Instant guest discovery</span>
+            </div>
+          </div>
+
+          {/* Card 4: Selfie Matches Delivered */}
+          <div className="group relative p-5 rounded-3xl bg-white dark:bg-[#101117] border border-neutral-200 dark:border-neutral-800/80 shadow-xs hover:shadow-xl hover:border-amber-400/50 hover:-translate-y-1 transition-all duration-300">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-mono uppercase tracking-wider font-semibold text-neutral-500 dark:text-neutral-400">
+                Delivered Matches
+              </span>
+              <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <CheckCircle2 className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="mt-3 flex items-baseline gap-2">
+              <span className="text-3xl font-sans font-bold tabular-nums text-neutral-900 dark:text-white">
+                {event.stats.matchesFound}
+              </span>
+              <span className="text-xs font-mono text-emerald-600 dark:text-emerald-400 font-bold">
+                {matchRate}% match
+              </span>
+            </div>
+            <div className="mt-2 flex items-center gap-1.5 text-[11px] font-mono text-neutral-500 dark:text-neutral-400">
+              <span>High-res downloads enabled</span>
             </div>
           </div>
         </div>

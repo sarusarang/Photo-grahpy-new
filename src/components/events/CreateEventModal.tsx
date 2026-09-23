@@ -17,6 +17,25 @@ import { CURATED_EVENT_BANNERS, getExpiryDateHoursAhead } from '../../data/event
 import { useEvent } from '../../context/EventContext';
 import { useToast } from '../ui/Toast';
 import { useNavigate } from 'react-router-dom';
+import { CustomSelect, type CustomSelectOption } from '../ui/CustomSelect';
+
+const EVENT_TYPE_OPTIONS: CustomSelectOption<EventType>[] = [
+  { value: 'wedding', label: 'Wedding Celebration' },
+  { value: 'reception', label: 'Reception / Sangeet' },
+  { value: 'gala', label: 'VIP Gala / Soirée' },
+  { value: 'fashion', label: 'Haute Couture Fashion Show' },
+  { value: 'birthday', label: 'Birthday / Anniversary' },
+  { value: 'corporate', label: 'Corporate Summit' },
+  { value: 'concert', label: 'Concert / Performance' },
+  { value: 'other', label: 'Bespoke Special Event' },
+];
+
+const QR_VALIDITY_OPTIONS: CustomSelectOption<number>[] = [
+  { value: 2, label: '2 Hours' },
+  { value: 4, label: '4 Hours (Standard)' },
+  { value: 8, label: '8 Hours' },
+  { value: 24, label: '24 Hours (Full Day)' },
+];
 
 interface CreateEventModalProps {
   isOpen: boolean;
@@ -219,20 +238,11 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
                 <label className="text-xs font-mono text-neutral-700 dark:text-neutral-300 font-semibold">
                   Event Type
                 </label>
-                <select
+                <CustomSelect
                   value={eventType}
-                  onChange={(e) => setEventType(e.target.value as EventType)}
-                  className="w-full px-4 py-2.5 rounded-xl bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 text-sm text-neutral-900 dark:text-white focus:outline-none focus:border-amber-400 transition-colors"
-                >
-                  <option value="wedding">Wedding Celebration</option>
-                  <option value="reception">Reception / Sangeet</option>
-                  <option value="gala">VIP Gala / Soirée</option>
-                  <option value="fashion">Haute Couture Fashion Show</option>
-                  <option value="birthday">Birthday / Anniversary</option>
-                  <option value="corporate">Corporate Summit</option>
-                  <option value="concert">Concert / Performance</option>
-                  <option value="other">Bespoke Special Event</option>
-                </select>
+                  onChange={(val) => setEventType(val as EventType)}
+                  options={EVENT_TYPE_OPTIONS}
+                />
               </div>
             </div>
 
@@ -266,16 +276,11 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
                 <label className="text-xs font-mono text-neutral-700 dark:text-neutral-300 font-semibold">
                   QR Validity
                 </label>
-                <select
+                <CustomSelect
                   value={qrDurationHours}
-                  onChange={(e) => setQrDurationHours(Number(e.target.value))}
-                  className="w-full px-4 py-2.5 rounded-xl bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 text-sm text-neutral-900 dark:text-white focus:outline-none focus:border-amber-400 transition-colors"
-                >
-                  <option value={2}>2 Hours</option>
-                  <option value={4}>4 Hours (Standard)</option>
-                  <option value={8}>8 Hours</option>
-                  <option value={24}>24 Hours (Full Day)</option>
-                </select>
+                  onChange={(val) => setQrDurationHours(Number(val))}
+                  options={QR_VALIDITY_OPTIONS}
+                />
               </div>
             </div>
 

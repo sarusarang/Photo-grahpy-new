@@ -17,6 +17,7 @@ import { useEvent } from '../../context/EventContext';
 import { useGallery } from '../../context/GalleryContext';
 import { useToast } from '../ui/Toast';
 import { useNavigate } from 'react-router-dom';
+import { CustomSelect } from '../ui/CustomSelect';
 
 interface MoveToGalleryModalProps {
   isOpen: boolean;
@@ -312,17 +313,16 @@ export const MoveToGalleryModal: React.FC<MoveToGalleryModalProps> = ({
             ) : (
               <div className="space-y-1.5 pt-1">
                 <label className="text-xs font-mono text-neutral-700 dark:text-neutral-400 font-medium">Select Existing Gallery</label>
-                <select
+                <CustomSelect
                   value={selectedExistingGalleryId}
-                  onChange={(e) => setSelectedExistingGalleryId(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-sm text-neutral-900 dark:text-white focus:outline-none focus:border-amber-400"
-                >
-                  {galleries.map((gal) => (
-                    <option key={gal.id} value={gal.id}>
-                      {gal.title} ({gal.media.length} photos)
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => setSelectedExistingGalleryId(String(val))}
+                  options={galleries.map((gal) => ({
+                    value: gal.id,
+                    label: gal.title,
+                    badge: `${gal.media.length} photos`,
+                  }))}
+                  placeholder="Select a destination gallery..."
+                />
               </div>
             )}
           </div>

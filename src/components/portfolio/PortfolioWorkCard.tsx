@@ -11,6 +11,7 @@ import {
   ExternalLink,
   Image as ImageIcon,
 } from 'lucide-react';
+import { CustomSelect } from '../ui/CustomSelect';
 
 interface PortfolioWorkCardProps {
   project: PortfolioProject;
@@ -163,22 +164,19 @@ export const PortfolioWorkCard: React.FC<PortfolioWorkCardProps> = ({
             <label className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
               Category
             </label>
-            <div className="relative">
-              <select
-                value={project.category}
-                onChange={(e) => onUpdate(project.id, { category: e.target.value as any })}
-                className="w-full pl-7 pr-6 py-2 rounded-xl bg-neutral-50 dark:bg-neutral-900/90 border border-neutral-200 dark:border-neutral-800 text-xs font-medium text-neutral-900 dark:text-white focus:outline-none focus:border-amber-400 transition-all appearance-none cursor-pointer capitalize"
-              >
-                <option value="weddings">Weddings</option>
-                <option value="editorial">Editorial</option>
-                <option value="pre-wedding">Pre-Wedding</option>
-                <option value="commercial">Commercial</option>
-                <option value="portrait">Portrait</option>
-                <option value="cinematic">Cinematic</option>
-              </select>
-              <Tag className="w-3 h-3 text-amber-500 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-              <ChevronDown className="w-3 h-3 text-neutral-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
-            </div>
+            <CustomSelect
+              value={project.category}
+              onChange={(val) => onUpdate(project.id, { category: val as any })}
+              options={[
+                { value: 'weddings', label: 'Weddings' },
+                { value: 'editorial', label: 'Editorial' },
+                { value: 'pre-wedding', label: 'Pre-Wedding' },
+                { value: 'commercial', label: 'Commercial' },
+                { value: 'portrait', label: 'Portrait' },
+                { value: 'cinematic', label: 'Cinematic' },
+              ]}
+              className="text-xs"
+            />
           </div>
 
           {/* Year */}
