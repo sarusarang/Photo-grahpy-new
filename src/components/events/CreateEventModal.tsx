@@ -312,44 +312,6 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
                 />
               </div>
             </div>
-
-            {/* Choose Editorial Banner Preset */}
-            <div className="space-y-2">
-              <label className="text-xs font-mono text-neutral-700 dark:text-neutral-300 font-semibold flex items-center justify-between">
-                <span>Select Editorial Banner Preset</span>
-                <span className="text-[11px] text-neutral-500 font-normal">
-                  Can be updated anytime
-                </span>
-              </label>
-
-              <div className="grid grid-cols-3 gap-2.5">
-                {CURATED_EVENT_BANNERS.slice(0, 3).map((preset) => {
-                  const isSelected = selectedBanner === preset.url;
-                  return (
-                    <button
-                      key={preset.id}
-                      type="button"
-                      onClick={() => setSelectedBanner(preset.url)}
-                      className={`relative aspect-[16/10] rounded-xl overflow-hidden border-2 transition-all cursor-pointer ${
-                        isSelected
-                          ? 'border-amber-400 ring-2 ring-amber-400/50'
-                          : 'border-neutral-200 dark:border-neutral-800 opacity-80 hover:opacity-100'
-                      }`}
-                    >
-                      <img
-                        src={preset.url}
-                        alt={preset.name}
-                        className="w-full h-full object-cover"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
-                      <span className="absolute bottom-1.5 left-2 right-2 text-[10px] font-mono text-white truncate text-left">
-                        {preset.name}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
           </div>
 
           {/* Submit & Cancel (Fixed Footer) */}

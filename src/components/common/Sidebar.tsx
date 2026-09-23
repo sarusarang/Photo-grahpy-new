@@ -10,7 +10,6 @@ import {
   Calendar,
   MessageSquare,
   Globe,
-  GraduationCap,
   Settings as SettingsIcon,
   Cloud,
   Zap,
@@ -124,11 +123,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
       to: '/dashboard/portfolio',
       label: 'Portfolio',
       icon: Globe,
-    },
-    {
-      to: '/dashboard/tutorials',
-      label: 'Tutorial',
-      icon: GraduationCap,
     },
     {
       to: '/dashboard/settings',

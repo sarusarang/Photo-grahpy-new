@@ -2,7 +2,7 @@ import React from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   FolderKanban,
-  GraduationCap,
+  Globe,
   Settings as SettingsIcon,
   LayoutGrid,
   Plus,
@@ -109,11 +109,11 @@ export const MobileNav: React.FC<MobileNavProps> = ({
         </button>
       )}
 
-      {/* 4. Tutorial Tab */}
+      {/* 4. Portfolio Tab */}
       <NavLink
-        to="/dashboard/tutorials"
+        to="/dashboard/portfolio"
         className={({ isActive }) =>
-          `flex flex-col items-center justify-center min-w-[56px] py-1 rounded-2xl text-[10px] font-medium transition-all active:scale-90 select-none ${
+          `flex flex-col items-center justify-center min-w-[50px] py-1 rounded-2xl text-[10px] font-medium transition-all active:scale-90 select-none ${
             isActive
               ? 'text-amber-500 font-bold'
               : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
@@ -123,13 +123,13 @@ export const MobileNav: React.FC<MobileNavProps> = ({
         {({ isActive }) => (
           <>
             <div className="p-1">
-              <GraduationCap
+              <Globe
                 className={`w-5 h-5 transition-transform ${
                   isActive ? 'text-amber-500 scale-105 stroke-[2.3]' : 'text-neutral-500 dark:text-neutral-400'
                 }`}
               />
             </div>
-            <span className="tracking-tight">Tutorial</span>
+            <span className="tracking-tight">Portfolio</span>
           </>
         )}
       </NavLink>
