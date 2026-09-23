@@ -294,80 +294,7 @@ export const GalleryDetailPage: React.FC = () => {
 
       {/* Tab 1: Photos & Videos Management */}
       {activeTab === 'media' && (
-        <div className="space-y-6">
-          {/* Rich, Premium Floating Selection Action Bar */}
-          {selectedIds.length > 0 && (
-            <div className="relative rounded-2xl bg-white/95 dark:bg-[#13141c]/95 border border-amber-500/30 shadow-xl shadow-amber-500/5 dark:shadow-black/50 p-3 sm:px-5 sm:py-3.5 flex flex-col sm:flex-row items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2 duration-300 backdrop-blur-xl">
-              {/* Glowing amber accent highlight line */}
-              <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-amber-400 to-transparent rounded-t-2xl" />
-
-              {/* Left: Count & Meta */}
-              <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
-                <div className="flex items-center gap-2.5">
-                  <div className="min-w-[28px] h-7 px-2 rounded-full bg-gradient-to-r from-amber-400 to-amber-500 text-neutral-950 font-mono font-bold text-xs flex items-center justify-center shadow-md shadow-amber-500/20">
-                    {selectedIds.length}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-xs sm:text-sm text-neutral-900 dark:text-neutral-100">
-                        {selectedIds.length === 1 ? '1 Photo' : `${selectedIds.length} Photos`} Selected
-                      </span>
-                      <span className="text-[11px] text-neutral-400 dark:text-neutral-500 font-mono hidden md:inline">
-                        ({selectedIds.length} of {gallery.media.length})
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Mobile Clear Button */}
-                <button
-                  onClick={() => setSelectedIds([])}
-                  className="sm:hidden text-xs text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
-                >
-                  Clear
-                </button>
-              </div>
-
-              {/* Right: Actions */}
-              <div className="flex items-center gap-2 sm:gap-2.5 w-full sm:w-auto justify-end">
-                <button
-                  onClick={selectAll}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold border transition-all duration-200 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 border-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 dark:text-neutral-100 dark:border-neutral-700 shadow-sm active:scale-[0.98]"
-                >
-                  {selectedIds.length === gallery.media.length ? 'Deselect All' : 'Select All'}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSingleItemToMove(null);
-                    setIsMoveSectionOpen(true);
-                  }}
-                  className="group inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 text-xs font-bold shadow-md shadow-amber-400/20 active:scale-[0.98] transition-all cursor-pointer"
-                >
-                  <FolderInput className="w-3.5 h-3.5 stroke-[2.2] group-hover:scale-110 transition-transform" />
-                  <span>Move to Section ({selectedIds.length})</span>
-                </button>
-
-                <button
-                  onClick={() => setIsBulkDeleteOpen(true)}
-                  className="group inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-red-600 via-rose-600 to-rose-700 hover:from-red-500 hover:to-rose-600 text-white text-xs font-bold shadow-lg shadow-rose-600/25 active:scale-[0.98] transition-all"
-                >
-                  <Trash2 className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
-                  <span>Delete Selected ({selectedIds.length})</span>
-                </button>
-
-                <button
-                  onClick={() => setSelectedIds([])}
-                  className="hidden sm:flex p-2 rounded-xl text-neutral-400 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
-                  title="Deselect All"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          )}
-
+        <div className="space-y-4">
           {/* Media Grid or Empty State */}
           {gallery.media.length === 0 ? (
             <div
@@ -383,114 +310,195 @@ export const GalleryDetailPage: React.FC = () => {
               </p>
               <button
                 type="button"
-                className="px-6 py-2.5 rounded-xl bg-amber-400 text-neutral-950 font-bold text-xs uppercase tracking-wider"
+                className="px-6 py-2.5 rounded-xl bg-amber-400 text-neutral-950 font-bold text-xs uppercase tracking-wider cursor-pointer"
               >
                 Upload First Photos
               </button>
             </div>
           ) : (
-            <div>
-              {/* Gallery Section Filter Pills in Dashboard Workspace */}
-              {(() => {
-                const allSections = (gallery.sections && gallery.sections.length > 0)
-                  ? gallery.sections
-                  : Array.from(new Set(gallery.media.map((m) => m.sectionTitle).filter(Boolean) as string[]));
+            <>
+              {/* Sticky Controls Header (Selection Bar + Section Filter Bar) */}
+              <div className="sticky top-0 z-30 -mx-4 sm:-mx-8 px-4 sm:px-8 py-2.5 bg-[#f8f9fa]/95 dark:bg-[#0c0d12]/95 backdrop-blur-xl border-b border-neutral-200/80 dark:border-neutral-800/80 shadow-xs dark:shadow-black/40 transition-all space-y-2.5">
+                {/* Rich, Premium Floating Selection Action Bar (Sticky when photos are selected) */}
+                {selectedIds.length > 0 && (
+                  <div className="relative rounded-2xl bg-white dark:bg-[#13141c] border border-amber-500/30 shadow-lg shadow-amber-500/5 dark:shadow-black/60 p-2.5 sm:px-4 sm:py-3 flex flex-col sm:flex-row items-center justify-between gap-2.5 animate-in fade-in slide-in-from-top-2 duration-200">
+                    {/* Glowing amber accent highlight line */}
+                    <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-amber-400 to-transparent rounded-t-2xl" />
 
-                return (
-                  <div className="flex items-center gap-2 overflow-x-auto pb-2 mb-4">
-                    <span className="text-[11px] font-mono uppercase tracking-wider text-neutral-400 shrink-0">
-                      Section:
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setDashboardSectionFilter('all')}
-                      className={`px-3 py-1 rounded-xl text-xs font-mono transition-all shrink-0 ${dashboardSectionFilter === 'all'
-                          ? 'bg-amber-400 text-neutral-950 font-bold shadow-sm'
-                          : 'bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400 hover:text-white'
-                        }`}
-                    >
-                      All ({gallery.media.length})
-                    </button>
-                    {allSections.map((sec) => {
-                      const count = gallery.media.filter((m) => (m.sectionTitle || '').toLowerCase() === sec.toLowerCase()).length;
-                      return (
-                        <button
-                          key={sec}
-                          type="button"
-                          onClick={() => setDashboardSectionFilter(sec)}
-                          className={`px-3 py-1 rounded-xl text-xs font-mono uppercase transition-all shrink-0 ${dashboardSectionFilter.toLowerCase() === sec.toLowerCase()
-                              ? 'bg-amber-400 text-neutral-950 font-bold shadow-sm'
-                              : 'bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400 hover:text-white'
-                            }`}
-                        >
-                          {sec} ({count})
-                        </button>
-                      );
-                    })}
-
-                    {/* Quick Add Section Button / Inline Input */}
-                    {isCreatingQuickSection ? (
-                      <div className="flex items-center gap-1 shrink-0 bg-white dark:bg-neutral-900 border border-amber-400 p-0.5 rounded-xl shadow-xs">
-                        <input
-                          type="text"
-                          value={newQuickSectionInput}
-                          onChange={(e) => setNewQuickSectionInput(e.target.value.toUpperCase())}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleCreateQuickSection();
-                            if (e.key === 'Escape') setIsCreatingQuickSection(false);
-                          }}
-                          placeholder="NEW SECTION..."
-                          autoFocus
-                          className="px-2 py-0.5 text-xs font-mono uppercase bg-transparent text-neutral-900 dark:text-white outline-hidden w-28 placeholder:text-neutral-400"
-                        />
-                        <button
-                          type="button"
-                          onClick={handleCreateQuickSection}
-                          className="p-1 rounded-lg bg-amber-400 hover:bg-amber-300 text-neutral-950 font-bold transition-colors cursor-pointer"
-                          title="Save Section"
-                        >
-                          <Check className="w-3 h-3 stroke-[2.5]" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setIsCreatingQuickSection(false)}
-                          className="p-1 rounded-lg text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors cursor-pointer"
-                          title="Cancel"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
+                    {/* Left: Count & Meta */}
+                    <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
+                      <div className="flex items-center gap-2.5">
+                        <div className="min-w-[28px] h-7 px-2 rounded-full bg-gradient-to-r from-amber-400 to-amber-500 text-neutral-950 font-mono font-bold text-xs flex items-center justify-center shadow-md shadow-amber-500/20">
+                          {selectedIds.length}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-xs sm:text-sm text-neutral-900 dark:text-neutral-100">
+                              {selectedIds.length === 1 ? '1 Photo' : `${selectedIds.length} Photos`} Selected
+                            </span>
+                            <span className="text-[11px] text-neutral-400 dark:text-neutral-500 font-mono hidden md:inline">
+                              ({selectedIds.length} of {gallery.media.length})
+                            </span>
+                          </div>
+                        </div>
                       </div>
-                    ) : (
+
+                      {/* Mobile Clear Button */}
+                      <button
+                        onClick={() => setSelectedIds([])}
+                        className="sm:hidden text-xs font-mono font-bold text-amber-600 dark:text-amber-400 hover:underline cursor-pointer"
+                      >
+                        Clear
+                      </button>
+                    </div>
+
+                    {/* Right: Actions */}
+                    <div className="flex items-center gap-1.5 sm:gap-2.5 w-full sm:w-auto justify-end flex-wrap sm:flex-nowrap">
+                      <button
+                        onClick={selectAll}
+                        className="flex-1 sm:flex-none px-3 py-2 rounded-xl text-xs font-semibold border transition-all duration-200 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 border-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 dark:text-neutral-100 dark:border-neutral-700 shadow-xs active:scale-[0.98] cursor-pointer"
+                      >
+                        {selectedIds.length === gallery.media.length ? 'Deselect All' : 'Select All'}
+                      </button>
+
                       <button
                         type="button"
                         onClick={() => {
-                          setIsCreatingQuickSection(true);
-                          setNewQuickSectionInput('');
+                          setSingleItemToMove(null);
+                          setIsMoveSectionOpen(true);
                         }}
-                        className="px-2.5 py-1 rounded-xl text-xs font-mono transition-all shrink-0 bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30 flex items-center gap-1 cursor-pointer font-bold"
-                        title="Create a new section"
+                        className="flex-1 sm:flex-none group inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 text-xs font-bold shadow-md shadow-amber-400/20 active:scale-[0.98] transition-all cursor-pointer"
                       >
-                        <Plus className="w-3 h-3 stroke-[2.5]" />
-                        <span>New Section</span>
+                        <FolderInput className="w-3.5 h-3.5 stroke-[2.2] group-hover:scale-110 transition-transform shrink-0" />
+                        <span>Move<span className="hidden sm:inline"> to Section</span> ({selectedIds.length})</span>
                       </button>
-                    )}
-                  </div>
-                );
-              })()}
 
-              <div className="flex items-center justify-between mb-5 text-xs text-neutral-400">
+                      <button
+                        onClick={() => setIsBulkDeleteOpen(true)}
+                        className="flex-1 sm:flex-none group inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-red-600 via-rose-600 to-rose-700 hover:from-red-500 hover:to-rose-600 text-white text-xs font-bold shadow-md shadow-rose-600/25 active:scale-[0.98] transition-all cursor-pointer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5 group-hover:scale-110 transition-transform shrink-0" />
+                        <span>Delete<span className="hidden sm:inline"> Selected</span> ({selectedIds.length})</span>
+                      </button>
+
+                      <button
+                        onClick={() => setSelectedIds([])}
+                        className="hidden sm:flex p-2 rounded-xl text-neutral-400 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
+                        title="Deselect All"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Gallery Section Filter Pills in Dashboard Workspace (Always Sticky) */}
+                {(() => {
+                  const allSections = (gallery.sections && gallery.sections.length > 0)
+                    ? gallery.sections
+                    : Array.from(new Set(gallery.media.map((m) => m.sectionTitle).filter(Boolean) as string[]));
+
+                  return (
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 min-w-0 flex-1">
+                        <span className="text-[11px] font-mono uppercase tracking-wider text-neutral-500 dark:text-neutral-400 shrink-0 font-semibold">
+                          Section:
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setDashboardSectionFilter('all')}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-mono transition-all shrink-0 cursor-pointer ${dashboardSectionFilter === 'all'
+                              ? 'bg-amber-400 text-neutral-950 font-bold shadow-sm'
+                              : 'bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-400 hover:text-neutral-950 dark:hover:text-white'
+                            }`}
+                        >
+                          All ({gallery.media.length})
+                        </button>
+                        {allSections.map((sec) => {
+                          const count = gallery.media.filter((m) => (m.sectionTitle || '').toLowerCase() === sec.toLowerCase()).length;
+                          return (
+                            <button
+                              key={sec}
+                              type="button"
+                              onClick={() => setDashboardSectionFilter(sec)}
+                              className={`px-3 py-1.5 rounded-xl text-xs font-mono uppercase transition-all shrink-0 cursor-pointer ${dashboardSectionFilter.toLowerCase() === sec.toLowerCase()
+                                  ? 'bg-amber-400 text-neutral-950 font-bold shadow-sm'
+                                  : 'bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-400 hover:text-neutral-950 dark:hover:text-white'
+                                }`}
+                            >
+                              {sec} ({count})
+                            </button>
+                          );
+                        })}
+
+                        {/* Quick Add Section Button / Inline Input */}
+                        {isCreatingQuickSection ? (
+                          <div className="flex items-center gap-1 shrink-0 bg-white dark:bg-neutral-900 border border-amber-400 p-0.5 rounded-xl shadow-xs">
+                            <input
+                              type="text"
+                              value={newQuickSectionInput}
+                              onChange={(e) => setNewQuickSectionInput(e.target.value.toUpperCase())}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleCreateQuickSection();
+                                if (e.key === 'Escape') setIsCreatingQuickSection(false);
+                              }}
+                              placeholder="NEW SECTION..."
+                              autoFocus
+                              className="px-2 py-0.5 text-xs font-mono uppercase bg-transparent text-neutral-900 dark:text-white outline-hidden w-28 placeholder:text-neutral-400"
+                            />
+                            <button
+                              type="button"
+                              onClick={handleCreateQuickSection}
+                              className="p-1 rounded-lg bg-amber-400 hover:bg-amber-300 text-neutral-950 font-bold transition-colors cursor-pointer"
+                              title="Save Section"
+                            >
+                              <Check className="w-3 h-3 stroke-[2.5]" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setIsCreatingQuickSection(false)}
+                              className="p-1 rounded-lg text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors cursor-pointer"
+                              title="Cancel"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsCreatingQuickSection(true);
+                              setNewQuickSectionInput('');
+                            }}
+                            className="px-2.5 py-1.5 rounded-xl text-xs font-mono transition-all shrink-0 bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30 flex items-center gap-1 cursor-pointer font-bold"
+                            title="Create a new section"
+                          >
+                            <Plus className="w-3 h-3 stroke-[2.5]" />
+                            <span>New Section</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* Sub-header info: Select All count & reorder hint */}
+              <div className="flex items-center justify-between pt-1 pb-1 text-xs text-neutral-500 dark:text-neutral-400">
                 <button
                   onClick={selectAll}
-                  className="flex items-center gap-2 hover:text-white transition-colors"
+                  className="flex items-center gap-2 hover:text-neutral-900 dark:hover:text-white transition-colors cursor-pointer"
                 >
                   {selectedIds.length === gallery.media.length ? (
-                    <CheckSquare className="w-4 h-4 text-amber-400" />
+                    <CheckSquare className="w-4 h-4 text-amber-500" />
                   ) : (
-                    <Square className="w-4 h-4 text-neutral-500" />
+                    <Square className="w-4 h-4 text-neutral-400 dark:text-neutral-500" />
                   )}
                   <span>Select All ({gallery.media.length})</span>
                 </button>
-                <span>Reorder with arrows or click to preview in lightbox</span>
+                <span className="hidden sm:inline font-mono text-[11px]">
+                  Reorder with arrows or click to preview in lightbox
+                </span>
               </div>
 
               {/* Photo Cards Grid — 2 columns on mobile with comfortable touch targets */}
@@ -680,7 +688,7 @@ export const GalleryDetailPage: React.FC = () => {
                     );
                   })}
               </div>
-            </div>
+            </>
           )}
         </div>
       )}
