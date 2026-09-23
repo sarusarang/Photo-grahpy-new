@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import {
   FolderKanban,
   Globe,
@@ -22,6 +22,18 @@ export const MobileNav: React.FC<MobileNavProps> = ({
 }) => {
   const { galleries } = useGallery();
   const { activeLiveEvents } = useEvent();
+  const location = useLocation();
+
+  const isDriveActive =
+    location.pathname === '/dashboard/drive' ||
+    location.pathname.startsWith('/dashboard/drive/') ||
+    location.pathname.startsWith('/dashboard/gallery/');
+  const isEventsActive =
+    location.pathname === '/dashboard/events' ||
+    location.pathname.startsWith('/dashboard/events/');
+  const isPortfolioActive =
+    location.pathname === '/dashboard/portfolio' ||
+    location.pathname.startsWith('/dashboard/portfolio/');
 
   return (
     <nav
@@ -31,20 +43,20 @@ export const MobileNav: React.FC<MobileNavProps> = ({
       {/* 1. Drive Tab */}
       <NavLink
         to="/dashboard/drive"
-        className={({ isActive }) =>
+        className={() =>
           `flex flex-col items-center justify-center min-w-[50px] py-1 rounded-2xl text-[10px] font-medium transition-all active:scale-90 select-none ${
-            isActive
+            isDriveActive
               ? 'text-amber-500 font-bold'
               : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
           }`
         }
       >
-        {({ isActive }) => (
+        {() => (
           <>
             <div className="relative p-1">
               <FolderKanban
                 className={`w-5 h-5 transition-transform ${
-                  isActive ? 'text-amber-500 scale-105 stroke-[2.3]' : 'text-neutral-500 dark:text-neutral-400'
+                  isDriveActive ? 'text-amber-500 scale-105 stroke-[2.3]' : 'text-neutral-500 dark:text-neutral-400'
                 }`}
               />
               {galleries.length > 0 && (
@@ -61,20 +73,20 @@ export const MobileNav: React.FC<MobileNavProps> = ({
       {/* 2. Events Tab (with Live indicator) */}
       <NavLink
         to="/dashboard/events"
-        className={({ isActive }) =>
+        className={() =>
           `flex flex-col items-center justify-center min-w-[50px] py-1 rounded-2xl text-[10px] font-medium transition-all active:scale-90 select-none ${
-            isActive
+            isEventsActive
               ? 'text-amber-500 font-bold'
               : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
           }`
         }
       >
-        {({ isActive }) => (
+        {() => (
           <>
             <div className="relative p-1">
               <Calendar
                 className={`w-5 h-5 transition-transform ${
-                  isActive ? 'text-amber-500 scale-105 stroke-[2.3]' : 'text-neutral-500 dark:text-neutral-400'
+                  isEventsActive ? 'text-amber-500 scale-105 stroke-[2.3]' : 'text-neutral-500 dark:text-neutral-400'
                 }`}
               />
               {activeLiveEvents.length > 0 && (
@@ -112,20 +124,20 @@ export const MobileNav: React.FC<MobileNavProps> = ({
       {/* 4. Portfolio Tab */}
       <NavLink
         to="/dashboard/portfolio"
-        className={({ isActive }) =>
+        className={() =>
           `flex flex-col items-center justify-center min-w-[50px] py-1 rounded-2xl text-[10px] font-medium transition-all active:scale-90 select-none ${
-            isActive
+            isPortfolioActive
               ? 'text-amber-500 font-bold'
               : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
           }`
         }
       >
-        {({ isActive }) => (
+        {() => (
           <>
             <div className="p-1">
               <Globe
                 className={`w-5 h-5 transition-transform ${
-                  isActive ? 'text-amber-500 scale-105 stroke-[2.3]' : 'text-neutral-500 dark:text-neutral-400'
+                  isPortfolioActive ? 'text-amber-500 scale-105 stroke-[2.3]' : 'text-neutral-500 dark:text-neutral-400'
                 }`}
               />
             </div>

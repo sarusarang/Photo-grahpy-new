@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { AnimatedThemeToggler } from '../ui/animated-theme-toggler';
 import { ProfileDropdown } from './ProfileDropdown';
+import { NotificationDropdown } from './NotificationDropdown';
 import { Logo } from './Logo';
 import {
   Bell,
@@ -18,6 +19,8 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
   const { photographer, user } = useAuth();
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState<number>(3);
 
 
   return (
@@ -50,21 +53,44 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
         <AnimatedThemeToggler />
 
 
-        {/* Notification Bell with Badge */}
+        {/* Notification Bell with Badge & Dropdown */}
         <div className="relative">
           <button
-            className="p-2 rounded-xl text-neutral-600 dark:text-neutral-400 hover:text-black dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-900 transition-colors relative"
+            onClick={() => {
+              setNotificationsOpen((prev) => !prev);
+              setProfileDropdownOpen(false);
+            }}
+            className={`p-2 rounded-xl transition-colors relative cursor-pointer ${
+              notificationsOpen
+                ? 'bg-amber-500/15 text-amber-500 ring-1 ring-amber-400/40'
+                : 'text-neutral-600 dark:text-neutral-400 hover:text-black dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-900'
+            }`}
             title="Notifications"
           >
             <Bell className="w-4 h-4" />
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-amber-400 ring-2 ring-white dark:ring-[#0c0d12]" />
+            {unreadCount > 0 ? (
+              <span className="absolute -top-0.5 -right-0.5 min-w-[17px] h-[17px] px-1 rounded-full bg-amber-400 text-neutral-950 font-mono font-bold text-[9px] flex items-center justify-center ring-2 ring-white dark:ring-[#0c0d12] shadow-xs">
+                {unreadCount}
+              </span>
+            ) : (
+              <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-neutral-400 dark:bg-neutral-600 opacity-60" />
+            )}
           </button>
+
+          <NotificationDropdown
+            isOpen={notificationsOpen}
+            onClose={() => setNotificationsOpen(false)}
+            onUnreadCountChange={(count) => setUnreadCount(count)}
+          />
         </div>
 
         {/* User Profile with Avatar & Dropdown */}
         <div className="relative">
           <button
-            onClick={() => setProfileDropdownOpen((prev) => !prev)}
+            onClick={() => {
+              setProfileDropdownOpen((prev) => !prev);
+              setNotificationsOpen(false);
+            }}
             className="flex items-center gap-2.5 pl-1.5 pr-2 py-1 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-900 transition-colors cursor-pointer"
           >
             {photographer.avatarUrl ? (

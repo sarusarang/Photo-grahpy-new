@@ -169,13 +169,35 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <nav className={`p-3 space-y-1.5 stagger ${effectiveCollapsed ? 'px-2.5' : 'px-3'}`}>
         {navItems.map((item, idx) => {
           const Icon = item.icon;
-          const isActive =
-            location.pathname === item.to &&
-            (item.label === 'Dashboard'
-              ? false
-              : item.label === 'Drive'
-              ? location.pathname === '/dashboard/drive' || location.pathname === '/dashboard'
-              : true);
+          const isActive = (() => {
+            const path = location.pathname;
+            if (item.to === '/dashboard/overview') {
+              return path === '/dashboard/overview' || path === '/dashboard';
+            }
+            if (item.to === '/dashboard/drive') {
+              return (
+                path === '/dashboard/drive' ||
+                path.startsWith('/dashboard/drive/') ||
+                path.startsWith('/dashboard/gallery/')
+              );
+            }
+            if (item.to === '/dashboard/events') {
+              return (
+                path === '/dashboard/events' ||
+                path.startsWith('/dashboard/events/')
+              );
+            }
+            if (item.to === '/dashboard/inquiries') {
+              return path === '/dashboard/inquiries' || path.startsWith('/dashboard/inquiries/');
+            }
+            if (item.to === '/dashboard/portfolio') {
+              return path === '/dashboard/portfolio' || path.startsWith('/dashboard/portfolio/');
+            }
+            if (item.to === '/dashboard/settings') {
+              return path === '/dashboard/settings' || path.startsWith('/dashboard/settings/');
+            }
+            return path === item.to;
+          })();
 
           return (
             <Link
