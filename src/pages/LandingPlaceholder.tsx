@@ -15,6 +15,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { Logo } from '../components/common/Logo';
+import { useAuth } from '../context/AuthContext';
 
 /* -------------------------------------------------------------------------- */
 /* SVG Graphic Motifs from Reference Design (Image 1)                         */
@@ -304,6 +305,7 @@ const ARTICLE_DECK: ArticleDeckItem[] = [
 /* -------------------------------------------------------------------------- */
 
 export const LandingPlaceholder: React.FC = () => {
+  const { isAuthenticated } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeProjectIndex, setActiveProjectIndex] = useState(0);
   const [activeTestimonialIndex, setActiveTestimonialIndex] = useState(2); // Center card (Jean Smicelle)
@@ -403,12 +405,24 @@ export const LandingPlaceholder: React.FC = () => {
             >
               ABOUT
             </a>
-            <Link
-              to="/dashboard/drive"
-              className="px-5 py-1.5 rounded-full border border-white/70 text-white hover:bg-white hover:text-neutral-900 transition-all duration-300 font-semibold shadow-sm"
-            >
-              CONTACT US
-            </Link>
+
+            {/* Dynamic Auth Button: Login / Sign In or Dashboard */}
+            {isAuthenticated ? (
+              <Link
+                to="/dashboard/overview"
+                className="px-5 py-1.5 rounded-full bg-amber-400 hover:bg-amber-300 text-neutral-950 font-bold transition-all duration-300 shadow-md shadow-amber-500/20 flex items-center gap-1.5 hover:scale-105"
+              >
+                <span>DASHBOARD</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            ) : (
+              <Link
+                to="/login"
+                className="px-5 py-1.5 rounded-full border border-white/70 text-white hover:bg-white hover:text-neutral-900 transition-all duration-300 font-semibold shadow-sm hover:scale-105"
+              >
+                LOGIN / SIGN IN
+              </Link>
+            )}
           </nav>
 
           {/* Mobile Hamburger Trigger */}
@@ -480,20 +494,33 @@ export const LandingPlaceholder: React.FC = () => {
               </div>
 
               <div className="flex flex-col gap-3">
-                <Link
-                  to="/dashboard/drive"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="w-full py-4 rounded-full bg-white text-neutral-950 text-center font-bold text-xs uppercase tracking-widest shadow-xl"
-                >
-                  Enter Photographer Workspace
-                </Link>
-                <Link
-                  to="/login"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="w-full py-3.5 rounded-full border border-white/30 text-white text-center text-xs font-semibold uppercase tracking-wider"
-                >
-                  Photographer Sign In
-                </Link>
+                {isAuthenticated ? (
+                  <Link
+                    to="/dashboard/overview"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="w-full py-4 rounded-full bg-amber-400 text-neutral-950 text-center font-bold text-xs uppercase tracking-widest shadow-xl flex items-center justify-center gap-2 hover:bg-amber-300 transition-all"
+                  >
+                    <span>Open Dashboard</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </Link>
+                ) : (
+                  <>
+                    <Link
+                      to="/login"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="w-full py-4 rounded-full bg-white text-neutral-950 text-center font-bold text-xs uppercase tracking-widest shadow-xl"
+                    >
+                      Login / Sign In
+                    </Link>
+                    <Link
+                      to="/signup"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="w-full py-3.5 rounded-full border border-white/30 text-white text-center text-xs font-semibold uppercase tracking-wider hover:bg-white/10"
+                    >
+                      Create Account
+                    </Link>
+                  </>
+                )}
               </div>
             </motion.div>
           )}
@@ -1075,19 +1102,31 @@ export const LandingPlaceholder: React.FC = () => {
             </p>
 
             <div className="mt-9 flex flex-wrap items-center justify-center gap-4">
-              <Link
-                to="/dashboard/drive"
-                className="px-9 py-4 rounded-full bg-white hover:bg-neutral-100 text-neutral-950 text-xs font-bold tracking-widest uppercase shadow-2xl hover:shadow-white/20 transition-all duration-300 hover:scale-105 active:scale-95 inline-flex items-center gap-2"
-              >
-                <span>START YOUR PROJECT</span>
-                <ArrowRight className="w-4 h-4" />
-              </Link>
-              <Link
-                to="/login"
-                className="px-8 py-4 rounded-full bg-white/10 hover:bg-white/15 border border-white/20 text-white text-xs font-semibold tracking-wider uppercase transition-colors"
-              >
-                Photographer Sign In
-              </Link>
+              {isAuthenticated ? (
+                <Link
+                  to="/dashboard/overview"
+                  className="px-9 py-4 rounded-full bg-amber-400 hover:bg-amber-300 text-neutral-950 text-xs font-bold tracking-widest uppercase shadow-2xl hover:shadow-amber-500/20 transition-all duration-300 hover:scale-105 active:scale-95 inline-flex items-center gap-2"
+                >
+                  <span>OPEN DASHBOARD</span>
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
+              ) : (
+                <>
+                  <Link
+                    to="/dashboard/drive"
+                    className="px-9 py-4 rounded-full bg-white hover:bg-neutral-100 text-neutral-950 text-xs font-bold tracking-widest uppercase shadow-2xl hover:shadow-white/20 transition-all duration-300 hover:scale-105 active:scale-95 inline-flex items-center gap-2"
+                  >
+                    <span>START YOUR PROJECT</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </Link>
+                  <Link
+                    to="/login"
+                    className="px-8 py-4 rounded-full bg-white/10 hover:bg-white/15 border border-white/20 text-white text-xs font-semibold tracking-wider uppercase transition-colors"
+                  >
+                    Login / Sign In
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </motion.div>
