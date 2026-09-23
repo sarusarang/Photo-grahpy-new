@@ -21,6 +21,9 @@ interface GalleryContextType {
   setTemplateBannerImage: (galleryId: string, templateId: GalleryTemplateId, mediaUrl: string) => void;
   setMasonryBannerImage: (galleryId: string, slotIndex: number, mediaUrl: string) => void;
   addSectionToGallery: (galleryId: string, sectionTitle: string) => void;
+  moveMediaToSection: (galleryId: string, mediaIds: string[], targetSection: string) => void;
+  deleteSectionFromGallery: (galleryId: string, sectionTitle: string) => void;
+  renameSectionInGallery: (galleryId: string, oldTitle: string, newTitle: string) => void;
   updateGalleryTemplate: (galleryId: string, templateId: GalleryTemplateId) => void;
   upgradeSubscription: (planId: string) => void;
   getGalleryByIdOrSlug: (idOrSlug: string) => Gallery | undefined;
@@ -288,16 +291,89 @@ export const GalleryProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const addSectionToGallery = (galleryId: string, sectionTitle: string) => {
-    const trimmed = sectionTitle.trim();
+    const trimmed = sectionTitle.trim().toUpperCase();
     if (!trimmed) return;
     setGalleries((prev) =>
       prev.map((gal) => {
         if (gal.id !== galleryId) return gal;
         const existing = gal.sections || [];
-        if (existing.includes(trimmed)) return gal;
+        if (existing.some((s) => s.toUpperCase() === trimmed)) return gal;
         return {
           ...gal,
           sections: [...existing, trimmed],
+        };
+      })
+    );
+  };
+
+  const moveMediaToSection = (galleryId: string, mediaIds: string[], targetSection: string) => {
+    const trimmedTarget = targetSection.trim().toUpperCase();
+    if (mediaIds.length === 0) return;
+
+    setGalleries((prev) =>
+      prev.map((gal) => {
+        if (gal.id !== galleryId) return gal;
+
+        const currentSections = new Set(gal.sections || []);
+        if (trimmedTarget && trimmedTarget !== 'UNASSIGNED') {
+          currentSections.add(trimmedTarget);
+        }
+
+        const updatedMedia = gal.media.map((item) => {
+          if (mediaIds.includes(item.id)) {
+            return {
+              ...item,
+              sectionTitle: trimmedTarget === 'UNASSIGNED' || !trimmedTarget ? undefined : trimmedTarget,
+            };
+          }
+          return item;
+        });
+
+        return {
+          ...gal,
+          sections: Array.from(currentSections),
+          media: updatedMedia,
+        };
+      })
+    );
+  };
+
+  const deleteSectionFromGallery = (galleryId: string, sectionTitle: string) => {
+    const trimmed = sectionTitle.trim().toUpperCase();
+    setGalleries((prev) =>
+      prev.map((gal) => {
+        if (gal.id !== galleryId) return gal;
+        return {
+          ...gal,
+          sections: (gal.sections || []).filter((s) => s.toUpperCase() !== trimmed),
+          media: gal.media.map((item) =>
+            (item.sectionTitle || '').toUpperCase() === trimmed
+              ? { ...item, sectionTitle: undefined }
+              : item
+          ),
+        };
+      })
+    );
+  };
+
+  const renameSectionInGallery = (galleryId: string, oldTitle: string, newTitle: string) => {
+    const oldT = oldTitle.trim().toUpperCase();
+    const newT = newTitle.trim().toUpperCase();
+    if (!newT || oldT === newT) return;
+
+    setGalleries((prev) =>
+      prev.map((gal) => {
+        if (gal.id !== galleryId) return gal;
+        const existing = gal.sections || [];
+        const updatedSections = existing.map((s) => (s.toUpperCase() === oldT ? newT : s));
+        return {
+          ...gal,
+          sections: Array.from(new Set(updatedSections)),
+          media: gal.media.map((item) =>
+            (item.sectionTitle || '').toUpperCase() === oldT
+              ? { ...item, sectionTitle: newT }
+              : item
+          ),
         };
       })
     );
@@ -348,6 +424,9 @@ export const GalleryProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setTemplateBannerImage,
         setMasonryBannerImage,
         addSectionToGallery,
+        moveMediaToSection,
+        deleteSectionFromGallery,
+        renameSectionInGallery,
         updateGalleryTemplate,
         upgradeSubscription,
         getGalleryByIdOrSlug,

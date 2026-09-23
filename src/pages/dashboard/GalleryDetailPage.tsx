@@ -9,6 +9,7 @@ import { UploadMediaModal } from '../../components/gallery/UploadMediaModal';
 import { ShareModal } from '../../components/gallery/ShareModal';
 import { LightboxModal } from '../../components/gallery/LightboxModal';
 import { ConfirmDeleteModal } from '../../components/common/ConfirmDeleteModal';
+import { MoveToSectionModal } from '../../components/gallery/MoveToSectionModal';
 import {
   ArrowLeft,
   UploadCloud,
@@ -33,6 +34,8 @@ import {
   Calendar,
   AlertTriangle,
   ShieldCheck,
+  FolderInput,
+  Plus,
 } from 'lucide-react';
 import {
   getExpiryStatus,
@@ -55,6 +58,8 @@ export const GalleryDetailPage: React.FC = () => {
     setTemplateBannerImage,
     setMasonryBannerImage,
     updateGalleryTemplate,
+    addSectionToGallery,
+    moveMediaToSection,
   } = useGallery();
   const { showToast } = useToast();
 
@@ -82,8 +87,31 @@ export const GalleryDetailPage: React.FC = () => {
   const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
   const [isDeleteGalleryOpen, setIsDeleteGalleryOpen] = useState(false);
 
+  // Move to section modal state
+  const [isMoveSectionOpen, setIsMoveSectionOpen] = useState(false);
+  const [singleItemToMove, setSingleItemToMove] = useState<MediaItem | null>(null);
+
+  // Quick inline add section state
+  const [isCreatingQuickSection, setIsCreatingQuickSection] = useState(false);
+  const [newQuickSectionInput, setNewQuickSectionInput] = useState('');
+
   // Selected media items for bulk deletion preview
   const selectedMediaItems = gallery?.media.filter((m) => selectedIds.includes(m.id)) || [];
+  const itemsToMove = singleItemToMove ? [singleItemToMove] : selectedMediaItems;
+
+  const handleCreateQuickSection = () => {
+    if (!gallery) return;
+    const trimmed = newQuickSectionInput.trim().toUpperCase();
+    if (!trimmed) {
+      setIsCreatingQuickSection(false);
+      return;
+    }
+    addSectionToGallery(gallery.id, trimmed);
+    showToast('Section Created', `"${trimmed}" added to gallery sections.`, 'success');
+    setDashboardSectionFilter(trimmed);
+    setNewQuickSectionInput('');
+    setIsCreatingQuickSection(false);
+  };
 
   // Editing gallery details
   const [editTitle, setEditTitle] = useState(gallery?.title || '');
@@ -310,6 +338,18 @@ export const GalleryDetailPage: React.FC = () => {
                 </button>
 
                 <button
+                  type="button"
+                  onClick={() => {
+                    setSingleItemToMove(null);
+                    setIsMoveSectionOpen(true);
+                  }}
+                  className="group inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 text-xs font-bold shadow-md shadow-amber-400/20 active:scale-[0.98] transition-all cursor-pointer"
+                >
+                  <FolderInput className="w-3.5 h-3.5 stroke-[2.2] group-hover:scale-110 transition-transform" />
+                  <span>Move to Section ({selectedIds.length})</span>
+                </button>
+
+                <button
                   onClick={() => setIsBulkDeleteOpen(true)}
                   className="group inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-red-600 via-rose-600 to-rose-700 hover:from-red-500 hover:to-rose-600 text-white text-xs font-bold shadow-lg shadow-rose-600/25 active:scale-[0.98] transition-all"
                 >
@@ -387,6 +427,53 @@ export const GalleryDetailPage: React.FC = () => {
                         </button>
                       );
                     })}
+
+                    {/* Quick Add Section Button / Inline Input */}
+                    {isCreatingQuickSection ? (
+                      <div className="flex items-center gap-1 shrink-0 bg-white dark:bg-neutral-900 border border-amber-400 p-0.5 rounded-xl shadow-xs">
+                        <input
+                          type="text"
+                          value={newQuickSectionInput}
+                          onChange={(e) => setNewQuickSectionInput(e.target.value.toUpperCase())}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleCreateQuickSection();
+                            if (e.key === 'Escape') setIsCreatingQuickSection(false);
+                          }}
+                          placeholder="NEW SECTION..."
+                          autoFocus
+                          className="px-2 py-0.5 text-xs font-mono uppercase bg-transparent text-neutral-900 dark:text-white outline-hidden w-28 placeholder:text-neutral-400"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleCreateQuickSection}
+                          className="p-1 rounded-lg bg-amber-400 hover:bg-amber-300 text-neutral-950 font-bold transition-colors cursor-pointer"
+                          title="Save Section"
+                        >
+                          <Check className="w-3 h-3 stroke-[2.5]" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setIsCreatingQuickSection(false)}
+                          className="p-1 rounded-lg text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors cursor-pointer"
+                          title="Cancel"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsCreatingQuickSection(true);
+                          setNewQuickSectionInput('');
+                        }}
+                        className="px-2.5 py-1 rounded-xl text-xs font-mono transition-all shrink-0 bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30 flex items-center gap-1 cursor-pointer font-bold"
+                        title="Create a new section"
+                      >
+                        <Plus className="w-3 h-3 stroke-[2.5]" />
+                        <span>New Section</span>
+                      </button>
+                    )}
                   </div>
                 );
               })()}
@@ -497,9 +584,18 @@ export const GalleryDetailPage: React.FC = () => {
                               </span>
                             )}
                             {item.sectionTitle && (
-                              <span className="px-1.5 py-0.5 rounded-md bg-black/80 backdrop-blur-sm text-amber-300 text-[9px] font-mono border border-white/15 uppercase truncate">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSingleItemToMove(item);
+                                  setIsMoveSectionOpen(true);
+                                }}
+                                className="px-1.5 py-0.5 rounded-md bg-black/80 hover:bg-black backdrop-blur-sm text-amber-300 hover:text-amber-200 text-[9px] font-mono border border-white/15 hover:border-amber-400/50 uppercase truncate transition-all cursor-pointer hover:scale-105"
+                                title="Click to move photo into another section"
+                              >
                                 {item.sectionTitle}
-                              </span>
+                              </button>
                             )}
                             {item.type === 'video' && (
                               <span className="px-1.5 py-0.5 rounded-md bg-black/70 backdrop-blur-sm text-amber-400 text-[9px] font-mono flex items-center gap-1 border border-white/10">
@@ -530,6 +626,20 @@ export const GalleryDetailPage: React.FC = () => {
                           </span>
 
                           <div className="flex items-center gap-1 shrink-0">
+                            {/* Move to Section Button */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSingleItemToMove(item);
+                                setIsMoveSectionOpen(true);
+                              }}
+                              className="px-2 py-1 rounded-lg text-[10px] font-semibold text-neutral-600 dark:text-neutral-300 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-500/10 border border-neutral-200 dark:border-neutral-800 hover:border-amber-500/30 transition-all flex items-center gap-1 cursor-pointer"
+                              title="Move photo to another section (e.g. Haldi, Reception, Ceremony)"
+                            >
+                              <FolderInput className="w-3 h-3 text-amber-500" />
+                              <span>Move</span>
+                            </button>
+
                             {!isCover && (
                               <button
                                 onClick={() => {
@@ -1704,6 +1814,29 @@ export const GalleryDetailPage: React.FC = () => {
         description={`Are you sure you want to permanently delete gallery "${gallery.title}" and all its ${gallery.media.length} photos? This cannot be recovered.`}
         confirmLabel="Delete Gallery"
         itemCount={gallery.media.length}
+      />
+
+      {/* Move Photos to Section Modal */}
+      <MoveToSectionModal
+        isOpen={isMoveSectionOpen}
+        onClose={() => {
+          setIsMoveSectionOpen(false);
+          setSingleItemToMove(null);
+        }}
+        gallery={gallery}
+        mediaItems={itemsToMove}
+        onSuccess={(targetSection) => {
+          if (!singleItemToMove) {
+            setSelectedIds([]);
+          }
+          if (
+            dashboardSectionFilter !== 'all' &&
+            targetSection !== 'UNASSIGNED' &&
+            dashboardSectionFilter.toUpperCase() !== targetSection.toUpperCase()
+          ) {
+            setDashboardSectionFilter(targetSection);
+          }
+        }}
       />
     </div>
   );
