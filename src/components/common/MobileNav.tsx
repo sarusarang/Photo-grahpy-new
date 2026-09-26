@@ -1,15 +1,15 @@
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
-  FolderKanban,
+  Images,
   Globe,
   Settings as SettingsIcon,
   LayoutGrid,
   Plus,
   Calendar,
 } from 'lucide-react';
-import { useGallery } from '../../context/GalleryContext';
 import { useEvent } from '../../context/EventContext';
+import { useGalleries, useEvents } from '@/hooks/useAtelierQueries';
 
 interface MobileNavProps {
   onOpenCreateModal?: () => void;
@@ -20,14 +20,19 @@ export const MobileNav: React.FC<MobileNavProps> = ({
   onOpenCreateModal,
   onOpenTemplatesSheet,
 }) => {
-  const { galleries } = useGallery();
   const { activeLiveEvents } = useEvent();
+  const { data: apiGalleries } = useGalleries();
+  const { data: apiEvents } = useEvents();
   const location = useLocation();
 
-  const isDriveActive =
+  const galleryCount = apiGalleries?.length ?? 0;
+  const liveCount = apiEvents?.filter((e: any) => e.status === 'live').length ?? activeLiveEvents.length;
+
+  const isGalleryActive =
+    location.pathname === '/dashboard/gallery' ||
+    location.pathname.startsWith('/dashboard/gallery/') ||
     location.pathname === '/dashboard/drive' ||
-    location.pathname.startsWith('/dashboard/drive/') ||
-    location.pathname.startsWith('/dashboard/gallery/');
+    location.pathname.startsWith('/dashboard/drive/');
   const isEventsActive =
     location.pathname === '/dashboard/events' ||
     location.pathname.startsWith('/dashboard/events/');
@@ -40,12 +45,12 @@ export const MobileNav: React.FC<MobileNavProps> = ({
       aria-label="Mobile Bottom Navigation"
       className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/90 dark:bg-[#0c0d12]/92 backdrop-blur-xl border-t border-neutral-200/90 dark:border-neutral-800/80 px-2 pt-1.5 pb-safe flex items-center justify-around shadow-2xl transition-colors"
     >
-      {/* 1. Drive Tab */}
+      {/* 1. Gallery Tab */}
       <NavLink
-        to="/dashboard/drive"
+        to="/dashboard/gallery"
         className={() =>
           `flex flex-col items-center justify-center min-w-[50px] py-1 rounded-2xl text-[10px] font-medium transition-all active:scale-90 select-none ${
-            isDriveActive
+            isGalleryActive
               ? 'text-amber-500 font-bold'
               : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
           }`
@@ -54,18 +59,18 @@ export const MobileNav: React.FC<MobileNavProps> = ({
         {() => (
           <>
             <div className="relative p-1">
-              <FolderKanban
+              <Images
                 className={`w-5 h-5 transition-transform ${
-                  isDriveActive ? 'text-amber-500 scale-105 stroke-[2.3]' : 'text-neutral-500 dark:text-neutral-400'
+                  isGalleryActive ? 'text-amber-500 scale-105 stroke-[2.3]' : 'text-neutral-500 dark:text-neutral-400'
                 }`}
               />
-              {galleries.length > 0 && (
+              {galleryCount > 0 && (
                 <span className="absolute -top-0.5 -right-1 px-1.5 py-0.2 min-w-[15px] text-center text-[9px] bg-amber-400 text-neutral-950 font-bold font-mono rounded-full ring-2 ring-white dark:ring-[#0c0d12]">
-                  {galleries.length}
+                  {galleryCount}
                 </span>
               )}
             </div>
-            <span className="tracking-tight">Drive</span>
+            <span className="tracking-tight">Gallery</span>
           </>
         )}
       </NavLink>
@@ -89,7 +94,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({
                   isEventsActive ? 'text-amber-500 scale-105 stroke-[2.3]' : 'text-neutral-500 dark:text-neutral-400'
                 }`}
               />
-              {activeLiveEvents.length > 0 && (
+              {liveCount > 0 && (
                 <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-400 rounded-full animate-ping ring-2 ring-white dark:ring-[#0c0d12]" />
               )}
             </div>

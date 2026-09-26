@@ -1,19 +1,24 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Camera, Upload, Sparkles, X, RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react';
 import type { MediaItem } from '../../types';
-import { searchPhotosByFace, type FaceMatchResult } from '../../services/faceRecognitionService';
+import { searchPhotosByFace, fileToDataUrl, type FaceMatchResult } from '../../services/faceRecognitionService';
+import { SearchGalleryByFaceApi, SearchEventByFaceApi } from '@/service/ai/FaceSearchApi';
 
 interface AIFaceSearchBoxProps {
   mediaItems: MediaItem[];
   onMatchesFound: (matchedIds: string[] | null) => void;
   onClose?: () => void;
   theme?: 'editorial' | 'cinematic' | 'minimal' | 'masonry';
+  galleryId?: string;
+  eventId?: string;
 }
 
 export const AIFaceSearchBox: React.FC<AIFaceSearchBoxProps> = ({
   mediaItems,
   onMatchesFound,
   onClose,
+  galleryId,
+  eventId,
 }) => {
   const [mode, setMode] = useState<'prompt' | 'camera' | 'scanning' | 'results'>('prompt');
   const [matchResult, setMatchResult] = useState<FaceMatchResult | null>(null);
@@ -38,13 +43,62 @@ export const AIFaceSearchBox: React.FC<AIFaceSearchBoxProps> = ({
     };
   }, []);
 
-  // Handle local image file upload
+  // Handle image file upload with API integration & local fallback
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
     try {
       setMode('scanning');
+
+      // 1. Try real Django Face Search API if galleryId or eventId is available
+      if (galleryId) {
+        try {
+          const apiRes = await SearchGalleryByFaceApi(galleryId, file);
+          const selfieThumb = await fileToDataUrl(file);
+          setMatchResult({
+            faceThumbnailUrl: selfieThumb,
+            matchedMediaIds: apiRes.matched_media_ids,
+            matchedCount: apiRes.total_matches || apiRes.matched_media_ids.length,
+            confidence: apiRes.confidence || 0.92,
+            timestamp: Date.now(),
+          });
+          setMode('results');
+          onMatchesFound(apiRes.matched_media_ids);
+          return;
+        } catch (apiErr: any) {
+          const errData = apiErr?.response?.data || apiErr?.data;
+          if (errData?.error_code === 'FACE_SEARCH_LOCKED') {
+            setCameraError('AI Biometric Face Search is locked on this plan tier. Please upgrade to Standard Annual or Studio Premium Elite.');
+            setMode('prompt');
+            return;
+          }
+        }
+      } else if (eventId) {
+        try {
+          const apiRes = await SearchEventByFaceApi(eventId, file);
+          const selfieThumb = await fileToDataUrl(file);
+          setMatchResult({
+            faceThumbnailUrl: selfieThumb,
+            matchedMediaIds: apiRes.matched_media_ids,
+            matchedCount: apiRes.total_matches || apiRes.matched_media_ids.length,
+            confidence: apiRes.confidence || 0.92,
+            timestamp: Date.now(),
+          });
+          setMode('results');
+          onMatchesFound(apiRes.matched_media_ids);
+          return;
+        } catch (apiErr: any) {
+          const errData = apiErr?.response?.data || apiErr?.data;
+          if (errData?.error_code === 'FACE_SEARCH_LOCKED') {
+            setCameraError('AI Biometric Face Search is locked on this event tier. Please upgrade to unlock.');
+            setMode('prompt');
+            return;
+          }
+        }
+      }
+
+      // 2. Client-side local vector embedding fallback
       const result = await searchPhotosByFace(file, mediaItems);
       setMatchResult(result);
       setMode('results');
@@ -130,6 +184,54 @@ export const AIFaceSearchBox: React.FC<AIFaceSearchBoxProps> = ({
     setMode('scanning');
 
     try {
+      // Convert canvas to Blob for API upload
+      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.9));
+
+      if (blob && galleryId) {
+        try {
+          const apiRes = await SearchGalleryByFaceApi(galleryId, blob);
+          setMatchResult({
+            faceThumbnailUrl: dataUrl,
+            matchedMediaIds: apiRes.matched_media_ids,
+            matchedCount: apiRes.total_matches || apiRes.matched_media_ids.length,
+            confidence: apiRes.confidence || 0.92,
+            timestamp: Date.now(),
+          });
+          setMode('results');
+          onMatchesFound(apiRes.matched_media_ids);
+          return;
+        } catch (apiErr: any) {
+          const errData = apiErr?.response?.data || apiErr?.data;
+          if (errData?.error_code === 'FACE_SEARCH_LOCKED') {
+            setCameraError('AI Biometric Face Search is locked on this plan tier. Please upgrade to unlock.');
+            setMode('prompt');
+            return;
+          }
+        }
+      } else if (blob && eventId) {
+        try {
+          const apiRes = await SearchEventByFaceApi(eventId, blob);
+          setMatchResult({
+            faceThumbnailUrl: dataUrl,
+            matchedMediaIds: apiRes.matched_media_ids,
+            matchedCount: apiRes.total_matches || apiRes.matched_media_ids.length,
+            confidence: apiRes.confidence || 0.92,
+            timestamp: Date.now(),
+          });
+          setMode('results');
+          onMatchesFound(apiRes.matched_media_ids);
+          return;
+        } catch (apiErr: any) {
+          const errData = apiErr?.response?.data || apiErr?.data;
+          if (errData?.error_code === 'FACE_SEARCH_LOCKED') {
+            setCameraError('AI Biometric Face Search is locked on this plan tier. Please upgrade to unlock.');
+            setMode('prompt');
+            return;
+          }
+        }
+      }
+
+      // Local biometric fallback
       const result = await searchPhotosByFace(dataUrl, mediaItems);
       setMatchResult(result);
       setMode('results');

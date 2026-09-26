@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
+import { normalizeServerEvent } from '@/utils/eventNormalizer';
 import {
   Calendar,
-  Sparkles,
   QrCode,
   FolderKanban,
   Plus,
@@ -10,15 +10,15 @@ import {
   MapPin,
   Camera,
   Layers,
-  ArrowUpRight,
-  TrendingUp,
-  Users,
   Search,
   CheckCircle2,
   Trash2,
   Image as ImageIcon,
   ExternalLink,
 } from 'lucide-react';
+import { useEvents, useDeleteEvent } from '@/hooks/useAtelierQueries';
+import { EventListSkeleton } from '@/components/common/LoadingSkeleton';
+import { ErrorState } from '@/components/common/ErrorState';
 import { useEvent } from '../../context/EventContext';
 import { useToast } from '../../components/ui/Toast';
 import { CreateEventModal } from '../../components/events/CreateEventModal';
@@ -26,6 +26,8 @@ import { EventQRCodeModal } from '../../components/events/EventQRCodeModal';
 import { EventPrintStandModal } from '../../components/events/EventPrintStandModal';
 import { ChangeBannerModal } from '../../components/events/ChangeBannerModal';
 import { MoveToGalleryModal } from '../../components/events/MoveToGalleryModal';
+import { usePlanQuota } from '@/hooks/usePlanQuota';
+import { PlanUpgradeModal } from '@/components/billing/PlanUpgradeModal';
 import type { LiveEvent } from '../../types/event';
 
 export const EventsPage: React.FC = () => {
@@ -38,8 +40,41 @@ export const EventsPage: React.FC = () => {
   } = useEvent();
   const { showToast } = useToast();
 
+  // TanStack Query: Live Backend Events Sync
+  const {
+    data: apiEvents,
+    isLoading: isLoadingEvents,
+    isError: isEventsError,
+    refetch: refetchEvents,
+  } = useEvents();
+
+  const { mutateAsync: deleteEventMutation } = useDeleteEvent();
+
+  // Normalize server events
+  const effectiveEvents = useMemo<LiveEvent[]>(() => {
+    if (apiEvents && Array.isArray(apiEvents) && apiEvents.length > 0) {
+      return apiEvents.map((e: any) => normalizeServerEvent(e));
+    }
+    return events;
+  }, [apiEvents, events]);
+
+  const liveEvents = useMemo(
+    () => effectiveEvents.filter((e) => e.status === 'live'),
+    [effectiveEvents]
+  );
+  const upcomingEvts = useMemo(
+    () => effectiveEvents.filter((e) => e.status === 'upcoming'),
+    [effectiveEvents]
+  );
+  const pastEvts = useMemo(
+    () => effectiveEvents.filter((e) => e.status === 'completed' || e.status === 'moved_to_gallery'),
+    [effectiveEvents]
+  );
+
   const [activeTab, setActiveTab] = useState<'live' | 'upcoming' | 'past'>('live');
   const [searchQuery, setSearchQuery] = useState('');
+  const planQuota = usePlanQuota();
+  const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
 
   // Modals state
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -49,13 +84,22 @@ export const EventsPage: React.FC = () => {
   const [bannerModalEvent, setBannerModalEvent] = useState<LiveEvent | null>(null);
   const [moveToGalleryEvent, setMoveToGalleryEvent] = useState<LiveEvent | null>(null);
 
+  const handleOpenCreateModal = (status: 'live' | 'upcoming') => {
+    if (!planQuota.canCreateEvent) {
+      setIsUpgradeModalOpen(true);
+      return;
+    }
+    setCreateDefaultStatus(status);
+    setIsCreateModalOpen(true);
+  };
+
   // Filter events based on active tab and search query
   const filteredEvents = (
     activeTab === 'live'
-      ? activeLiveEvents
+      ? liveEvents
       : activeTab === 'upcoming'
-      ? upcomingEvents
-      : pastEvents
+      ? upcomingEvts
+      : pastEvts
   ).filter((evt) => {
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
@@ -66,8 +110,13 @@ export const EventsPage: React.FC = () => {
     );
   });
 
-  const handleDelete = (id: string, title: string) => {
+  const handleDelete = async (id: string, title: string) => {
     if (window.confirm(`Are you sure you want to delete "${title}"?`)) {
+      try {
+        await deleteEventMutation(id);
+      } catch {
+        // Fallback to local
+      }
       deleteEvent(id);
       showToast('Event Deleted', `Removed ${title}.`, 'info');
     }
@@ -78,9 +127,15 @@ export const EventsPage: React.FC = () => {
       {/* ─── Top Header ─── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="text-[10px] font-mono uppercase tracking-[0.25em] text-amber-500 font-bold">
               Live Tethering & Event Engine
+            </span>
+            <span className="text-xs text-neutral-400">•</span>
+            <span className="text-[10px] font-mono text-neutral-500 dark:text-neutral-400">
+              {planQuota.isUnlimitedEvents
+                ? 'Unlimited Live Events'
+                : `${planQuota.eventsUsed}/${planQuota.maxEvents} Events Used`}
             </span>
             {activeLiveEvents.length > 0 && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
@@ -100,10 +155,7 @@ export const EventsPage: React.FC = () => {
 
         <div className="flex items-center gap-3">
           <button
-            onClick={() => {
-              setCreateDefaultStatus('upcoming');
-              setIsCreateModalOpen(true);
-            }}
+            onClick={() => handleOpenCreateModal('upcoming')}
             className="py-2.5 px-4 rounded-xl bg-neutral-100 dark:bg-neutral-900 hover:bg-neutral-200 dark:hover:bg-neutral-800 text-neutral-900 dark:text-neutral-200 text-xs font-mono font-bold border border-neutral-300 dark:border-neutral-800 transition-all cursor-pointer flex items-center gap-2"
           >
             <Clock className="w-4 h-4 text-amber-500" />
@@ -111,10 +163,7 @@ export const EventsPage: React.FC = () => {
           </button>
 
           <button
-            onClick={() => {
-              setCreateDefaultStatus('live');
-              setIsCreateModalOpen(true);
-            }}
+            onClick={() => handleOpenCreateModal('live')}
             className="py-2.5 px-4 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 text-xs font-mono font-bold transition-all hover:scale-[1.02] shadow-lg shadow-amber-500/20 cursor-pointer flex items-center gap-2"
           >
             <Plus className="w-4 h-4 stroke-[2.5]" />
@@ -178,7 +227,15 @@ export const EventsPage: React.FC = () => {
       </div>
 
       {/* ─── Events Grid ─── */}
-      {filteredEvents.length === 0 ? (
+      {isLoadingEvents && events.length === 0 ? (
+        <EventListSkeleton count={3} />
+      ) : isEventsError && events.length === 0 ? (
+        <ErrorState
+          title="Failed to Load Events"
+          message="Could not reach the live event tethering service. Please check your network or API tunnel."
+          onRetry={() => refetchEvents()}
+        />
+      ) : filteredEvents.length === 0 ? (
         <div className="py-20 text-center bg-white dark:bg-[#111218] border border-neutral-200 dark:border-neutral-800/80 rounded-3xl p-8 max-w-lg mx-auto space-y-4">
           <Calendar className="w-10 h-10 text-neutral-400 dark:text-neutral-600 mx-auto stroke-1" />
           <div>
@@ -190,7 +247,7 @@ export const EventsPage: React.FC = () => {
                 ? 'Start a live event when shooting a wedding or party to upload photos in real-time.'
                 : activeTab === 'upcoming'
                 ? 'Schedule an upcoming shoot or celebration to pre-generate QR stand cards.'
-                : 'Events you move into the Studio Drive Gallery will appear here.'}
+                : 'Events you move into your Studio Galleries will appear here.'}
             </p>
           </div>
           <button
@@ -242,7 +299,7 @@ export const EventsPage: React.FC = () => {
                     {isMoved && (
                       <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-neutral-800 text-neutral-200 border border-neutral-700 flex items-center gap-1.5 shadow-md">
                         <CheckCircle2 className="w-3 h-3 text-amber-400" />
-                        IN GALLERY DRIVE
+                        IN GALLERY
                       </span>
                     )}
                   </div>
@@ -345,11 +402,11 @@ export const EventsPage: React.FC = () => {
                         </button>
                       ) : (
                         <Link
-                          to={`/dashboard/drive/${event.associatedGalleryId || 'gal-lake-como'}`}
+                          to={`/dashboard/gallery/${event.associatedGalleryId || 'gal-lake-como'}`}
                           className="text-emerald-600 dark:text-emerald-500 hover:underline flex items-center gap-1 font-medium"
                         >
                           <CheckCircle2 className="w-3.5 h-3.5" />
-                          <span>View in Drive</span>
+                          <span>View in Gallery</span>
                         </Link>
                       )}
 
@@ -412,6 +469,15 @@ export const EventsPage: React.FC = () => {
           event={moveToGalleryEvent}
         />
       )}
+
+      {/* Plan Upgrade Modal */}
+      <PlanUpgradeModal
+        isOpen={isUpgradeModalOpen}
+        onClose={() => setIsUpgradeModalOpen(false)}
+        errorCode="EVENT_LIMIT_EXCEEDED"
+        lockedFeature="Live Events"
+        errorMessage={`Your ${planQuota.planName} has reached its limit of ${planQuota.maxEvents} live events. Upgrade your studio subscription to schedule unlimited events.`}
+      />
     </div>
   );
 };

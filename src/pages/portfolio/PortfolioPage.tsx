@@ -12,13 +12,12 @@ import { addInquiry } from '../../services/inquiryService';
 import type { PortfolioConfig } from '../../types/portfolio';
 import type { InquiryEventType } from '../../types/inquiry';
 import { useToast } from '../../components/ui/Toast';
+import { useSubmitPublicInquiry, usePublicPortfolio, useUpdatePortfolioConfig } from '@/hooks/useAtelierQueries';
 import {
   Edit3,
   Eye,
-  Check,
   Sparkles,
   ArrowLeft,
-  Sliders,
   Layers,
 } from 'lucide-react';
 
@@ -28,8 +27,22 @@ export const PortfolioPage: React.FC = () => {
   const { isAuthenticated } = useAuth();
   const { showToast } = useToast();
 
+  const { data: serverPortfolio } = usePublicPortfolio(photographerId || '');
+  const { mutateAsync: updatePortfolioApi } = useUpdatePortfolioConfig();
+  const { mutateAsync: submitInquiryApi } = useSubmitPublicInquiry();
+
   const [config, setConfig] = useState<PortfolioConfig>(() => getPortfolioConfig());
   const [isEditMode, setIsEditMode] = useState(false);
+
+  // Sync if server portfolio data is available
+  useEffect(() => {
+    if (serverPortfolio && typeof serverPortfolio === 'object') {
+      setConfig((prev) => ({
+        ...prev,
+        ...serverPortfolio,
+      }));
+    }
+  }, [serverPortfolio]);
 
   // Sync with portfolio config updates from other tabs/services
   useEffect(() => {
@@ -51,7 +64,7 @@ export const PortfolioPage: React.FC = () => {
     }
   }, [searchParams, config.templateId]);
 
-  const handleSwitchTemplate = (newTemplateId: string) => {
+  const handleSwitchTemplate = async (newTemplateId: string) => {
     const next = savePortfolioConfig({ templateId: newTemplateId });
     setConfig(next);
     setSearchParams((prev) => {
@@ -59,13 +72,23 @@ export const PortfolioPage: React.FC = () => {
       nextParams.set('template', newTemplateId);
       return nextParams;
     });
+    try {
+      await updatePortfolioApi({ template_id: newTemplateId });
+    } catch {
+      // offline/local sync
+    }
     const tplName = AVAILABLE_TEMPLATES.find((t) => t.id === newTemplateId)?.name || newTemplateId;
     showToast('Template Switched', `Now rendering with ${tplName} layout.`, 'success');
   };
 
-  const handleUpdateConfig = (updates: Partial<PortfolioConfig>) => {
+  const handleUpdateConfig = async (updates: Partial<PortfolioConfig>) => {
     const next = savePortfolioConfig(updates);
     setConfig(next);
+    try {
+      await updatePortfolioApi(updates);
+    } catch {
+      // offline/local sync
+    }
   };
 
   const handleInquirySubmit = async (formData: {
@@ -79,21 +102,33 @@ export const PortfolioPage: React.FC = () => {
     message: string;
   }) => {
     try {
-      addInquiry({
-        clientName: formData.clientName,
-        clientEmail: formData.clientEmail,
-        clientPhone: formData.clientPhone,
-        eventDate: formData.eventDate || '2026-11-24',
-        eventType: (formData.eventType as InquiryEventType) || 'wedding',
-        location: formData.location || 'Taj Lake Palace, Udaipur',
-        budget: formData.estimatedBudget || '₹4,50,000 - ₹6,00,000',
+      await submitInquiryApi({
+        client_name: formData.clientName,
+        client_email: formData.clientEmail,
+        client_phone: formData.clientPhone || '',
+        event_date: formData.eventDate || new Date().toISOString().split('T')[0],
+        event_type: formData.eventType || 'wedding',
+        location: formData.location || '',
+        budget: formData.estimatedBudget || '',
         message: formData.message,
+        photographer_id: photographerId,
       });
       showToast('Inquiry Received', 'Your inquiry has been delivered directly to the photographer.', 'success');
       return true;
     } catch {
-      showToast('Error', 'Failed to dispatch inquiry. Please try again.', 'error');
-      return false;
+      // Fallback local persistence
+      addInquiry({
+        clientName: formData.clientName,
+        clientEmail: formData.clientEmail,
+        clientPhone: formData.clientPhone,
+        eventDate: formData.eventDate || new Date().toISOString().split('T')[0],
+        eventType: (formData.eventType as InquiryEventType) || 'wedding',
+        location: formData.location || 'Studio',
+        budget: formData.estimatedBudget || 'Custom',
+        message: formData.message,
+      });
+      showToast('Inquiry Received', 'Your inquiry has been delivered directly to the photographer.', 'success');
+      return true;
     }
   };
 

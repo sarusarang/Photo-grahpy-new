@@ -7,8 +7,6 @@ import {
   Smartphone,
   ExternalLink,
   RotateCcw,
-  Sparkles,
-  Maximize2,
 } from 'lucide-react';
 
 interface PortfolioDevicePreviewProps {

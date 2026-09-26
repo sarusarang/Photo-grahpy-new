@@ -35,7 +35,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
           <Menu className="w-5 h-5" />
         </button>
 
-        <Link to="/dashboard/drive" className="flex items-center group py-1" title="EX SHARE Dashboard">
+        <Link to="/dashboard/gallery" className="flex items-center group py-1" title="EX SHARE Dashboard">
           <Logo variant="auto" className="h-6 sm:h-7 w-auto object-contain transition-transform group-hover:scale-105" />
         </Link>
       </div>

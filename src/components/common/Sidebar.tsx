@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { useGallery } from '../../context/GalleryContext';
 import { useEvent } from '../../context/EventContext';
-import { useAuth } from '../../context/AuthContext';
-import { getInquiries } from '../../services/inquiryService';
+import { useGalleries, useEvents, useInquiries } from '@/hooks/useAtelierQueries';
+import { usePlanQuota } from '@/hooks/usePlanQuota';
 import {
   LayoutDashboard,
-  FolderKanban,
+  Images,
   Calendar,
   MessageSquare,
   Globe,
@@ -17,6 +16,7 @@ import {
   PanelLeftOpen,
   ArrowUpRight,
 } from 'lucide-react';
+
 
 interface SidebarProps {
   isCollapsed?: boolean;
@@ -31,8 +31,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenUpgradeModal,
   onCloseMobile,
 }) => {
-  const { galleries, subscription } = useGallery();
+  const planQuota = usePlanQuota();
   const { activeLiveEvents, upcomingEvents } = useEvent();
+  const { data: apiGalleries } = useGalleries();
+  const { data: apiEvents } = useEvents();
+  const { data: apiInquiries } = useInquiries();
   const location = useLocation();
 
   const [internalCollapsed, setInternalCollapsed] = useState<boolean>(() => {
@@ -73,16 +76,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
   // In mobile drawer, always stay fully expanded
   const effectiveCollapsed = onCloseMobile ? false : isCollapsed;
 
-  const percentageUsed = Math.min(
-    100,
-    Math.round((subscription.storageUsedGB / subscription.storageLimitGB) * 100)
-  );
+  // Real live dynamic metrics from API
+  const galleryCount = apiGalleries?.length ?? planQuota.galleriesUsed;
+  const storageUsed = planQuota.storageUsedGB;
+  const storageLimit = planQuota.storageLimitGB;
+  const percentageUsed = planQuota.storageUsedPercent;
+  const daysRemaining = planQuota.daysRemaining;
+  const expiryDisplay = planQuota.expiryDate ? planQuota.expiryDate.split('T')[0] : '';
+  const planName = planQuota.planName;
 
-  const { photographer, user } = useAuth();
-  const portfolioId = user?.username || photographer.id || 'studio';
-  const newInquiriesCount = React.useMemo(() => {
-    return getInquiries().filter((i) => i.status === 'new').length;
-  }, []);
+  const liveEventsCount = apiEvents?.filter((e: any) => e.status === 'live').length ?? activeLiveEvents.length;
+  const upcomingEventsCount = apiEvents?.filter((e: any) => e.status === 'upcoming').length ?? upcomingEvents.length;
+  const newInquiriesCount = apiInquiries?.inquiries?.filter((i: any) => i.status === 'new').length ?? 0;
 
   const navItems: Array<{
     to: string;
@@ -97,20 +102,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
       icon: LayoutDashboard,
     },
     {
-      to: '/dashboard/drive',
-      label: 'Drive',
-      icon: FolderKanban,
-      badge: (galleries.length || 5).toString(),
+      to: '/dashboard/gallery',
+      label: 'Gallery',
+      icon: Images,
+      badge: galleryCount > 0 ? galleryCount.toString() : undefined,
     },
     {
       to: '/dashboard/events',
       label: 'Events',
       icon: Calendar,
       badge:
-        activeLiveEvents.length > 0
+        liveEventsCount > 0
           ? 'LIVE'
-          : upcomingEvents.length > 0
-          ? `${upcomingEvents.length} Up`
+          : upcomingEventsCount > 0
+          ? `${upcomingEventsCount} Up`
           : undefined,
     },
     {
@@ -174,11 +179,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
             if (item.to === '/dashboard/overview') {
               return path === '/dashboard/overview' || path === '/dashboard';
             }
-            if (item.to === '/dashboard/drive') {
+            if (item.to === '/dashboard/gallery') {
               return (
+                path === '/dashboard/gallery' ||
+                path.startsWith('/dashboard/gallery/') ||
                 path === '/dashboard/drive' ||
-                path.startsWith('/dashboard/drive/') ||
-                path.startsWith('/dashboard/gallery/')
+                path.startsWith('/dashboard/drive/')
               );
             }
             if (item.to === '/dashboard/events') {
@@ -287,7 +293,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <div className="flex items-center gap-2 text-xs font-bold text-neutral-900 dark:text-white">
                 <Cloud className="w-4 h-4 text-amber-500" />
                 <span>
-                  <strong>28.7 GB</strong> of {subscription.storageLimitGB} GB
+                  <strong>{storageUsed} GB</strong> of {storageLimit} GB
                 </span>
               </div>
             </div>
@@ -316,12 +322,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
             {/* Billing Cycle Details */}
             <div className="text-[11px] pt-1 space-y-0.5">
-              <p className="font-semibold text-neutral-600 dark:text-neutral-400">Billing Cycle</p>
+              <p className="font-semibold text-neutral-600 dark:text-neutral-400 truncate">{planName}</p>
               <p className="text-amber-600 dark:text-amber-400 font-bold">
-                {subscription.daysRemaining} days remaining
+                {daysRemaining} days remaining
               </p>
               <p className="text-[10px] text-neutral-500 dark:text-neutral-400 font-mono">
-                Expires {subscription.expiryDate}
+                Expires {expiryDisplay}
               </p>
             </div>
           </div>
@@ -336,10 +342,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <div className="hidden group-hover:flex flex-col absolute left-full ml-3 p-3 bg-neutral-900 text-white text-xs rounded-2xl shadow-2xl border border-neutral-800 whitespace-nowrap z-50 gap-1.5 animate-in fade-in zoom-in-95 duration-150">
                 <span className="font-bold text-neutral-200">Storage Usage</span>
                 <span className="text-amber-400 font-mono font-semibold">
-                  28.7 GB / {subscription.storageLimitGB} GB ({percentageUsed}%)
+                  {storageUsed} GB / {storageLimit} GB ({percentageUsed}%)
                 </span>
                 <span className="text-[10px] text-neutral-400">
-                  {subscription.daysRemaining} days remaining
+                  {daysRemaining} days remaining
                 </span>
                 <span className="text-[10px] text-amber-400 font-bold mt-1">
                   Click to Upgrade Plan

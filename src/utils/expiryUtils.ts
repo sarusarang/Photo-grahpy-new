@@ -23,7 +23,6 @@ export const EXPIRY_PRESETS: ExpiryPreset[] = [
   { id: '30d', label: '30 Days', durationMs: 30 * 24 * 60 * 60 * 1000 },
   { id: '90d', label: '90 Days', durationMs: 90 * 24 * 60 * 60 * 1000 },
   { id: 'never', label: 'No Expiry (Always Active)' },
-  { id: 'custom', label: 'Custom Date & Time' },
 ];
 
 export interface ExpiryStatus {
@@ -40,7 +39,7 @@ export interface ExpiryStatus {
 /**
  * Checks whether an expiration ISO string or date has passed
  */
-export function isGalleryExpired(expiresAt?: string): boolean {
+export function isGalleryExpired(expiresAt?: string | null): boolean {
   if (!expiresAt || expiresAt.trim() === '') return false;
   const expiryDate = new Date(expiresAt);
   if (isNaN(expiryDate.getTime())) return false;
@@ -50,7 +49,7 @@ export function isGalleryExpired(expiresAt?: string): boolean {
 /**
  * Parses and computes detailed expiry status, countdown, and human-readable text
  */
-export function getExpiryStatus(expiresAt?: string): ExpiryStatus {
+export function getExpiryStatus(expiresAt?: string | null): ExpiryStatus {
   if (!expiresAt || expiresAt.trim() === '') {
     return {
       isExpired: false,
@@ -97,8 +96,7 @@ export function getExpiryStatus(expiresAt?: string): ExpiryStatus {
     hour: 'numeric',
     minute: '2-digit',
   });
-
-  let remainingText = '';
+  let remainingText: string;
   if (isExpired) {
     if (daysRemaining > 0) {
       remainingText = `Expired ${daysRemaining} day${daysRemaining > 1 ? 's' : ''} ago`;
@@ -151,7 +149,7 @@ export function calculateExpiryPreset(
 /**
  * Extends an existing or expired date by a number of days
  */
-export function extendExpiryByDays(days: number, fromDateIso?: string): string {
+export function extendExpiryByDays(days: number, fromDateIso?: string | null): string {
   const baseTime = fromDateIso && !isGalleryExpired(fromDateIso)
     ? new Date(fromDateIso).getTime()
     : Date.now();

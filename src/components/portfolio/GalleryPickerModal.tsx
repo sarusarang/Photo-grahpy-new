@@ -1,9 +1,11 @@
 import React, { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { useGallery } from '../../context/GalleryContext';
+import { useGalleries } from '@/hooks/useAtelierQueries';
+import { normalizeServerGallery } from '@/utils/galleryNormalizer';
 import type { PortfolioProject } from '../../types/portfolio';
 import type { Gallery } from '../../types';
 import { X, Search, Image as ImageIcon, Calendar, Check, Plus } from 'lucide-react';
+import { getInitialGalleryCover, handleCoverImageError } from '../../utils/coverImageUtils';
 
 interface GalleryPickerModalProps {
   isOpen: boolean;
@@ -31,7 +33,13 @@ export const GalleryPickerModal: React.FC<GalleryPickerModalProps> = ({
   onSelect,
   existingProjectGallerySlugs = [],
 }) => {
-  const { galleries } = useGallery();
+  const { data: apiGalleries } = useGalleries();
+  const galleries = useMemo<Gallery[]>(() => {
+    if (apiGalleries && Array.isArray(apiGalleries)) {
+      return apiGalleries.map((g: any) => normalizeServerGallery(g));
+    }
+    return [];
+  }, [apiGalleries]);
   const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [categoryOverride, setCategoryOverride] = useState<Category>('weddings');
@@ -142,17 +150,13 @@ export const GalleryPickerModal: React.FC<GalleryPickerModalProps> = ({
                 >
                   {/* Thumbnail */}
                   <div className="w-16 h-16 rounded-xl overflow-hidden bg-neutral-200 dark:bg-neutral-800 shrink-0">
-                    {gallery.coverImage ? (
-                      <img
-                        src={gallery.coverImage}
-                        alt={gallery.title}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <ImageIcon className="w-5 h-5 text-neutral-400" />
-                      </div>
-                    )}
+                    <img
+                      src={gallery.coverImage || getInitialGalleryCover(gallery.templateId)}
+                      alt=""
+                      loading="lazy"
+                      onError={(e) => handleCoverImageError(e, getInitialGalleryCover(gallery.templateId))}
+                      className="w-full h-full object-cover"
+                    />
                   </div>
 
                   {/* Info */}

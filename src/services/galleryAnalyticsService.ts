@@ -232,7 +232,6 @@ export function recordGalleryView(
   const updatedImpressions = current.photoImpressions + (gallery.media?.length || 10);
 
   // Update today's timeline entry
-  const todayLabel = new Date().toLocaleString('en-US', { month: 'short', day: 'numeric' });
   const updatedTimeline = [...current.timeline];
   const lastIndex = updatedTimeline.length - 1;
   if (lastIndex >= 0) {

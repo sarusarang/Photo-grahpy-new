@@ -7,12 +7,7 @@ import {
   ChevronRight,
   Menu,
   X,
-  ExternalLink,
   Sparkles,
-  Camera,
-  Layers,
-  ShieldCheck,
-  Zap,
 } from 'lucide-react';
 import { Logo } from '../components/common/Logo';
 import { useAuth } from '../context/AuthContext';
@@ -536,21 +531,28 @@ export const LandingPlaceholder: React.FC = () => {
           >
             {/* Line 1 */}
             <h1 className="text-4xl sm:text-6xl md:text-7xl lg:text-[88px] font-normal tracking-[-0.03em] leading-[1.08] text-white">
-              Designing spaces
+              Infinite
             </h1>
 
             {/* Line 2 with Concentric Capsule SVG */}
-            <div className="flex flex-wrap items-center gap-3 sm:gap-6 mt-1.5 sm:mt-2.5">
+            <div className="flex flex-wrap items-center gap-3 sm:gap-6 mt-1 sm:mt-2">
               <ConcentricCapsuleSvg className="w-28 sm:w-40 md:w-44 h-auto" />
               <span className="text-4xl sm:text-6xl md:text-7xl lg:text-[88px] font-normal tracking-[-0.03em] leading-[1.08] text-white">
-                that shape
+                Sharing,
               </span>
             </div>
 
-            {/* Line 3 with Diagonal Hatch Lines SVG */}
-            <div className="flex flex-wrap items-center gap-3 sm:gap-6 mt-1.5 sm:mt-2.5">
+            {/* Line 3 */}
+            <div className="flex flex-wrap items-center gap-3 sm:gap-6 mt-1 sm:mt-2">
               <span className="text-4xl sm:text-6xl md:text-7xl lg:text-[88px] font-normal tracking-[-0.03em] leading-[1.08] text-white">
-                experiences
+                Instant
+              </span>
+            </div>
+
+            {/* Line 4 with Diagonal Hatch Lines SVG */}
+            <div className="flex flex-wrap items-center gap-3 sm:gap-6 mt-1 sm:mt-2">
+              <span className="text-4xl sm:text-6xl md:text-7xl lg:text-[88px] font-normal tracking-[-0.03em] leading-[1.08] text-white">
+                Connections
               </span>
               <DiagonalHatchSvg className="w-24 sm:w-32 md:w-36 h-auto" />
             </div>
@@ -748,7 +750,7 @@ export const LandingPlaceholder: React.FC = () => {
                     {activeProject.description}
                   </p>
                   <Link
-                    to={activeProject.gallerySlug ? `/gallery/${activeProject.gallerySlug}` : '/dashboard/drive'}
+                    to={activeProject.gallerySlug ? `/gallery/${activeProject.gallerySlug}` : '/dashboard/gallery'}
                     target="_blank"
                     className="inline-flex items-center gap-1.5 text-[11px] font-bold tracking-widest uppercase text-neutral-900 hover:text-neutral-600 mt-4 transition-colors group/link"
                   >
@@ -814,9 +816,9 @@ export const LandingPlaceholder: React.FC = () => {
                 const isActive = diff === 0;
 
                 // Perspective Fan Stack Transformations
-                let styleTransform = '';
-                let zIndex = 10;
-                let opacity = 0.5;
+                let styleTransform: string;
+                let zIndex: number;
+                let opacity: number;
 
                 if (diff === 0) {
                   styleTransform = 'translate(0px, 0px) rotate(0deg) scale(1.05)';
@@ -1113,7 +1115,7 @@ export const LandingPlaceholder: React.FC = () => {
               ) : (
                 <>
                   <Link
-                    to="/dashboard/drive"
+                    to="/dashboard/gallery"
                     className="px-9 py-4 rounded-full bg-white hover:bg-neutral-100 text-neutral-950 text-xs font-bold tracking-widest uppercase shadow-2xl hover:shadow-white/20 transition-all duration-300 hover:scale-105 active:scale-95 inline-flex items-center gap-2"
                   >
                     <span>START YOUR PROJECT</span>

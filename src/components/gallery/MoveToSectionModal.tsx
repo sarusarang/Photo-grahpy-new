@@ -1,31 +1,34 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import {
   X,
   FolderInput,
   FolderPlus,
   Check,
-  Plus,
   ArrowRight,
-  Layers,
-  Sparkles,
-  Tag,
+  Loader2,
+  AlertCircle,
 } from 'lucide-react';
 import type { Gallery, MediaItem } from '../../types';
 import { useGallery } from '../../context/GalleryContext';
 import { useToast } from '../ui/Toast';
+import { useMoveMediaSection } from '@/hooks/useAtelierQueries';
+import {
+  moveToSectionModalSchema,
+  type MoveToSectionModalFormData,
+} from '@/schemas/atelierSchemas';
 
 const SUGGESTED_SECTIONS = [
+  'HIGHLIGHTS',
   'CEREMONY',
-  'HALDI',
   'RECEPTION',
   'PORTRAITS',
-  'SANGEET',
-  'MEHENDI',
-  'BEGRUTA EDITED',
-  'PRE-WEDDING',
+  'GETTING READY',
   'DETAILS',
   'FAMILY',
+  'PARTY',
 ];
 
 interface MoveToSectionModalProps {
@@ -45,6 +48,7 @@ export const MoveToSectionModal: React.FC<MoveToSectionModalProps> = ({
 }) => {
   const { moveMediaToSection } = useGallery();
   const { showToast } = useToast();
+  const { mutateAsync: moveMediaApi, isPending } = useMoveMediaSection(gallery.id);
 
   // Extract all currently known sections in this gallery
   const gallerySections = useMemo(() => {
@@ -66,24 +70,42 @@ export const MoveToSectionModal: React.FC<MoveToSectionModalProps> = ({
     return Array.from(origins);
   }, [mediaItems]);
 
-  const [mode, setMode] = useState<'existing' | 'new' | 'unassigned'>('existing');
-  const [selectedSection, setSelectedSection] = useState<string>('');
-  const [newSectionTitle, setNewSectionTitle] = useState('');
+  const {
+    watch,
+    setValue,
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<MoveToSectionModalFormData>({
+    resolver: zodResolver(moveToSectionModalSchema) as any,
+    defaultValues: {
+      mode: 'existing',
+      selectedSection: '',
+      newSectionTitle: '',
+    },
+  });
+
+  const mode = watch('mode');
+  const selectedSection = watch('selectedSection');
+  const newSectionTitle = watch('newSectionTitle') || '';
 
   // Initialize selected section whenever modal opens or media changes
   useEffect(() => {
     if (!isOpen) return;
 
     if (gallerySections.length > 0) {
-      // Pick first existing section that is not the same as the origin if possible
       const altSection = gallerySections.find((s) => !currentOrigins.includes(s));
-      setSelectedSection(altSection || gallerySections[0]);
-      setMode('existing');
+      const initial = altSection || gallerySections[0];
+      setValue('mode', 'existing');
+      setValue('selectedSection', initial);
+      setValue('newSectionTitle', '');
     } else {
-      setMode('new');
-      setNewSectionTitle('CEREMONY');
+      setValue('mode', 'new');
+      setValue('newSectionTitle', 'CEREMONY');
+      setValue('selectedSection', '');
     }
-  }, [isOpen, gallerySections, currentOrigins]);
+  }, [isOpen, gallerySections, currentOrigins, setValue]);
 
   // Lock background scroll & handle escape key
   useEffect(() => {
@@ -91,52 +113,54 @@ export const MoveToSectionModal: React.FC<MoveToSectionModalProps> = ({
     const originalOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape' && !isPending) onClose();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => {
       document.body.style.overflow = originalOverflow;
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isOpen, onClose]);
+  }, [isOpen, isPending, onClose]);
 
   if (!isOpen || mediaItems.length === 0) return null;
 
-  const handleConfirm = (e: React.FormEvent) => {
-    e.preventDefault();
-
+  const onSubmit = async (data: MoveToSectionModalFormData) => {
     let targetSection = '';
-    if (mode === 'unassigned') {
+    if (data.mode === 'unassigned') {
       targetSection = 'UNASSIGNED';
-    } else if (mode === 'new') {
-      targetSection = newSectionTitle.trim().toUpperCase();
-      if (!targetSection) {
-        showToast('Section Title Required', 'Please enter a name for the new section.', 'error');
-        return;
-      }
+    } else if (data.mode === 'new') {
+      targetSection = (data.newSectionTitle || '').trim().toUpperCase();
     } else {
-      targetSection = selectedSection.trim().toUpperCase();
-      if (!targetSection) {
-        showToast('Section Required', 'Please select a destination section.', 'error');
-        return;
-      }
+      targetSection = (data.selectedSection || '').trim().toUpperCase();
     }
 
     const mediaIds = mediaItems.map((m) => m.id);
-    moveMediaToSection(gallery.id, mediaIds, targetSection);
 
-    const displayName = targetSection === 'UNASSIGNED' ? 'General (Unassigned)' : targetSection;
-    showToast(
-      'Photos Moved',
-      `Moved ${mediaItems.length} photo${mediaItems.length > 1 ? 's' : ''} to "${displayName}".`,
-      'success'
-    );
+    try {
+      await moveMediaApi({ mediaIds, targetSection });
+      moveMediaToSection(gallery.id, mediaIds, targetSection);
 
-    if (onSuccess) {
-      onSuccess(targetSection, mediaItems.length);
+      const displayName = targetSection === 'UNASSIGNED' ? 'General (Unassigned)' : targetSection;
+      showToast(
+        'Photos Moved',
+        `Moved ${mediaItems.length} photo${mediaItems.length > 1 ? 's' : ''} to "${displayName}".`,
+        'success'
+      );
+
+      if (onSuccess) {
+        onSuccess(targetSection, mediaItems.length);
+      }
+
+      reset();
+      onClose();
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.detail ||
+        err?.response?.data?.message ||
+        err?.message ||
+        'Failed to move photos to section.';
+      showToast('Move Failed', msg, 'error');
     }
-
-    onClose();
   };
 
   const destinationLabel =
@@ -152,7 +176,7 @@ export const MoveToSectionModal: React.FC<MoveToSectionModalProps> = ({
       aria-modal="true"
       className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 md:p-6 bg-black/60 dark:bg-black/80 backdrop-blur-sm sm:backdrop-blur-md overlay-animate overflow-y-auto"
       onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (e.target === e.currentTarget && !isPending) onClose();
       }}
     >
       <div
@@ -175,8 +199,10 @@ export const MoveToSectionModal: React.FC<MoveToSectionModalProps> = ({
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="p-2 rounded-full text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
+            disabled={isPending}
+            className="p-2 rounded-full text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
             title="Close"
           >
             <X className="w-5 h-5" />
@@ -184,7 +210,7 @@ export const MoveToSectionModal: React.FC<MoveToSectionModalProps> = ({
         </div>
 
         {/* Scrollable Form Body */}
-        <form onSubmit={handleConfirm} className="flex-1 flex flex-col overflow-hidden min-h-0">
+        <form onSubmit={handleSubmit(onSubmit)} className="flex-1 flex flex-col overflow-hidden min-h-0">
           <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-5">
             {/* Selected Photos Preview Strip */}
             <div className="p-3.5 rounded-2xl bg-neutral-50 dark:bg-neutral-950/60 border border-neutral-200/80 dark:border-neutral-800 space-y-2.5">
@@ -213,7 +239,7 @@ export const MoveToSectionModal: React.FC<MoveToSectionModalProps> = ({
                     className="relative w-14 h-14 rounded-xl overflow-hidden shrink-0 border border-neutral-200 dark:border-neutral-700/80 shadow-xs"
                   >
                     <img
-                      src={item.thumbnailUrl || item.url}
+                      src={item.url || item.thumbnailUrl}
                       alt={item.title}
                       className="w-full h-full object-cover"
                     />
@@ -253,9 +279,10 @@ export const MoveToSectionModal: React.FC<MoveToSectionModalProps> = ({
                         <button
                           key={sec}
                           type="button"
+                          disabled={isPending}
                           onClick={() => {
-                            setMode('existing');
-                            setSelectedSection(sec);
+                            setValue('mode', 'existing', { shouldValidate: true });
+                            setValue('selectedSection', sec, { shouldValidate: true });
                           }}
                           className={`p-3 rounded-2xl border text-left transition-all flex items-center justify-between cursor-pointer ${
                             isSelected
@@ -290,7 +317,9 @@ export const MoveToSectionModal: React.FC<MoveToSectionModalProps> = ({
 
               {/* Create New Section Option */}
               <div
-                onClick={() => setMode('new')}
+                onClick={() => {
+                  if (!isPending) setValue('mode', 'new', { shouldValidate: true });
+                }}
                 className={`p-4 rounded-2xl border transition-all cursor-pointer space-y-3 ${
                   mode === 'new'
                     ? 'bg-amber-400/10 border-amber-400 ring-1 ring-amber-400'
@@ -324,12 +353,24 @@ export const MoveToSectionModal: React.FC<MoveToSectionModalProps> = ({
                   <div className="space-y-2.5 pt-1 animate-in fade-in duration-200">
                     <input
                       type="text"
-                      value={newSectionTitle}
-                      onChange={(e) => setNewSectionTitle(e.target.value.toUpperCase())}
+                      {...register('newSectionTitle')}
+                      onChange={(e) => {
+                        setValue('newSectionTitle', e.target.value.toUpperCase(), {
+                          shouldValidate: true,
+                        });
+                      }}
                       placeholder="e.g. SANGEET, AFTERPARTY, RECEPTION..."
+                      disabled={isPending}
                       autoFocus
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white text-xs font-mono uppercase tracking-wider focus:outline-hidden focus:ring-2 focus:ring-amber-400 placeholder:text-neutral-400"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white text-xs font-mono uppercase tracking-wider focus:outline-hidden focus:ring-2 focus:ring-amber-400 placeholder:text-neutral-400 disabled:opacity-50"
                     />
+
+                    {errors.newSectionTitle && (
+                      <p className="text-xs text-rose-500 flex items-center gap-1">
+                        <AlertCircle className="w-3.5 h-3.5" />
+                        {errors.newSectionTitle.message}
+                      </p>
+                    )}
 
                     {/* Quick suggestion pills */}
                     <div>
@@ -343,10 +384,11 @@ export const MoveToSectionModal: React.FC<MoveToSectionModalProps> = ({
                           <button
                             key={sugg}
                             type="button"
+                            disabled={isPending}
                             onClick={(e) => {
                               e.stopPropagation();
-                              setNewSectionTitle(sugg);
-                              setMode('new');
+                              setValue('newSectionTitle', sugg, { shouldValidate: true });
+                              setValue('mode', 'new', { shouldValidate: true });
                             }}
                             className={`px-2 py-1 rounded-lg text-[10px] font-mono uppercase transition-colors cursor-pointer ${
                               newSectionTitle === sugg
@@ -365,7 +407,9 @@ export const MoveToSectionModal: React.FC<MoveToSectionModalProps> = ({
 
               {/* Unassigned / General Section Option */}
               <div
-                onClick={() => setMode('unassigned')}
+                onClick={() => {
+                  if (!isPending) setValue('mode', 'unassigned', { shouldValidate: true });
+                }}
                 className={`p-3.5 rounded-2xl border text-left transition-all flex items-center justify-between cursor-pointer ${
                   mode === 'unassigned'
                     ? 'bg-amber-400/10 border-amber-400 ring-1 ring-amber-400 shadow-xs'
@@ -400,19 +444,30 @@ export const MoveToSectionModal: React.FC<MoveToSectionModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-5 py-2.5 rounded-xl bg-white dark:bg-neutral-900 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-800 text-xs font-mono transition-colors cursor-pointer"
+              disabled={isPending}
+              className="px-5 py-2.5 rounded-xl bg-white dark:bg-neutral-900 hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed text-neutral-700 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-800 text-xs font-mono transition-colors cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-6 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 text-xs font-mono font-bold flex items-center gap-2 transition-all hover:scale-[1.02] shadow-lg shadow-amber-400/20 cursor-pointer"
+              disabled={isPending}
+              className="px-6 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 text-xs font-mono font-bold flex items-center gap-2 transition-all hover:scale-[1.02] shadow-lg shadow-amber-400/20 cursor-pointer disabled:opacity-50"
             >
-              <span>
-                Move {mediaItems.length} Photo{mediaItems.length > 1 ? 's' : ''} to{' '}
-                <span className="underline uppercase">{destinationLabel}</span>
-              </span>
-              <ArrowRight className="w-4 h-4" />
+              {isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Transferring...</span>
+                </>
+              ) : (
+                <>
+                  <span>
+                    Move {mediaItems.length} Photo{mediaItems.length > 1 ? 's' : ''} to{' '}
+                    <span className="underline uppercase">{destinationLabel}</span>
+                  </span>
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
             </button>
           </div>
         </form>

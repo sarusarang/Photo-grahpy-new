@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Trash2, AlertTriangle, X, Image as ImageIcon, Film } from 'lucide-react';
+import { Trash2, AlertTriangle, X, Image as ImageIcon, Film, Loader2 } from 'lucide-react';
 import type { MediaItem } from '../../types';
 
 interface ConfirmDeleteModalProps {
@@ -108,7 +108,7 @@ export const ConfirmDeleteModal: React.FC<ConfirmDeleteModalProps> = ({
           <div className="relative mb-5 p-3 rounded-2xl bg-neutral-50 dark:bg-neutral-900/80 border border-neutral-200/80 dark:border-neutral-800 flex items-center gap-3.5 group">
             <div className="relative w-14 h-14 rounded-xl overflow-hidden bg-neutral-200 dark:bg-neutral-800 flex-shrink-0 ring-1 ring-black/5 dark:ring-white/10">
               <img
-                src={item.thumbnailUrl || item.url}
+                src={item.url || item.thumbnailUrl}
                 alt={item.title}
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
               />
@@ -196,9 +196,13 @@ export const ConfirmDeleteModal: React.FC<ConfirmDeleteModalProps> = ({
             type="button"
             onClick={onConfirm}
             disabled={isDeleting}
-            className="flex-1 sm:flex-none px-5 sm:px-6 py-2.5 rounded-xl bg-gradient-to-r from-red-600 via-rose-600 to-rose-700 hover:from-red-500 hover:to-rose-600 text-white text-xs font-bold tracking-wide shadow-lg shadow-rose-600/25 active:scale-[0.98] transition-all flex items-center justify-center gap-2 group"
+            className="flex-1 sm:flex-none px-5 sm:px-6 py-2.5 rounded-xl bg-gradient-to-r from-red-600 via-rose-600 to-rose-700 hover:from-red-500 hover:to-rose-600 text-white text-xs font-bold tracking-wide shadow-lg shadow-rose-600/25 active:scale-[0.98] transition-all flex items-center justify-center gap-2 group disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
-            <Trash2 className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
+            {isDeleting ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Trash2 className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
+            )}
             <span>{isDeleting ? 'Deleting...' : confirmLabel}</span>
           </button>
         </div>

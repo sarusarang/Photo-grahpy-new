@@ -4,19 +4,18 @@ import {
   X,
   Calendar,
   Sparkles,
-  Camera,
-  MapPin,
   Clock,
-  User,
-  Radio,
-  Image as ImageIcon,
   ArrowRight,
+  ShieldAlert,
 } from 'lucide-react';
 import type { EventType, EventStatus } from '../../types/event';
 import { CURATED_EVENT_BANNERS, getExpiryDateHoursAhead } from '../../data/eventData';
 import { useEvent } from '../../context/EventContext';
 import { useToast } from '../ui/Toast';
 import { useNavigate } from 'react-router-dom';
+import { useCreateEvent } from '@/hooks/useAtelierQueries';
+import { usePlanQuota } from '@/hooks/usePlanQuota';
+import { PlanUpgradeModal } from '@/components/billing/PlanUpgradeModal';
 import { CustomSelect, type CustomSelectOption } from '../ui/CustomSelect';
 
 const EVENT_TYPE_OPTIONS: CustomSelectOption<EventType>[] = [
@@ -51,17 +50,19 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
   const { createEvent } = useEvent();
   const { showToast } = useToast();
   const navigate = useNavigate();
+  const planQuota = usePlanQuota();
+  const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
 
   const [title, setTitle] = useState('');
   const [clientName, setClientName] = useState('');
-  const [clientContact, setClientContact] = useState('');
+  const clientContact = '';
   const [eventType, setEventType] = useState<EventType>('wedding');
   const [status, setStatus] = useState<EventStatus>(defaultStatus);
   const [eventDate, setEventDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [eventTime, setEventTime] = useState('18:00');
   const [venue, setVenue] = useState('');
   const [city, setCity] = useState('');
-  const [selectedBanner, setSelectedBanner] = useState(CURATED_EVENT_BANNERS[0].url);
+  const selectedBanner = CURATED_EVENT_BANNERS[0].url;
   const [qrDurationHours, setQrDurationHours] = useState<number>(4);
 
   // Lock background scroll & handle escape key
@@ -81,45 +82,91 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const { mutateAsync: apiCreateEvent } = useCreateEvent();
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) {
       showToast('Title Required', 'Please provide a name for the event.', 'error');
       return;
     }
 
-    const expiresAt = getExpiryDateHoursAhead(qrDurationHours);
+    if (!planQuota.canCreateEvent) {
+      setIsUpgradeModalOpen(true);
+      return;
+    }
 
-    const newEvent = createEvent({
-      title: title.trim(),
-      clientName: clientName.trim() || 'Private Client',
-      clientContact: clientContact.trim(),
-      eventType,
-      status,
-      bannerUrl: selectedBanner,
-      eventDate,
-      eventTime,
-      venue: venue.trim() || 'Private Venue',
-      city: city.trim(),
-      qrSettings: {
-        validFrom: new Date().toISOString(),
-        expiresAt,
-        durationHours: qrDurationHours,
-        isActive: true,
-        allowGuestUploads: false,
-      },
-    });
+    try {
+      const createdFromApi = await apiCreateEvent({
+        title: title.trim(),
+        event_type: eventType,
+        venue: venue.trim() || 'Private Venue',
+        qr_duration_hours: qrDurationHours,
+      });
 
-    showToast(
-      status === 'live' ? 'Live Event Created!' : 'Upcoming Event Scheduled',
-      status === 'live'
-        ? `Event is now live and ready for instant photo uploads.`
-        : `Scheduled for ${eventDate}. QR stand cards pre-generated.`,
-      'success'
-    );
+      const newEvent = createEvent({
+        id: createdFromApi.id,
+        slug: createdFromApi.slug || createdFromApi.id,
+        title: createdFromApi.title,
+        clientName: clientName.trim() || 'Private Client',
+        clientContact: clientContact.trim(),
+        eventType,
+        status: (createdFromApi.status as any) || status,
+        bannerUrl: selectedBanner,
+        eventDate,
+        eventTime,
+        venue: venue.trim() || 'Private Venue',
+        city: city.trim(),
+        qrSettings: {
+          validFrom: new Date().toISOString(),
+          expiresAt: getExpiryDateHoursAhead(qrDurationHours),
+          durationHours: qrDurationHours,
+          isActive: true,
+          allowGuestUploads: false,
+        },
+      });
 
-    onClose();
-    navigate(`/dashboard/events/${newEvent.id}`);
+      showToast(
+        status === 'live' ? 'Live Event Created!' : 'Upcoming Event Scheduled',
+        status === 'live'
+          ? `Event is now live and ready for instant photo uploads.`
+          : `Scheduled for ${eventDate}. QR stand cards pre-generated.`,
+        'success'
+      );
+
+      onClose();
+      navigate(`/dashboard/events/${createdFromApi.id || newEvent.id}`);
+    } catch {
+      // Local fallback
+      const newEvent = createEvent({
+        title: title.trim(),
+        clientName: clientName.trim() || 'Private Client',
+        clientContact: clientContact.trim(),
+        eventType,
+        status,
+        bannerUrl: selectedBanner,
+        eventDate,
+        eventTime,
+        venue: venue.trim() || 'Private Venue',
+        city: city.trim(),
+        qrSettings: {
+          validFrom: new Date().toISOString(),
+          expiresAt: getExpiryDateHoursAhead(qrDurationHours),
+          durationHours: qrDurationHours,
+          isActive: true,
+          allowGuestUploads: false,
+        },
+      });
+
+      showToast(
+        status === 'live' ? 'Live Event Created!' : 'Upcoming Event Scheduled',
+        'Saved to studio schedule.',
+        'info'
+      );
+
+      onClose();
+      navigate(`/dashboard/events/${newEvent.id}`);
+    }
   };
 
   return createPortal(
@@ -161,6 +208,45 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
         <form onSubmit={handleSubmit} className="flex-1 flex flex-col overflow-hidden min-h-0">
           {/* Scrollable Form Body */}
           <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-5">
+            {/* Plan Quota Badge */}
+            <div className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs">
+              <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300 font-medium">
+                <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                <span>Studio Plan: <strong className="font-semibold">{planQuota.planName}</strong></span>
+              </div>
+              <div className="text-[11px] font-mono font-semibold">
+                {planQuota.isUnlimitedEvents ? (
+                  <span className="text-emerald-600 dark:text-emerald-400">Unlimited Live Events</span>
+                ) : (
+                  <span className="text-neutral-600 dark:text-neutral-400">
+                    <strong className="text-amber-600 dark:text-amber-400">{planQuota.eventsRemaining}</strong> of {planQuota.maxEvents} events left
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Quota Exceeded Warning */}
+            {!planQuota.canCreateEvent && (
+              <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-700 dark:text-rose-300 text-xs flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <ShieldAlert className="w-4 h-4 text-rose-500 shrink-0" />
+                  <div>
+                    <p className="font-bold">Event Quota Reached ({planQuota.eventsUsed}/{planQuota.maxEvents})</p>
+                    <p className="text-[11px] text-neutral-600 dark:text-neutral-400">
+                      Your current plan allows up to {planQuota.maxEvents} live scheduled events.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsUpgradeModalOpen(true)}
+                  className="px-3.5 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 font-bold text-xs shrink-0 transition-colors shadow-sm cursor-pointer"
+                >
+                  Upgrade Plan
+                </button>
+              </div>
+            )}
+
             {/* Status Switcher: Live Now vs Upcoming */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <button
@@ -333,6 +419,14 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
           </div>
         </form>
       </div>
+
+      <PlanUpgradeModal
+        isOpen={isUpgradeModalOpen}
+        onClose={() => setIsUpgradeModalOpen(false)}
+        errorCode="EVENT_LIMIT_EXCEEDED"
+        lockedFeature="Live Events"
+        errorMessage={`Your ${planQuota.planName} has reached its limit of ${planQuota.maxEvents} live events. Upgrade your studio subscription to schedule unlimited events.`}
+      />
     </div>,
     document.body
   );

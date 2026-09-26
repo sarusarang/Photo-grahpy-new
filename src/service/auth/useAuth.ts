@@ -1,3 +1,5 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import {
   SendLoginOtpApi,
   VerifyLoginOtpApi,
@@ -8,9 +10,7 @@ import {
   CheckLoginStatusApi,
   UserLogoutApi,
   RefreshTokenApi,
-} from '@/service/auth/AuthApi';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
+} from './AuthApi';
 import type {
   SendOtpPayload,
   SendOtpResponse,
@@ -19,17 +19,30 @@ import type {
   CheckLoginResponse,
   LogoutResponse,
   RefreshTokenResponse,
-} from '@/service/auth/type';
+} from './type';
 
-// Login OTP Send
+/**
+ * React Query Keys for Auth Domain
+ */
+export const AUTH_QUERY_KEYS = {
+  checkLogin: ['check-login'] as const,
+  onboardingState: ['onboarding-state'] as const,
+  photographerProfile: ['photographer-profile'] as const,
+};
+
+// ============================================================================
+// 1. Passwordless Login Flow
+// ============================================================================
+
+/**
+ * Dispatch verification OTP for passwordless login
+ */
 export const useSendLoginOtp = () => {
   return useMutation<SendOtpResponse, Error, SendOtpPayload>({
-    mutationFn: async (data) => {
-      return await SendLoginOtpApi(data);
-    },
+    mutationFn: async (data) => SendLoginOtpApi(data),
     onSuccess: (data) => {
       toast.success("Verification Code Sent", {
-        description: data?.message || "A 6-digit verification passcode has been sent to your email address.",
+        description: data?.message || "A 6-digit verification code has been dispatched to your email address.",
       });
     },
     onError: (error: Error) => {
@@ -40,20 +53,21 @@ export const useSendLoginOtp = () => {
   });
 };
 
-// Login OTP Verify
+/**
+ * Verify OTP for passwordless login and initialize session
+ */
 export const useVerifyLoginOtp = () => {
   const queryClient = useQueryClient();
 
   return useMutation<VerifyOtpResponse, Error, VerifyOtpPayload>({
-    mutationFn: async (data) => {
-      return await VerifyLoginOtpApi(data);
-    },
+    mutationFn: async (data) => VerifyLoginOtpApi(data),
     onSuccess: (data) => {
       toast.success("Authentication Successful", {
         description: data?.message || "Welcome back to your photographer workspace.",
       });
-      queryClient.invalidateQueries({ queryKey: ['check-login'] });
-      queryClient.invalidateQueries({ queryKey: ['onboarding-state'] });
+      // Invalidate session checks so the app updates with fresh server state
+      queryClient.invalidateQueries({ queryKey: AUTH_QUERY_KEYS.checkLogin });
+      queryClient.invalidateQueries({ queryKey: AUTH_QUERY_KEYS.onboardingState });
     },
     onError: (error: Error) => {
       toast.error("Verification Failed", {
@@ -63,12 +77,12 @@ export const useVerifyLoginOtp = () => {
   });
 };
 
-// Login OTP Resend
+/**
+ * Resend OTP code for passwordless login
+ */
 export const useResendLoginOtp = () => {
   return useMutation<SendOtpResponse, Error, SendOtpPayload>({
-    mutationFn: async (data) => {
-      return await ResendLoginOtpApi(data);
-    },
+    mutationFn: async (data) => ResendLoginOtpApi(data),
     onSuccess: (data) => {
       toast.success("Code Resent", {
         description: data?.message || "A fresh 6-digit verification code has been dispatched to your email.",
@@ -82,12 +96,16 @@ export const useResendLoginOtp = () => {
   });
 };
 
-// Registration OTP Send
+// ============================================================================
+// 2. Passwordless Registration Flow
+// ============================================================================
+
+/**
+ * Dispatch verification OTP for new photographer registration
+ */
 export const useSendRegOtp = () => {
   return useMutation<SendOtpResponse, Error, SendOtpPayload>({
-    mutationFn: async (data) => {
-      return await SendRegOtpApi(data);
-    },
+    mutationFn: async (data) => SendRegOtpApi(data),
     onSuccess: (data) => {
       toast.success("Registration Code Sent", {
         description: data?.message || "A 6-digit registration code has been sent to your email address.",
@@ -101,20 +119,20 @@ export const useSendRegOtp = () => {
   });
 };
 
-// Registration OTP Verify
+/**
+ * Verify registration OTP and activate user account
+ */
 export const useVerifyRegOtp = () => {
   const queryClient = useQueryClient();
 
   return useMutation<VerifyOtpResponse, Error, VerifyOtpPayload>({
-    mutationFn: async (data) => {
-      return await VerifyRegOtpApi(data);
-    },
+    mutationFn: async (data) => VerifyRegOtpApi(data),
     onSuccess: (data) => {
       toast.success("Email Verified", {
         description: data?.message || "Your email has been verified successfully.",
       });
-      queryClient.invalidateQueries({ queryKey: ['check-login'] });
-      queryClient.invalidateQueries({ queryKey: ['onboarding-state'] });
+      queryClient.invalidateQueries({ queryKey: AUTH_QUERY_KEYS.checkLogin });
+      queryClient.invalidateQueries({ queryKey: AUTH_QUERY_KEYS.onboardingState });
     },
     onError: (error: Error) => {
       toast.error("Verification Failed", {
@@ -124,12 +142,12 @@ export const useVerifyRegOtp = () => {
   });
 };
 
-// Registration OTP Resend
+/**
+ * Resend registration OTP code
+ */
 export const useResendRegOtp = () => {
   return useMutation<SendOtpResponse, Error, SendOtpPayload>({
-    mutationFn: async (data) => {
-      return await ResendRegOtpApi(data);
-    },
+    mutationFn: async (data) => ResendRegOtpApi(data),
     onSuccess: (data) => {
       toast.success("Registration Code Resent", {
         description: data?.message || "A fresh 6-digit registration code has been dispatched to your email.",
@@ -143,65 +161,69 @@ export const useResendRegOtp = () => {
   });
 };
 
-// Aliases for backward compatibility (defaults to Login)
+// Backward-compatible flow aliases
 export const useSendOtp = useSendLoginOtp;
 export const useVerifyOtp = useVerifyLoginOtp;
 export const useResendOtp = useResendLoginOtp;
 
-// User Logout
-export const useLogout = () => {
-  const queryClient = useQueryClient();
+// ============================================================================
+// 3. Session Management & Validation
+// ============================================================================
 
-  return useMutation<LogoutResponse, Error, void>({
-    mutationFn: async () => {
-      return await UserLogoutApi();
-    },
-    onSuccess: (data) => {
-      toast.success(data?.message || "Logged out successfully");
-      localStorage.removeItem('photo_saas_auth_v2');
-      localStorage.removeItem('photo_saas_profile_v2');
-      localStorage.removeItem('photo_saas_user_v2');
-      queryClient.setQueryData(['check-login'], { is_logged_in: false, message: "Logged out successfully" });
-      queryClient.setQueryData(['onboarding-state'], null);
-      queryClient.invalidateQueries({ queryKey: ['check-login'] });
-      localStorage.setItem('logout', Date.now().toString());
-    },
-    onError: (error: Error) => {
-      toast.error("Sign Out Notice", {
-        description: error?.message || "Cleared local session.",
-      });
-      localStorage.removeItem('photo_saas_auth_v2');
-      localStorage.removeItem('photo_saas_profile_v2');
-      localStorage.removeItem('photo_saas_user_v2');
-      queryClient.setQueryData(['check-login'], { is_logged_in: false, message: "Logged out" });
-      queryClient.invalidateQueries({ queryKey: ['check-login'] });
-      localStorage.setItem('logout', Date.now().toString());
-    },
-  });
-};
-
-// Check Login Status & Session Validity
+/**
+ * Check Login Status & Session Validity (Cookie-based Single Source of Truth)
+ */
 export const useCheckLogin = (options?: { enabled?: boolean }) => {
   return useQuery<CheckLoginResponse, Error>({
-    queryKey: ['check-login'],
-    queryFn: async () => {
-      return await CheckLoginStatusApi();
-    },
-    retry: 1,
-    staleTime: 2 * 60 * 1000,
+    queryKey: AUTH_QUERY_KEYS.checkLogin,
+    queryFn: async () => CheckLoginStatusApi(),
+    retry: false,
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: true,
     ...options,
   });
 };
 
-// Refresh Access Token Mutation
+/**
+ * Terminate user session & purge auth caches
+ */
+export const useLogout = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation<LogoutResponse, Error, void>({
+    mutationFn: async () => UserLogoutApi(),
+    onSuccess: (data) => {
+      toast.success(data?.message || "Logged out successfully");
+      queryClient.setQueryData(AUTH_QUERY_KEYS.checkLogin, {
+        is_logged_in: false,
+        message: "Logged out successfully",
+      });
+      queryClient.setQueryData(AUTH_QUERY_KEYS.onboardingState, null);
+      queryClient.setQueryData(AUTH_QUERY_KEYS.photographerProfile, null);
+      queryClient.invalidateQueries({ queryKey: AUTH_QUERY_KEYS.checkLogin });
+    },
+    onError: (error: Error) => {
+      toast.error("Sign Out Notice", {
+        description: error?.message || "Session cleared.",
+      });
+      queryClient.setQueryData(AUTH_QUERY_KEYS.checkLogin, {
+        is_logged_in: false,
+        message: "Logged out",
+      });
+      queryClient.invalidateQueries({ queryKey: AUTH_QUERY_KEYS.checkLogin });
+    },
+  });
+};
+
+/**
+ * Explicitly refresh session cookie
+ */
 export const useRefreshToken = () => {
   return useMutation<RefreshTokenResponse, Error, void>({
-    mutationFn: async () => {
-      return await RefreshTokenApi();
-    },
+    mutationFn: async () => RefreshTokenApi(),
     onSuccess: (data) => {
       toast.success("Session Active", {
-        description: data?.message || "Access token refreshed",
+        description: data?.message || "Session cookies refreshed.",
       });
     },
     onError: (error: Error) => {

@@ -1,15 +1,18 @@
-import React, { useState } from 'react';
-import { Outlet, useNavigate, useLocation } from 'react-router-dom';
+import React, { useState, useRef } from 'react';
+import { Outlet, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { Header } from '../components/common/Header';
 import { Sidebar } from '../components/common/Sidebar';
 import { MobileNav } from '../components/common/MobileNav';
 import { UpgradePlanModal } from '../components/common/UpgradePlanModal';
 import { CreateGalleryModal } from '../components/gallery/CreateGalleryModal';
+import { SmoothScrollProvider } from '../components/common/SmoothScroll';
 import { useAuth } from '../context/AuthContext';
 import { X } from 'lucide-react';
 
 export const DashboardLayout: React.FC = () => {
-  const { isAuthenticated, login } = useAuth();
+  const { isAuthenticated } = useAuth();
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLElement>(null);
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
@@ -34,36 +37,19 @@ export const DashboardLayout: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Redirect if not authenticated (or show login prompt)
+  // Redirect to login if not authenticated
   if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-[#0c0d12] text-white flex flex-col items-center justify-center p-6">
-        <div className="max-w-md w-full p-8 rounded-3xl bg-neutral-900 border border-neutral-800 text-center space-y-4 shadow-2xl">
-          <h2 className="text-2xl font-serif">Photographer Sign In Required</h2>
-          <p className="text-xs text-neutral-400">
-            Please log in with your demo photographer account to access your studio drive.
-          </p>
-          <div className="space-y-2 pt-2">
-            <button
-              onClick={() => login()}
-              className="w-full py-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 font-bold text-xs uppercase tracking-wider transition-all cursor-pointer shadow-lg shadow-amber-400/20"
-            >
-              Continue as Demo Studio
-            </button>
-            <button
-              onClick={() => navigate('/login')}
-              className="w-full py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-mono text-xs transition-colors cursor-pointer"
-            >
-              Go to Login
-            </button>
-          </div>
-        </div>
-      </div>
-    );
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   return (
-    <div className="h-screen bg-[#f8f9fa] dark:bg-[#0c0d12] text-neutral-900 dark:text-neutral-100 flex flex-col antialiased overflow-hidden transition-colors">
+    <SmoothScrollProvider
+      wrapperRef={scrollContainerRef}
+      contentRef={contentRef}
+      resetOnKey={location.pathname}
+      duration={1.15}
+    >
+      <div className="h-screen bg-[#f8f9fa] dark:bg-[#0c0d12] text-neutral-900 dark:text-neutral-100 flex flex-col antialiased overflow-hidden transition-colors">
       {/* 1. Full-Width Top Header */}
       <Header
         onOpenMobileMenu={() => setMobileDrawerOpen(true)}
@@ -116,10 +102,14 @@ export const DashboardLayout: React.FC = () => {
         )}
 
         {/* Main Center Stage — smoothly expanding with generous mobile bottom clearance */}
-        <div className="flex-1 flex flex-col min-w-0 overflow-y-auto pb-24 md:pb-8 transition-all duration-300 ease-[cubic-bezier(0.2,0,0,1)]">
+        <div
+          ref={scrollContainerRef}
+          className="flex-1 flex flex-col min-w-0 overflow-y-auto pb-24 md:pb-8 transition-all duration-300 ease-[cubic-bezier(0.2,0,0,1)]"
+        >
           <main
+            ref={contentRef}
             key={location.pathname}
-            className="flex-1 page-animate transition-all duration-300 ease-[cubic-bezier(0.2,0,0,1)]"
+            className="flex-1 page-animate transition-colors duration-300 ease-[cubic-bezier(0.2,0,0,1)]"
           >
             <Outlet context={{ isSidebarCollapsed }} />
           </main>
@@ -201,9 +191,10 @@ export const DashboardLayout: React.FC = () => {
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onCreated={(newGal) => {
-          navigate(`/dashboard/drive/${newGal.id}`);
+          navigate(`/dashboard/gallery/${newGal.id}`);
         }}
       />
     </div>
+    </SmoothScrollProvider>
   );
 };

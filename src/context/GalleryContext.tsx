@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import type { Gallery, MediaItem, SubscriptionPlan, GalleryTemplateId } from '../types';
-import { INITIAL_GALLERIES, INITIAL_SUBSCRIPTION, AVAILABLE_PLANS, getRandomCoverImage } from '../data/demoData';
+import { INITIAL_GALLERIES, INITIAL_SUBSCRIPTION, AVAILABLE_PLANS } from '../data/demoData';
+import { getInitialGalleryCover } from '../utils/coverImageUtils';
 
 interface GalleryContextType {
   galleries: Gallery[];
@@ -13,7 +14,14 @@ interface GalleryContextType {
   createGallery: (galleryData: Partial<Gallery>) => Gallery;
   updateGallery: (galleryId: string, updates: Partial<Gallery>) => void;
   deleteGallery: (galleryId: string) => void;
-  addMediaToGallery: (galleryId: string, items: Omit<MediaItem, 'id' | 'galleryId' | 'dateAdded'>[]) => void;
+  addMediaToGallery: (
+    galleryId: string,
+    items: (Omit<MediaItem, 'id' | 'galleryId' | 'dateAdded'> & {
+      id?: string;
+      galleryId?: string;
+      dateAdded?: string;
+    })[]
+  ) => void;
   removeMediaFromGallery: (galleryId: string, mediaId: string) => void;
   reorderMediaInGallery: (galleryId: string, reorderedList: MediaItem[]) => void;
   toggleMediaFavorite: (galleryId: string, mediaId: string) => void;
@@ -37,13 +45,32 @@ const GalleryContext = createContext<GalleryContextType | undefined>(undefined);
 
 export const GalleryProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [galleries, setGalleries] = useState<Gallery[]>(() => {
-    const saved = localStorage.getItem(GALLERIES_STORAGE_KEY);
-    return saved ? JSON.parse(saved) : INITIAL_GALLERIES;
+    try {
+      const saved = localStorage.getItem(GALLERIES_STORAGE_KEY);
+      if (saved && (saved.includes('Villa Balbiano') || saved.includes('Paris Fashion Week'))) {
+        localStorage.removeItem(GALLERIES_STORAGE_KEY);
+        return [];
+      }
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
   });
 
   const [subscription, setSubscription] = useState<SubscriptionPlan>(() => {
-    const saved = localStorage.getItem(SUBSCRIPTION_STORAGE_KEY);
-    return saved ? JSON.parse(saved) : INITIAL_SUBSCRIPTION;
+    return {
+      id: 'plan-standard-1y',
+      name: 'Standard Annual',
+      tier: 'standard',
+      priceMonthly: 800,
+      billingCycle: 'annual',
+      storageLimitGB: 20,
+      storageUsedGB: 0,
+      daysRemaining: 365,
+      expiryDate: new Date(Date.now() + 365 * 86400000).toISOString().split('T')[0],
+      status: 'active',
+      features: [],
+    };
   });
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -57,16 +84,15 @@ export const GalleryProvider: React.FC<{ children: React.ReactNode }> = ({ child
     localStorage.setItem(SUBSCRIPTION_STORAGE_KEY, JSON.stringify(subscription));
   }, [subscription]);
 
-  // Recalculate storage used whenever galleries change
+  // Recalculate storage used whenever galleries change based on real media
   useEffect(() => {
     let totalMB = 0;
     for (const gal of galleries) {
       for (const m of gal.media) {
-        totalMB += m.sizeMB || 5;
+        totalMB += m.sizeMB || 0;
       }
     }
-    // Base platform overhead + media
-    const totalGB = Number((28.5 + totalMB / 1024).toFixed(1));
+    const totalGB = Number((totalMB / 1024).toFixed(2));
     setSubscription((prev) => ({
       ...prev,
       storageUsedGB: totalGB,
@@ -74,23 +100,25 @@ export const GalleryProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, [galleries]);
 
   const createGallery = (galleryData: Partial<Gallery>): Gallery => {
-    const id = `gal-${Date.now()}`;
-    const slug = (galleryData.title || 'untitled')
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/(^-|-$)/g, '');
+    const id = galleryData.id || `gal-${Date.now()}`;
+    const slug =
+      galleryData.slug ||
+      (galleryData.title || 'untitled')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '');
 
     const newGallery: Gallery = {
       id,
-      slug: `${slug}-${Math.floor(100 + Math.random() * 900)}`,
+      slug: galleryData.slug || `${slug}-${Math.floor(100 + Math.random() * 900)}`,
       title: galleryData.title || 'Untitled Gallery',
       clientName: galleryData.clientName || 'Private Client',
       clientEmail: galleryData.clientEmail || '',
       eventDate: galleryData.eventDate || new Date().toISOString().split('T')[0],
-      createdAt: new Date().toISOString().split('T')[0],
+      createdAt: galleryData.createdAt || new Date().toISOString().split('T')[0],
       coverImage:
         galleryData.coverImage ||
-        getRandomCoverImage(),
+        getInitialGalleryCover(galleryData.templateId),
       templateId: galleryData.templateId || 'editorial',
       status: galleryData.status || 'active',
       isPasswordProtected: galleryData.isPasswordProtected || false,
@@ -98,8 +126,8 @@ export const GalleryProvider: React.FC<{ children: React.ReactNode }> = ({ child
       allowDownloads: galleryData.allowDownloads !== undefined ? galleryData.allowDownloads : true,
       allowFavorites: galleryData.allowFavorites !== undefined ? galleryData.allowFavorites : true,
       media: galleryData.media || [],
-      viewsCount: 0,
-      downloadsCount: 0,
+      viewsCount: galleryData.viewsCount || 0,
+      downloadsCount: galleryData.downloadsCount || 0,
     };
 
     setGalleries((prev) => [newGallery, ...prev]);
@@ -118,14 +146,18 @@ export const GalleryProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const addMediaToGallery = (
     galleryId: string,
-    items: Omit<MediaItem, 'id' | 'galleryId' | 'dateAdded'>[]
+    items: (Omit<MediaItem, 'id' | 'galleryId' | 'dateAdded'> & {
+      id?: string;
+      galleryId?: string;
+      dateAdded?: string;
+    })[]
   ) => {
     const nowStr = new Date().toISOString().split('T')[0];
     const newItems: MediaItem[] = items.map((it, idx) => ({
       ...it,
-      id: `m-${Date.now()}-${idx}`,
-      galleryId,
-      dateAdded: nowStr,
+      id: it.id || `m-${Date.now()}-${idx}`,
+      galleryId: it.galleryId || galleryId,
+      dateAdded: it.dateAdded || nowStr,
     }));
 
     setGalleries((prev) =>
@@ -154,9 +186,14 @@ export const GalleryProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setGalleries((prev) =>
       prev.map((gal) => {
         if (gal.id !== galleryId) return gal;
+        const newMedia = gal.media.filter((m) => m.id !== mediaId);
         return {
           ...gal,
-          media: gal.media.filter((m) => m.id !== mediaId),
+          media: newMedia,
+          coverImage:
+            newMedia.length === 0
+              ? getInitialGalleryCover(gal.templateId)
+              : gal.coverImage,
         };
       })
     );

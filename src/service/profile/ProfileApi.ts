@@ -124,3 +124,36 @@ export const RemoveProfileAvatarApi = async (): Promise<RemoveAvatarResponse> =>
     "/api/photographers/profiles/me/avatar/"
   )) as RemoveAvatarResponse;
 };
+
+/**
+ * 5. Update Watermark Configuration
+ * Endpoint: PATCH /api/photographers/profiles/me/watermark/ or /api/photographers/profiles/me/
+ */
+export const UpdateWatermarkApi = async (payload: {
+  enable_watermark?: boolean;
+  watermark_text?: string;
+  watermark_opacity?: number;
+  watermark_position?: string;
+  watermark_image?: File;
+}) => {
+  if (payload.watermark_image instanceof File) {
+    const formData = new FormData();
+    Object.entries(payload).forEach(([k, v]) => {
+      if (v !== undefined) formData.append(k, v as any);
+    });
+    return CommonApi('PATCH', '/api/photographers/profiles/me/watermark/', formData);
+  }
+  try {
+    return await CommonApi('PATCH', '/api/photographers/profiles/me/watermark/', payload);
+  } catch {
+    return await CommonApi('PATCH', '/api/photographers/profiles/me/', payload);
+  }
+};
+
+// Aliases matching implementation guide
+export const GetMyProfileApi = GetPhotographerProfileApi;
+export const UpdateMyProfileApi = UpdatePersonalInformationApi;
+export const UploadAvatarApi = UploadProfileAvatarApi;
+export const DeleteAvatarApi = RemoveProfileAvatarApi;
+export const CompleteOnboardingApi = SubmitOnboardingApi;
+

@@ -4,10 +4,14 @@ import 'lenis/dist/lenis.css';
 
 interface SmoothScrollContextType {
   lenis: Lenis | null;
+  resize: () => void;
+  scrollTo: (target: number | HTMLElement | string, options?: any) => void;
 }
 
 const SmoothScrollContext = createContext<SmoothScrollContextType>({
   lenis: null,
+  resize: () => {},
+  scrollTo: () => {},
 });
 
 export const useSmoothScroll = () => useContext(SmoothScrollContext);
@@ -49,22 +53,42 @@ export const useLenisScroll = (callback: (scroll: number, direction: number) => 
   }, [lenis]);
 };
 
-interface SmoothScrollProviderProps {
+export interface SmoothScrollProviderProps {
   children: React.ReactNode;
+  wrapperRef?: React.RefObject<any>;
+  contentRef?: React.RefObject<any>;
+  resetOnKey?: any;
+  duration?: number;
+  wheelMultiplier?: number;
 }
 
-export const SmoothScrollProvider: React.FC<SmoothScrollProviderProps> = ({ children }) => {
+export const SmoothScrollProvider: React.FC<SmoothScrollProviderProps> = ({
+  children,
+  wrapperRef,
+  contentRef,
+  resetOnKey,
+  duration = 1.15,
+  wheelMultiplier = 1,
+}) => {
   const [lenis, setLenis] = useState<Lenis | null>(null);
 
   useEffect(() => {
+    const wrapper = wrapperRef?.current || window;
+    const content =
+      contentRef?.current ||
+      (wrapper instanceof HTMLElement ? (wrapper.firstElementChild as HTMLElement) : undefined);
+
     const instance = new Lenis({
-      duration: 1.2,
+      wrapper,
+      content,
+      duration,
       easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
       orientation: 'vertical',
       gestureOrientation: 'vertical',
       smoothWheel: true,
-      wheelMultiplier: 1,
+      wheelMultiplier,
       touchMultiplier: 1.5,
+      autoResize: true,
     });
 
     setLenis(instance);
@@ -81,10 +105,25 @@ export const SmoothScrollProvider: React.FC<SmoothScrollProviderProps> = ({ chil
       instance.destroy();
       setLenis(null);
     };
-  }, []);
+  }, [wrapperRef, contentRef, duration, wheelMultiplier]);
+
+  // Reset scroll on key change (e.g., location.pathname or tab navigation)
+  useEffect(() => {
+    if (resetOnKey !== undefined && lenis) {
+      lenis.scrollTo(0, { immediate: true });
+    }
+  }, [resetOnKey, lenis]);
+
+  const resize = () => {
+    lenis?.resize();
+  };
+
+  const scrollTo = (target: number | HTMLElement | string, options?: any) => {
+    lenis?.scrollTo(target, options);
+  };
 
   return (
-    <SmoothScrollContext.Provider value={{ lenis }}>
+    <SmoothScrollContext.Provider value={{ lenis, resize, scrollTo }}>
       {children}
     </SmoothScrollContext.Provider>
   );

@@ -23,13 +23,17 @@ const onRefreshFailed = (error: any) => {
     refreshSubscribers = [];
 };
 
-const rawBaseURL = import.meta.env.VITE_API_BASE_URL || "https://3lrrk4tb-8001.inc1.devtunnels.ms/api";
+const rawBaseURL = (import.meta.env.VITE_API_BASE_URL || "https://pv0smzkc-8000.inc1.devtunnels.ms/api").trim();
 const normalizedBaseURL = rawBaseURL.endsWith("/") ? rawBaseURL : `${rawBaseURL}/`;
 
 // Axios instance
-const axiosInstance = axios.create({
+export const axiosInstance = axios.create({
     baseURL: normalizedBaseURL,
     withCredentials: true,
+    headers: {
+        'Accept': 'application/json',
+    },
+    timeout: 45000,
 });
 
 // 🧩 Request Interceptor
@@ -38,6 +42,13 @@ axiosInstance.interceptors.request.use(
         if (config.url) {
             // Normalize path so it resolves relative to baseURL (/api/)
             config.url = config.url.replace(/^\/?api\/v1\/?/, '').replace(/^\/?api\/?/, '').replace(/^\//, '');
+        }
+        // Authentication is completely cookie-based; strip any manual Authorization header
+        if (config.headers?.Authorization) {
+            delete config.headers.Authorization;
+        }
+        if (config.headers?.authorization) {
+            delete config.headers.authorization;
         }
         return config;
     },
@@ -58,12 +69,7 @@ axiosInstance.interceptors.response.use(
             url.includes("/auth/passwordless/") ||
             url.includes("/photographers/onboarding/");
 
-        // Only attempt token refresh if the user previously had an active session
-        const hasAuthSession =
-            localStorage.getItem("photo_saas_auth_v2") === "true" ||
-            !!localStorage.getItem("photo_saas_user_v2");
-
-        if (error.response?.status === 401 && !originalRequest._retry && !isAuthCheckRoute && hasAuthSession) {
+        if (error.response?.status === 401 && !originalRequest._retry && !isAuthCheckRoute) {
             originalRequest._retry = true;
 
             // Prevent multiple parallel refresh calls
@@ -79,7 +85,7 @@ axiosInstance.interceptors.response.use(
             isRefreshing = true;
 
             try {
-                // 🔄 Try refresh token
+                // 🔄 Refresh HTTP-only cookie session
                 await axios.post(
                     `${normalizedBaseURL}auth/token/refresh/`,
                     {},
@@ -89,21 +95,21 @@ axiosInstance.interceptors.response.use(
                 onRefreshed();
                 isRefreshing = false;
 
-                // Retry original request
+                // Retry original request with newly refreshed session cookie
                 return axiosInstance(originalRequest);
             } catch (refreshError) {
                 isRefreshing = false;
                 onRefreshFailed(refreshError);
 
+                // Notify session expired across the application without relying on localStorage
+                if (typeof window !== "undefined") {
+                    window.dispatchEvent(new CustomEvent("auth:session-expired"));
+                }
+
                 toast.error("Session expired", {
                     description: "Please log in again.",
                     duration: 5000,
                 });
-
-                // Clear cached auth flags and sync logout across tabs
-                localStorage.removeItem("photo_saas_auth_v2");
-                localStorage.removeItem("photo_saas_user_v2");
-                localStorage.setItem("logout", Date.now().toString());
 
                 return Promise.reject(refreshError);
             }

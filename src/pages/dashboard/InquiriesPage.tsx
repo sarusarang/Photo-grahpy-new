@@ -8,6 +8,14 @@ import {
   deleteInquiry,
   subscribeInquiries,
 } from '../../services/inquiryService';
+import {
+  useInquiries,
+  useUpdateInquiryStatus,
+  useDeleteInquiry,
+} from '@/hooks/useAtelierQueries';
+import { ErrorState } from '@/components/common/ErrorState';
+import { usePlanQuota } from '@/hooks/usePlanQuota';
+import { PlanUpgradeModal } from '@/components/billing/PlanUpgradeModal';
 import type { PortfolioInquiry, InquiryStatus, InquiryEventType } from '../../types/inquiry';
 import { useToast } from '../../components/ui/Toast';
 import {
@@ -17,24 +25,18 @@ import {
   Phone,
   Calendar,
   MapPin,
-  Tag,
-  CheckCircle2,
   Clock,
-  Archive,
   Trash2,
   ExternalLink,
   MessageCircle,
-  Filter,
   Sparkles,
-  ArrowUpRight,
   ChevronDown,
-  User,
   DollarSign,
-  AlertCircle,
   Users,
   CalendarCheck,
   TrendingUp,
   Check,
+  Lock,
 } from 'lucide-react';
 
 /* ─── STATUS CONFIG & CUSTOM DROPDOWN ─── */
@@ -256,10 +258,23 @@ export const InquiriesPage: React.FC = () => {
   const { photographer, user } = useAuth();
   const { showToast } = useToast();
 
+  const { data: apiData, isError, refetch } = useInquiries();
+  const { mutate: updateStatusApi } = useUpdateInquiryStatus();
+  const { mutate: deleteInquiryApi } = useDeleteInquiry();
+  const planQuota = usePlanQuota();
+  const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
+
   const [inquiries, setInquiries] = useState<PortfolioInquiry[]>(() => getInquiries());
   const [statusFilter, setStatusFilter] = useState<InquiryStatus | 'all'>('all');
   const [typeFilter, setTypeFilter] = useState<InquiryEventType | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Sync inquiries from real API whenever available
+  useEffect(() => {
+    if (apiData?.inquiries && Array.isArray(apiData.inquiries)) {
+      setInquiries(apiData.inquiries as any);
+    }
+  }, [apiData]);
 
   // Subscribe to real-time changes
   useEffect(() => {
@@ -296,6 +311,9 @@ export const InquiriesPage: React.FC = () => {
   }, [inquiries, statusFilter, typeFilter, searchQuery]);
 
   const handleStatusChange = (id: string, newStatus: InquiryStatus) => {
+    // Real API mutation
+    updateStatusApi({ id, status: newStatus as any });
+
     const updated = updateInquiryStatus(id, newStatus);
     if (updated) {
       showToast(`Inquiry marked as ${newStatus}`, 'success');
@@ -304,6 +322,9 @@ export const InquiriesPage: React.FC = () => {
 
   const handleDelete = (id: string) => {
     if (window.confirm('Are you sure you want to remove this client inquiry?')) {
+      // Real API mutation
+      deleteInquiryApi(id);
+
       const ok = deleteInquiry(id);
       if (ok) {
         showToast('Inquiry removed', 'info');
@@ -315,6 +336,39 @@ export const InquiriesPage: React.FC = () => {
 
   return (
     <div className="flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-6 lg:p-8 space-y-7 transition-colors">
+      {/* ─── 0. TIER MASK BANNER (DYNAMICALLY MANAGED BY PLAN QUOTA) ─── */}
+      {(!planQuota.hasFullInquiryAccess || apiData?.has_full_inquiry_access === false) && (
+        <div className="p-4 sm:p-5 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm animate-in fade-in">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+              <h4 className="text-sm font-semibold text-amber-400 tracking-tight">
+                Inquiry Detail Mask Active ({planQuota.planName})
+              </h4>
+            </div>
+            <p className="text-xs text-neutral-300 mt-1 max-w-xl leading-relaxed">
+              {apiData?.upgrade_prompt ||
+                `Contact details for leads past your current plan limit are masked. Upgrade your studio subscription to unlock direct client phone numbers, emails, and full inquiry tracking.`}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsUpgradeModalOpen(true)}
+            className="px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 text-xs font-bold whitespace-nowrap shadow-md shadow-amber-400/10 transition-transform active:scale-95 cursor-pointer"
+          >
+            Upgrade Plan Tier
+          </button>
+        </div>
+      )}
+
+      {/* ─── ERROR STATE WITH RETRY ─── */}
+      {isError && (
+        <ErrorState
+          compact
+          message="Server synchronization issue. Displaying cached local inquiry leads."
+          onRetry={refetch}
+        />
+      )}
       {/* ─── 1. HEADER SECTION ─── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -593,7 +647,7 @@ export const InquiriesPage: React.FC = () => {
                   </span>
                   <span className="font-semibold text-neutral-800 dark:text-neutral-200 flex items-center gap-1.5 mt-0.5">
                     <Phone className="w-3.5 h-3.5 text-blue-500" />
-                    <span>{inq.clientPhone || 'None provided'}</span>
+                    <span>{inq.is_locked ? '+91 **********' : inq.clientPhone || 'None provided'}</span>
                   </span>
                 </div>
               </div>
@@ -610,46 +664,69 @@ export const InquiriesPage: React.FC = () => {
 
               {/* Bottom Row: Communication Triggers */}
               <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-neutral-100 dark:border-neutral-800/60">
-                <div className="flex items-center gap-2">
-                  <a
-                    href={`mailto:${inq.clientEmail}?subject=Photography Commission Inquiry - ${photographer.studioName || 'Studio'}&body=Dear ${inq.clientName},%0D%0A%0D%0AThank you for reaching out regarding your ${inq.eventType} on ${inq.eventDate}.`}
-                    className="px-3.5 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 font-bold text-xs flex items-center gap-1.5 transition-all shadow-xs"
-                  >
-                    <Mail className="w-3.5 h-3.5" />
-                    <span>Reply via Email</span>
-                  </a>
-
-                  {inq.clientPhone && (
-                    <a
-                      href={`https://wa.me/${inq.clientPhone.replace(/[^0-9]/g, '')}?text=Hi%20${encodeURIComponent(inq.clientName)},%20thank%20you%20for%20your%20inquiry%20regarding%20photography%20for%20your%20${encodeURIComponent(inq.eventType)}!`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-3.5 py-1.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-600 dark:text-emerald-300 font-semibold text-xs flex items-center gap-1.5 transition-colors"
+                {inq.is_locked ? (
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20 text-xs font-semibold">
+                      <Lock className="w-3.5 h-3.5" />
+                      <span>Contact Details Gated on Standard Quarterly</span>
+                    </span>
+                    <Link
+                      to="/dashboard/settings"
+                      className="px-3.5 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 font-bold text-xs shadow-xs"
                     >
-                      <MessageCircle className="w-3.5 h-3.5" />
-                      <span>WhatsApp Client</span>
-                    </a>
-                  )}
-
-                  {inq.clientPhone && (
+                      Upgrade to Reveal
+                    </Link>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
                     <a
-                      href={`tel:${inq.clientPhone}`}
-                      className="px-3 py-1.5 rounded-xl bg-neutral-100 dark:bg-neutral-900 hover:bg-neutral-200 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300 font-semibold text-xs flex items-center gap-1.5 transition-colors"
+                      href={`mailto:${inq.clientEmail}?subject=Photography Commission Inquiry - ${photographer.studioName || 'Studio'}&body=Dear ${inq.clientName},%0D%0A%0D%0AThank you for reaching out regarding your ${inq.eventType} on ${inq.eventDate}.`}
+                      className="px-3.5 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 font-bold text-xs flex items-center gap-1.5 transition-all shadow-xs"
                     >
-                      <Phone className="w-3.5 h-3.5" />
-                      <span>Call</span>
+                      <Mail className="w-3.5 h-3.5" />
+                      <span>Reply via Email</span>
                     </a>
-                  )}
-                </div>
+
+                    {inq.clientPhone && (
+                      <a
+                        href={`https://wa.me/${inq.clientPhone.replace(/[^0-9]/g, '')}?text=Hi%20${encodeURIComponent(inq.clientName)},%20thank%20you%20for%20your%20inquiry%20regarding%20photography%20for%20your%20${encodeURIComponent(inq.eventType)}!`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-3.5 py-1.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-600 dark:text-emerald-300 font-semibold text-xs flex items-center gap-1.5 transition-colors"
+                      >
+                        <MessageCircle className="w-3.5 h-3.5" />
+                        <span>WhatsApp Client</span>
+                      </a>
+                    )}
+
+                    {inq.clientPhone && (
+                      <a
+                        href={`tel:${inq.clientPhone}`}
+                        className="px-3 py-1.5 rounded-xl bg-neutral-100 dark:bg-neutral-900 hover:bg-neutral-200 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300 font-semibold text-xs flex items-center gap-1.5 transition-colors"
+                      >
+                        <Phone className="w-3.5 h-3.5" />
+                        <span>Call</span>
+                      </a>
+                    )}
+                  </div>
+                )}
 
                 <span className="text-[11px] font-mono text-neutral-400">
-                  Client: {inq.clientEmail}
+                  Client: {inq.is_locked ? '********@*****.com' : inq.clientEmail}
                 </span>
               </div>
             </div>
           ))
         )}
       </div>
+
+      <PlanUpgradeModal
+        isOpen={isUpgradeModalOpen}
+        onClose={() => setIsUpgradeModalOpen(false)}
+        errorCode="INQUIRY_ACCESS_RESTRICTED"
+        lockedFeature="Client Direct Inquiries"
+        errorMessage={`Your ${planQuota.planName} has inquiry details masked. Upgrade to an annual or elite tier to unlock unmasked client emails, phone numbers, and direct bookings.`}
+      />
     </div>
   );
 };

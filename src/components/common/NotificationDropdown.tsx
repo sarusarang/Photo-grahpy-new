@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useGallery } from '../../context/GalleryContext';
+import { Link } from 'react-router-dom';
 import { useEvent } from '../../context/EventContext';
+import { usePlanQuota } from '@/hooks/usePlanQuota';
 import { getInquiries } from '../../services/inquiryService';
 import {
   Bell,
@@ -13,14 +13,9 @@ import {
   MessageSquare,
   HardDrive,
   Crown,
-  Sparkles,
   Zap,
-  ShieldCheck,
   ArrowRight,
   CheckCircle2,
-  AlertTriangle,
-  Clock,
-  ExternalLink,
 } from 'lucide-react';
 
 export type NotificationType = 'plan' | 'inquiry' | 'event' | 'storage';
@@ -50,9 +45,8 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
   onClose,
   onUnreadCountChange,
 }) => {
-  const { subscription, galleries } = useGallery();
+  const planQuota = usePlanQuota();
   const { upcomingEvents, activeLiveEvents } = useEvent();
-  const navigate = useNavigate();
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const [filter, setFilter] = useState<'all' | 'unread' | 'inquiry' | 'event' | 'storage'>('all');
@@ -124,10 +118,10 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
     }
 
     // 3. Storage Health & Vault Notice
-    const storageUsed = subscription?.storageUsedGB || 28.7;
-    const storageTotal = subscription?.storageLimitGB || 210;
-    const pctUsed = Math.round((storageUsed / storageTotal) * 100);
-    const spaceLeft = (storageTotal - storageUsed).toFixed(1);
+    const storageUsed = planQuota.storageUsedGB;
+    const storageTotal = planQuota.storageLimitGB;
+    const pctUsed = planQuota.storageUsedPercent;
+    const spaceLeft = Math.max(0, storageTotal - storageUsed).toFixed(1);
 
     if (pctUsed > 80) {
       items.push({
@@ -149,22 +143,22 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
         description: `${storageUsed} GB of ${storageTotal} GB used (${pctUsed}%). ${spaceLeft} GB high-speed cloud space remaining for RAW uploads.`,
         timestamp: '3h ago',
         isRead: false,
-        link: '/dashboard/drive',
-        actionLabel: 'View Drive',
+        link: '/dashboard/gallery',
+        actionLabel: 'View Galleries',
         priority: 'info',
       });
     }
 
     // 4. Plan Expiry & Subscription
-    const planName = subscription?.name || 'Studio Pro';
-    const daysLeft = subscription?.daysRemaining || 340;
-    const expiresDate = subscription?.expiryDate || 'August 20, 2027';
+    const planName = planQuota.planName;
+    const daysLeft = planQuota.daysRemaining;
+    const expiresDate = planQuota.expiryDate ? planQuota.expiryDate.split('T')[0] : 'Upcoming';
 
     items.push({
       id: 'plan-status',
       type: 'plan',
       title: `${planName} Plan Active`,
-      description: `Annual subscription active with ${daysLeft} days remaining. Next billing renewal on ${expiresDate}.`,
+      description: `Subscription active with ${daysLeft} days remaining. Next billing renewal on ${expiresDate}.`,
       timestamp: '1d ago',
       isRead: false,
       link: '/dashboard/settings',
@@ -173,7 +167,7 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
     });
 
     return items;
-  }, [subscription, upcomingEvents, activeLiveEvents]);
+  }, [planQuota, upcomingEvents, activeLiveEvents]);
 
   // Persistent read/dismissed state
   const [notifications, setNotifications] = useState<StudioNotification[]>(() => {

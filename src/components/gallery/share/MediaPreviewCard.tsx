@@ -59,7 +59,7 @@ export const MediaPreviewCard: React.FC<MediaPreviewCardProps> = ({
         {viewMode === 'preview' ? (
           <>
             <img
-              src={currentItem.thumbnailUrl || currentItem.url}
+              src={currentItem.url || currentItem.thumbnailUrl}
               alt={currentItem.title}
               className="w-full h-full object-cover animate-in fade-in duration-200"
             />

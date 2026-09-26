@@ -1,7 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { useGallery } from '../../context/GalleryContext';
+import { useGalleries } from '@/hooks/useAtelierQueries';
 import {
   Settings,
   ExternalLink,
@@ -20,7 +20,7 @@ interface ProfileDropdownProps {
 
 export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ isOpen, onClose }) => {
   const { photographer, user, logout, isLoggingOut } = useAuth();
-  const { galleries } = useGallery();
+  const { data: apiGalleries } = useGalleries();
   const navigate = useNavigate();
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -60,8 +60,7 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ isOpen, onClos
     }
   };
 
-  const clientGallerySlug = galleries[0]?.slug || 'sarang-wedding-editorial';
-  const portfolioId = user?.username || photographer.id || 'studio';
+  const clientGallerySlug = apiGalleries?.[0]?.slug || apiGalleries?.[0]?.id || '';
 
   return (
     <div

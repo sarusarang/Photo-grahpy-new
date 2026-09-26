@@ -26,8 +26,11 @@ export function useGalleryTemplateState({ gallery, templateKey }: UseGalleryTemp
     if (templateKey && gallery.templateBanners?.[templateKey]) {
       return gallery.templateBanners[templateKey];
     }
+    if (templateKey === 'masonry' && gallery.masonryBannerImages?.[0]) {
+      return gallery.masonryBannerImages[0];
+    }
     return gallery.coverImage || gallery.media[0]?.url;
-  }, [gallery.templateBanners, gallery.coverImage, gallery.media, templateKey]);
+  }, [gallery.templateBanners, gallery.masonryBannerImages, gallery.coverImage, gallery.media, templateKey]);
 
   const shootDate = useMemo(() => {
     return (gallery as unknown as Record<string, unknown>).shootDate as string | undefined || gallery.eventDate;

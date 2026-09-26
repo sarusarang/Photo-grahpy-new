@@ -8,15 +8,13 @@ import {
   Check,
   Download,
   Printer,
-  Calendar,
-  Sparkles,
-  ExternalLink,
   ShieldCheck,
-  AlertCircle,
 } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 import type { LiveEvent } from '../../types/event';
 import { useEvent } from '../../context/EventContext';
 import { useToast } from '../ui/Toast';
+import { useUpdateEventQR } from '@/hooks/useAtelierQueries';
 import { getExpiryDateHoursAhead } from '../../data/eventData';
 
 interface EventQRCodeModalProps {
@@ -34,6 +32,7 @@ export const EventQRCodeModal: React.FC<EventQRCodeModalProps> = ({
 }) => {
   const { updateQRExpiry } = useEvent();
   const { showToast } = useToast();
+  const { mutateAsync: updateEventQRApi } = useUpdateEventQR();
 
   const [copied, setCopied] = useState(false);
   const [selectedDuration, setSelectedDuration] = useState<number | 'custom'>(
@@ -110,9 +109,20 @@ export const EventQRCodeModal: React.FC<EventQRCodeModalProps> = ({
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleDurationPreset = (hours: number) => {
+  const handleDurationPreset = async (hours: number) => {
     setSelectedDuration(hours);
     const newExpiresAt = getExpiryDateHoursAhead(hours);
+    try {
+      await updateEventQRApi({
+        eventId: event.id,
+        durationHours: hours,
+        expiresAt: newExpiresAt,
+        pinCode: event.qrSettings.pinCode,
+        allowGuestUploads: event.qrSettings.allowGuestUploads,
+      });
+    } catch {
+      // offline/fallback
+    }
     updateQRExpiry(event.id, newExpiresAt, hours);
     showToast(
       'QR Validity Updated',
@@ -121,7 +131,7 @@ export const EventQRCodeModal: React.FC<EventQRCodeModalProps> = ({
     );
   };
 
-  const handleSaveCustomExpiry = () => {
+  const handleSaveCustomExpiry = async () => {
     if (!customDateTime) return;
     const dateObj = new Date(customDateTime);
     if (isNaN(dateObj.getTime())) {
@@ -130,6 +140,17 @@ export const EventQRCodeModal: React.FC<EventQRCodeModalProps> = ({
     }
     const iso = dateObj.toISOString();
     setSelectedDuration('custom');
+    try {
+      await updateEventQRApi({
+        eventId: event.id,
+        durationHours: 'custom',
+        expiresAt: iso,
+        pinCode: event.qrSettings.pinCode,
+        allowGuestUploads: event.qrSettings.allowGuestUploads,
+      });
+    } catch {
+      // offline/fallback
+    }
     updateQRExpiry(event.id, iso, 'custom');
     showToast('Custom Expiry Set', `Active until ${dateObj.toLocaleString()}`, 'success');
   };
@@ -198,13 +219,8 @@ export const EventQRCodeModal: React.FC<EventQRCodeModalProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-12 gap-6 items-center bg-neutral-50 dark:bg-neutral-950/70 border border-neutral-200 dark:border-neutral-800/80 rounded-2xl p-5">
             {/* QR Canvas Container */}
             <div className="sm:col-span-5 flex flex-col items-center">
-              <div className="relative p-3 bg-white rounded-2xl shadow-md border border-neutral-200 group">
-                <img
-                  src={qrApiUrl}
-                  alt="Event QR Code"
-                  className="w-44 h-44 object-contain rounded-lg"
-                />
-                <div className="absolute inset-0 bg-neutral-900/0 group-hover:bg-neutral-900/10 transition-colors rounded-2xl flex items-center justify-center" />
+              <div className="relative p-3 bg-white rounded-2xl shadow-md border border-neutral-200 group flex items-center justify-center">
+                <QRCodeSVG value={guestUrl} size={176} level="H" includeMargin />
               </div>
               <span className="text-[10px] font-mono text-neutral-500 dark:text-neutral-400 mt-2 text-center">
                 Scan with any mobile camera

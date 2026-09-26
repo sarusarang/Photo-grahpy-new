@@ -47,13 +47,14 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [events, setEvents] = useState<LiveEvent[]>(() => {
     try {
       const saved = localStorage.getItem(EVENTS_STORAGE_KEY);
-      if (saved) {
-        return JSON.parse(saved);
+      if (saved && (saved.includes('Royal Venetian') || saved.includes('Milano Fashion'))) {
+        localStorage.removeItem(EVENTS_STORAGE_KEY);
+        return [];
       }
-    } catch (e) {
-      console.error('Failed reading events from localStorage:', e);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
     }
-    return INITIAL_EVENTS;
   });
 
   useEffect(() => {

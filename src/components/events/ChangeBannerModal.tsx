@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Image as ImageIcon, Sparkles, Upload, Check, Eye } from 'lucide-react';
+import { X, Image as ImageIcon, Upload, Check, Eye } from 'lucide-react';
 import type { LiveEvent } from '../../types/event';
 import { CURATED_EVENT_BANNERS } from '../../data/eventData';
 import { useEvent } from '../../context/EventContext';

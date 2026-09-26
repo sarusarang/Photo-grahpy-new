@@ -92,3 +92,18 @@ export const CancelAutoRenewApi = async (): Promise<CancelAutoRenewResponse> => 
     return (await CommonApi('POST', '/api/subscriptions/cancel/', {})) as CancelAutoRenewResponse;
   }
 };
+
+/**
+ * 6. Add Extra Storage Add-on (For Studio Premium Elite)
+ * Endpoint: POST /api/plans/storage-addon/
+ */
+export const AddStorageAddonApi = async (
+  additional_gb: number
+): Promise<{ status: string; subscription?: CurrentSubscription }> => {
+  try {
+    return await CommonApi('POST', '/api/plans/storage-addon/', { additional_gb });
+  } catch {
+    return await CommonApi('POST', '/api/subscriptions/storage-addon/', { additional_gb });
+  }
+};
+

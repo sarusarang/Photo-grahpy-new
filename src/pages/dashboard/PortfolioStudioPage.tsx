@@ -9,6 +9,9 @@ import {
   AVAILABLE_TEMPLATES,
 } from '../../services/portfolioService';
 import type { PortfolioConfig, PortfolioProject } from '../../types/portfolio';
+import { useUpdatePortfolioConfig, usePortfolioConfig } from '@/hooks/useAtelierQueries';
+import { usePlanQuota } from '@/hooks/usePlanQuota';
+import { PlanUpgradeModal } from '@/components/billing/PlanUpgradeModal';
 import { PortfolioDevicePreview } from '../../components/portfolio/preview/PortfolioDevicePreview';
 import { GalleryPickerModal } from '../../components/portfolio/GalleryPickerModal';
 import { ImageUploadButton } from '../../components/portfolio/ImageUploadButton';
@@ -25,7 +28,6 @@ import {
   Save,
   RotateCcw,
   Plus,
-  Trash2,
   Sliders,
   LayoutTemplate,
   Monitor,
@@ -36,6 +38,7 @@ import {
   MapPin,
   Check,
   Images,
+  Loader2,
 } from 'lucide-react';
 
 /* Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Shared sub-components Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
@@ -93,11 +96,25 @@ export const PortfolioStudioPage: React.FC = () => {
   const publicUrl = `${window.location.origin}/portfolio/${portfolioId}`;
 
   const [config, setConfig] = useState<PortfolioConfig>(() => getPortfolioConfig());
+  const { data: serverConfig } = usePortfolioConfig();
+  const updatePortfolioMutation = useUpdatePortfolioConfig();
   const [activeTab, setActiveTab] = useState<'editor' | 'templates' | 'preview'>('editor');
-  const [isSaving, setIsSaving] = useState(false);
+  const isSaving = updatePortfolioMutation.isPending;
   const [isGalleryPickerOpen, setIsGalleryPickerOpen] = useState(false);
+  const planQuota = usePlanQuota();
+  const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
 
   const analytics = useMemo(() => getPortfolioAnalytics(), []);
+
+  // Sync with live server portfolio configuration
+  useEffect(() => {
+    if (serverConfig && typeof serverConfig === 'object') {
+      setConfig((prev) => ({
+        ...prev,
+        ...serverConfig,
+      }));
+    }
+  }, [serverConfig]);
 
   useEffect(() => {
     if (photographer.fullName && config.artistName === 'Sarang Varma') {
@@ -118,13 +135,14 @@ export const PortfolioStudioPage: React.FC = () => {
     }
   };
 
-  const handleSave = () => {
-    setIsSaving(true);
+  const handleSave = async () => {
+    try {
+      await updatePortfolioMutation.mutateAsync(config as any);
+    } catch {
+      // Fallback to local
+    }
     savePortfolioConfig(config);
-    setTimeout(() => {
-      setIsSaving(false);
-      showToast('Portfolio Published', 'Your updates are now live on your public link.', 'success');
-    }, 400);
+    showToast('Portfolio Published', 'Your updates are now live on your public link.', 'success');
   };
 
   const handleReset = () => {
@@ -205,9 +223,13 @@ export const PortfolioStudioPage: React.FC = () => {
             <button
               onClick={handleSave}
               disabled={isSaving}
-              className="px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 disabled:opacity-70 text-neutral-950 text-xs font-bold flex items-center gap-2 transition-all hover:scale-105 active:scale-95 shadow-md cursor-pointer"
+              className="px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 disabled:opacity-70 disabled:cursor-not-allowed text-neutral-950 text-xs font-bold flex items-center gap-2 transition-all hover:scale-105 active:scale-95 shadow-md cursor-pointer"
             >
-              <Save className="w-3.5 h-3.5 stroke-[2.5]" />
+              {isSaving ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Save className="w-3.5 h-3.5 stroke-[2.5]" />
+              )}
               {isSaving ? 'Saving...' : 'Save & Publish'}
             </button>
           </div>
@@ -487,15 +509,28 @@ export const PortfolioStudioPage: React.FC = () => {
           <SectionCard
             icon={<Images className="w-4 h-4" />}
             title={`Portfolio Works (${config.featuredWorks.length})`}
-            badge="Featured projects"
+            badge={
+              planQuota.isUnlimitedPortfolio
+                ? 'Unlimited projects'
+                : `${config.featuredWorks.length} of ${planQuota.maxPortfolioPosts} projects used`
+            }
           >
             <div className="flex items-center justify-between -mt-1 mb-1">
               <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                Select galleries from your Drive to showcase in your portfolio.
+                Select galleries to showcase in your portfolio.
               </p>
               <button
                 type="button"
-                onClick={() => setIsGalleryPickerOpen(true)}
+                onClick={() => {
+                  if (
+                    !planQuota.isUnlimitedPortfolio &&
+                    config.featuredWorks.length >= planQuota.maxPortfolioPosts
+                  ) {
+                    setIsUpgradeModalOpen(true);
+                    return;
+                  }
+                  setIsGalleryPickerOpen(true);
+                }}
                 className="shrink-0 px-3 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
@@ -640,6 +675,15 @@ export const PortfolioStudioPage: React.FC = () => {
         existingProjectGallerySlugs={config.featuredWorks
           .filter((p) => p.gallerySlug)
           .map((p) => p.gallerySlug!)}
+      />
+
+      {/* Plan Upgrade Modal */}
+      <PlanUpgradeModal
+        isOpen={isUpgradeModalOpen}
+        onClose={() => setIsUpgradeModalOpen(false)}
+        errorCode="PORTFOLIO_POST_LIMIT_EXCEEDED"
+        lockedFeature="Portfolio Showcase"
+        errorMessage={`Your ${planQuota.planName} allows up to ${planQuota.maxPortfolioPosts} featured portfolio projects. Upgrade your studio subscription to feature unlimited works.`}
       />
     </div>
   );

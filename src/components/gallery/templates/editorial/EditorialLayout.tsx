@@ -1,5 +1,5 @@
 import React from 'react';
-import { Heart, Play, Check, Sparkles } from 'lucide-react';
+import { Play, Check, Sparkles } from 'lucide-react';
 import { GalleryHeroBanner } from '../../GalleryHeroBanner';
 import { ClientSectionFilterBar } from '../../ClientSectionFilterBar';
 import { AIFaceSearchBox } from '../../AIFaceSearchBox';
@@ -10,7 +10,6 @@ import { useGalleryTemplateState } from '../useGalleryTemplateState';
 export const EditorialLayout: React.FC<TemplateLayoutProps> = ({
   gallery,
   onOpenLightbox,
-  onToggleFavorite,
   selectedMediaIds = new Set(),
   onToggleSelectMedia,
   studioName = 'EX SHARE',
@@ -24,7 +23,6 @@ export const EditorialLayout: React.FC<TemplateLayoutProps> = ({
     coverImage,
     shootDate,
     filteredMedia,
-    favoritesCount,
     photosCount,
     videosCount,
     findOriginalIndex,
@@ -41,19 +39,14 @@ export const EditorialLayout: React.FC<TemplateLayoutProps> = ({
       />
 
       {/* ─── FILTER & SECTION NAVIGATION ─── */}
-      <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-neutral-100 py-3 shadow-xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <ClientSectionFilterBar
-            sections={gallerySections}
-            activeFilter={activeFilter}
-            onSelectFilter={setActiveFilter}
-            favoritesCount={favoritesCount}
-            totalPhotosCount={photosCount}
-            totalVideosCount={videosCount}
-            theme="editorial"
-          />
-        </div>
-      </div>
+      <ClientSectionFilterBar
+        sections={gallerySections}
+        activeFilter={activeFilter}
+        onSelectFilter={setActiveFilter}
+        totalPhotosCount={photosCount}
+        totalVideosCount={videosCount}
+        theme="editorial"
+      />
 
       {/* ─── AI FACE SEARCH COMPONENT (only when AI Search is active) ─── */}
       {activeFilter.type === 'ai-face' && (
@@ -92,7 +85,6 @@ export const EditorialLayout: React.FC<TemplateLayoutProps> = ({
             {filteredMedia.map((item) => {
               const originalIndex = findOriginalIndex(item);
               const isSelected = selectedMediaIds.has(item.id);
-              const isFav = item.isFavorite;
 
               return (
                 <div
@@ -107,12 +99,6 @@ export const EditorialLayout: React.FC<TemplateLayoutProps> = ({
                     loading="lazy"
                     onClick={() => onOpenLightbox(originalIndex)}
                     className="w-full h-auto block object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03] cursor-pointer"
-                  />
-
-                  {/* Gradient Overlay */}
-                  <div
-                    onClick={() => onOpenLightbox(originalIndex)}
-                    className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-black/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 cursor-pointer pointer-events-none"
                   />
 
                   {/* Video Badge */}
@@ -135,28 +121,6 @@ export const EditorialLayout: React.FC<TemplateLayoutProps> = ({
                       title="Select photo"
                     >
                       <Check className={`w-3.5 h-3.5 ${isSelected ? 'stroke-[3]' : 'stroke-2'}`} />
-                    </button>
-                  )}
-
-                  {/* Caption */}
-                  <div className="absolute bottom-2 left-2 right-10 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
-                    <p className="font-serif italic text-xs text-white truncate drop-shadow">{item.title || 'Untitled'}</p>
-                    {item.sectionTitle && (
-                      <span className="text-[10px] tracking-widest text-neutral-300 uppercase block font-sans">{item.sectionTitle}</span>
-                    )}
-                  </div>
-
-                  {/* Favorite */}
-                  {onToggleFavorite && (
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); onToggleFavorite(item.id); }}
-                      className={`absolute bottom-2 right-2 z-10 p-1.5 rounded-full backdrop-blur-sm transition-all ${
-                        isFav ? 'bg-rose-500 text-white opacity-100' : 'bg-black/30 text-white hover:bg-rose-500 opacity-0 group-hover:opacity-100'
-                      }`}
-                      title="Favorite photo"
-                    >
-                      <Heart className={`w-3.5 h-3.5 ${isFav ? 'fill-current' : ''}`} />
                     </button>
                   )}
                 </div>

@@ -8,6 +8,8 @@ import { UpgradePlanModal } from '../../components/common/UpgradePlanModal';
 import { PersonalInformationSection } from '../../components/settings/PersonalInformationSection';
 import { renderPlanFeature } from '../../data/plansData';
 import { useStudioPlans, useCurrentSubscription, usePlanUpgradeFlow } from '@/service/plans/usePlans';
+import { useUpdateWatermark } from '@/hooks/useAtelierQueries';
+import { usePlanQuota } from '@/hooks/usePlanQuota';
 import type { StudioPlan } from '@/service/plans/type';
 import {
   User,
@@ -37,6 +39,7 @@ export const SettingsPage: React.FC = () => {
   const { subscription, upgradeSubscription, resetAllDemoData } = useGallery();
   const { showToast } = useToast();
   const navigate = useNavigate();
+  const planQuota = usePlanQuota();
 
   // Studio Plans & Active Subscription API hooks
   const {
@@ -56,10 +59,37 @@ export const SettingsPage: React.FC = () => {
     showToast('Subscription Activated', `Switched to ${plan.name} successfully!`, 'success');
   });
 
-  // Drive settings state
+  // Drive & Watermark settings state
   const [defaultTemplate, setDefaultTemplate] = useState('editorial');
   const [enableWatermark, setEnableWatermark] = useState(photographer.enableWatermark || false);
   const [watermarkText, setWatermarkText] = useState(photographer.watermarkText || '© EX SHARE');
+  const [watermarkOpacity, setWatermarkOpacity] = useState(0.45);
+  const [watermarkPosition, setWatermarkPosition] = useState<'bottom-right' | 'bottom-left' | 'top-right' | 'center' | 'tiled'>('bottom-right');
+
+  const updateWatermarkMutation = useUpdateWatermark();
+  const isSavingDrive = updateWatermarkMutation.isPending;
+
+  const handleSaveDrive = async () => {
+    try {
+      await updateWatermarkMutation.mutateAsync({
+        enable_watermark: enableWatermark,
+        watermark_text: watermarkText,
+        watermark_opacity: watermarkOpacity,
+        watermark_position: watermarkPosition,
+      });
+      updateProfile({
+        enableWatermark,
+        watermarkText,
+      });
+      showToast('Settings Saved', 'Drive and studio watermark preferences synced with backend.', 'success');
+    } catch {
+      updateProfile({
+        enableWatermark,
+        watermarkText,
+      });
+      showToast('Settings Saved (Local)', 'Watermark preferences saved locally.', 'info');
+    }
+  };
 
   // Notifications state
   const [notifyVisited, setNotifyVisited] = useState(true);
@@ -124,7 +154,7 @@ export const SettingsPage: React.FC = () => {
         {[
           { id: 'profile', label: 'Profile', icon: User },
           { id: 'billing', label: 'Plan & Billing', icon: CreditCard },
-          { id: 'drive', label: 'Drive & Preferences', icon: Cloud },
+          { id: 'drive', label: 'Gallery & Preferences', icon: Cloud },
           { id: 'notifications', label: 'Notifications', icon: Bell },
           { id: 'account', label: 'Account', icon: Shield },
         ].map((tab) => {
@@ -200,21 +230,21 @@ export const SettingsPage: React.FC = () => {
 
       {/* Tab 2: Plan & Billing */}
       {activeTab === 'billing' && (() => {
-        const billingActivePlanId = activeApiSub?.plan?.id || subscription?.id || 'plan-standard-1y';
-        const billingActivePlanName = activeApiSub?.plan?.name || subscription?.name?.replace(/\s*\(.*?\)/, '') || 'Standard Annual';
-        const billingStorageLimit = activeApiSub?.storage?.limit_gb ?? subscription?.storageLimitGB ?? 210;
-        const billingStorageUsed = activeApiSub?.storage?.used_gb ?? subscription?.storageUsedGB ?? 28.7;
-        const billingUsedPct = activeApiSub?.storage?.used_percentage ?? Math.max(1, Math.min(100, Math.round((billingStorageUsed / billingStorageLimit) * 100)));
+        const billingActivePlanId = planQuota.planId || activeApiSub?.plan?.id || subscription?.id || '';
+        const billingActivePlanName = planQuota.planName || activeApiSub?.plan?.name || 'Studio Plan';
+        const billingStorageLimit = planQuota.storageLimitGB || (activeApiSub?.storage?.limit_gb ?? 0);
+        const billingStorageUsed = planQuota.storageUsedGB || (activeApiSub?.storage?.used_gb ?? 0);
+        const billingUsedPct = planQuota.storageUsedPercent || (activeApiSub?.storage?.used_percentage ?? 0);
 
         const billingPlans = (apiPlans || []).map((p: StudioPlan) => {
           const price = typeof p.monthly_price === 'string' ? parseFloat(p.monthly_price) : (Number(p.monthly_price) || 0);
-          const originalPrice = p.original_monthly_price ? parseFloat(p.original_monthly_price) : undefined;
+          const originalPrice = p.original_monthly_price != null ? (typeof p.original_monthly_price === 'string' ? parseFloat(p.original_monthly_price) : Number(p.original_monthly_price)) : undefined;
           return {
             ...p,
             price,
             originalPrice,
             billing: p.billing_text || (p.billing_cycle === 'annual' ? 'billed annually' : 'billed monthly'),
-            icon: p.id.includes('elite') ? Gem : p.id.includes('1y') || p.id.includes('annual') ? Crown : Sprout,
+            icon: p.tier === 'premium' || p.tag_type === 'popular' ? Gem : p.billing_cycle === 'annual' ? Crown : Sprout,
             tagType: p.tag_type || 'default',
             ctaText: p.cta_text,
             features: Array.isArray(p.features) ? p.features : [],
@@ -558,7 +588,7 @@ export const SettingsPage: React.FC = () => {
       {activeTab === 'drive' && (
         <div className="max-w-2xl space-y-6 fade-up">
           <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-[#121319] border border-neutral-200 dark:border-neutral-800/80 shadow-sm dark:shadow-xl space-y-6">
-            <h3 className="text-lg font-serif text-neutral-900 dark:text-white font-bold">Drive & Gallery Defaults</h3>
+            <h3 className="text-lg font-serif text-neutral-900 dark:text-white font-bold">Gallery Defaults & Watermark</h3>
 
             {/* Default Client Layout */}
             <div>
@@ -577,13 +607,13 @@ export const SettingsPage: React.FC = () => {
               />
             </div>
 
-            {/* Studio Watermarking */}
-            <div className="p-4 rounded-2xl bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 space-y-4">
+            {/* Studio Watermarking Suite */}
+            <div className="p-5 rounded-2xl bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 space-y-5">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs font-semibold text-neutral-900 dark:text-white">Watermark Client Previews</p>
                   <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
-                    Apply subtle copyright text over preview images
+                    Apply subtle copyright text over preview images on delivery
                   </p>
                 </div>
                 <input
@@ -595,31 +625,123 @@ export const SettingsPage: React.FC = () => {
               </div>
 
               {enableWatermark && (
-                <div className="pt-2 border-t border-neutral-200 dark:border-neutral-800">
-                  <label className="block text-[11px] font-semibold text-neutral-600 dark:text-neutral-400 mb-1">
-                    Watermark Text
-                  </label>
-                  <input
-                    type="text"
-                    value={watermarkText}
-                    onChange={(e) => setWatermarkText(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-neutral-900 dark:text-white text-xs"
-                  />
+                <div className="space-y-4 pt-3 border-t border-neutral-200 dark:border-neutral-800">
+                  {/* Watermark Text */}
+                  <div>
+                    <label className="block text-[11px] font-semibold text-neutral-600 dark:text-neutral-400 mb-1.5">
+                      Watermark Signature Text
+                    </label>
+                    <input
+                      type="text"
+                      value={watermarkText}
+                      onChange={(e) => setWatermarkText(e.target.value)}
+                      placeholder="© EX SHARE PHOTOGRAPHY"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-neutral-900 dark:text-white text-xs focus:outline-none focus:border-amber-400 transition"
+                    />
+                  </div>
+
+                  {/* Opacity Slider */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-[11px] font-semibold text-neutral-600 dark:text-neutral-400">
+                        Overlay Opacity
+                      </label>
+                      <span className="text-xs font-mono font-bold text-amber-500">
+                        {Math.round(watermarkOpacity * 100)}%
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0.05"
+                      max="1.0"
+                      step="0.05"
+                      value={watermarkOpacity}
+                      onChange={(e) => setWatermarkOpacity(parseFloat(e.target.value))}
+                      className="w-full h-1.5 bg-neutral-200 dark:bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-amber-400"
+                    />
+                    <div className="flex justify-between text-[10px] text-neutral-400 mt-1">
+                      <span>Subtle (5%)</span>
+                      <span>Balanced (45%)</span>
+                      <span>Prominent (100%)</span>
+                    </div>
+                  </div>
+
+                  {/* Watermark Position */}
+                  <div>
+                    <label className="block text-[11px] font-semibold text-neutral-600 dark:text-neutral-400 mb-1.5">
+                      Placement Position
+                    </label>
+                    <select
+                      value={watermarkPosition}
+                      onChange={(e) => setWatermarkPosition(e.target.value as any)}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-neutral-900 dark:text-white text-xs focus:outline-none focus:border-amber-400 transition cursor-pointer"
+                    >
+                      <option value="bottom-right">Bottom Right (Default Fine-Art)</option>
+                      <option value="bottom-left">Bottom Left</option>
+                      <option value="top-right">Top Right</option>
+                      <option value="center">Center Stamp</option>
+                      <option value="tiled">Diagonal Tiled Security Pattern</option>
+                    </select>
+                  </div>
+
+                  {/* Live Watermark Preview Mockup */}
+                  <div className="mt-4 pt-4 border-t border-neutral-200 dark:border-neutral-800">
+                    <span className="block text-[10px] font-semibold uppercase tracking-wider text-neutral-400 mb-2">
+                      Live Delivery Mockup
+                    </span>
+                    <div className="relative w-full h-40 rounded-xl overflow-hidden bg-neutral-900 border border-neutral-800 shadow-inner flex items-center justify-center">
+                      <img
+                        src="https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=800&q=80"
+                        alt="Watermark preview mockup"
+                        className="w-full h-full object-cover filter brightness-75"
+                      />
+                      {watermarkPosition === 'tiled' ? (
+                        <div className="absolute inset-0 grid grid-cols-3 grid-rows-2 gap-4 p-4 pointer-events-none select-none">
+                          {[...Array(6)].map((_, i) => (
+                            <span
+                              key={i}
+                              style={{ opacity: watermarkOpacity }}
+                              className="text-[10px] font-bold text-white tracking-widest uppercase transform -rotate-12 flex items-center justify-center drop-shadow-md"
+                            >
+                              {watermarkText}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <div
+                          style={{ opacity: watermarkOpacity }}
+                          className={`absolute p-3 text-xs font-bold text-white tracking-wider pointer-events-none select-none drop-shadow-lg ${
+                            watermarkPosition === 'bottom-right'
+                              ? 'bottom-2 right-2 text-right'
+                              : watermarkPosition === 'bottom-left'
+                              ? 'bottom-2 left-2 text-left'
+                              : watermarkPosition === 'top-right'
+                              ? 'top-2 right-2 text-right'
+                              : 'top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center text-sm'
+                          }`}
+                        >
+                          {watermarkText}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
 
             <button
-              onClick={() => {
-                updateProfile({
-                  enableWatermark,
-                  watermarkText,
-                });
-                showToast('Settings Saved', 'Drive and watermark preferences updated.', 'success');
-              }}
-              className="px-6 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 font-bold text-xs uppercase tracking-wider shadow-sm"
+              onClick={handleSaveDrive}
+              disabled={isSavingDrive}
+              className="px-6 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 font-bold text-xs uppercase tracking-wider shadow-sm flex items-center gap-2 cursor-pointer transition disabled:opacity-50"
             >
-              Save Drive Settings
+              {isSavingDrive ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>Saving Studio Preferences...</span>
+                </>
+              ) : (
+                <span>Save Gallery Preferences</span>
+              )}
             </button>
           </div>
         </div>

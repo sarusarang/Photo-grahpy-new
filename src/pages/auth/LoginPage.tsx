@@ -26,7 +26,7 @@ export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const from = (location.state as any)?.from?.pathname || '/dashboard/drive';
+  const from = (location.state as any)?.from?.pathname || '/dashboard/gallery';
 
   // Redirect if already authenticated
   useEffect(() => {

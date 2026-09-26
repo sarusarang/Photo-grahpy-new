@@ -1,5 +1,5 @@
 import React from 'react';
-import { Heart, Play, Check, Sparkles } from 'lucide-react';
+import { Play, Check, Sparkles } from 'lucide-react';
 import { GalleryHeroBanner } from '../../GalleryHeroBanner';
 import { ClientSectionFilterBar } from '../../ClientSectionFilterBar';
 import { AIFaceSearchBox } from '../../AIFaceSearchBox';
@@ -10,7 +10,6 @@ import { useGalleryTemplateState } from '../useGalleryTemplateState';
 export const MasonryLayout: React.FC<TemplateLayoutProps> = ({
   gallery,
   onOpenLightbox,
-  onToggleFavorite,
   selectedMediaIds = new Set(),
   onToggleSelectMedia,
   studioName,
@@ -24,7 +23,6 @@ export const MasonryLayout: React.FC<TemplateLayoutProps> = ({
     coverImage,
     shootDate,
     filteredMedia,
-    favoritesCount,
     photosCount,
     videosCount,
     findOriginalIndex,
@@ -41,19 +39,14 @@ export const MasonryLayout: React.FC<TemplateLayoutProps> = ({
       />
 
       {/* ─── FILTER & SECTION NAVIGATION ─── */}
-      <div className="sticky top-0 z-30 bg-[#070D0B]/95 backdrop-blur-md border-b border-emerald-950/60 py-3 shadow-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <ClientSectionFilterBar
-            sections={gallerySections}
-            activeFilter={activeFilter}
-            onSelectFilter={setActiveFilter}
-            favoritesCount={favoritesCount}
-            totalPhotosCount={photosCount}
-            totalVideosCount={videosCount}
-            theme="masonry"
-          />
-        </div>
-      </div>
+      <ClientSectionFilterBar
+        sections={gallerySections}
+        activeFilter={activeFilter}
+        onSelectFilter={setActiveFilter}
+        totalPhotosCount={photosCount}
+        totalVideosCount={videosCount}
+        theme="masonry"
+      />
 
       {/* ─── AI FACE SEARCH COMPONENT (only when AI Search is active) ─── */}
       {activeFilter.type === 'ai-face' && (
@@ -94,7 +87,6 @@ export const MasonryLayout: React.FC<TemplateLayoutProps> = ({
             {filteredMedia.map((item) => {
               const originalIndex = findOriginalIndex(item);
               const isSelected = selectedMediaIds.has(item.id);
-              const isFav = item.isFavorite;
 
               return (
                 <div
@@ -109,12 +101,6 @@ export const MasonryLayout: React.FC<TemplateLayoutProps> = ({
                     loading="lazy"
                     onClick={() => onOpenLightbox(originalIndex)}
                     className="w-full h-auto object-cover transition-transform duration-700 ease-out group-hover:scale-103 cursor-pointer block"
-                  />
-
-                  {/* Gradient Overlay */}
-                  <div
-                    onClick={() => onOpenLightbox(originalIndex)}
-                    className="absolute inset-0 bg-gradient-to-t from-[#070D0B]/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 cursor-pointer pointer-events-none"
                   />
 
                   {/* Video Badge */}
@@ -140,37 +126,6 @@ export const MasonryLayout: React.FC<TemplateLayoutProps> = ({
                       title="Select photo"
                     >
                       <Check className={`w-3.5 h-3.5 ${isSelected ? 'stroke-[3]' : 'stroke-2'}`} />
-                    </button>
-                  )}
-
-                  {/* Caption */}
-                  <div className="absolute bottom-3 left-3 right-12 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
-                    <p className="font-serif italic text-sm text-white drop-shadow truncate max-w-[200px]">
-                      {item.title || 'Botanical Flora'}
-                    </p>
-                    {item.sectionTitle && (
-                      <span className="text-[10px] tracking-widest text-emerald-400/90 uppercase block font-sans">
-                        {item.sectionTitle}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Favorite Heart */}
-                  {onToggleFavorite && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onToggleFavorite(item.id);
-                      }}
-                      className={`absolute bottom-3 right-3 z-10 p-1.5 rounded-full backdrop-blur-sm transition-all ${
-                        isFav
-                          ? 'bg-rose-500 text-white opacity-100'
-                          : 'bg-black/40 text-neutral-300 hover:bg-rose-500 hover:text-white opacity-0 group-hover:opacity-100'
-                      }`}
-                      title="Favorite photo"
-                    >
-                      <Heart className={`w-3.5 h-3.5 ${isFav ? 'fill-current' : ''}`} />
                     </button>
                   )}
                 </div>

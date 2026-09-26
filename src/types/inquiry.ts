@@ -22,6 +22,7 @@ export interface PortfolioInquiry {
   status: InquiryStatus;
   createdAt: string;
   notes?: string;
+  is_locked?: boolean;
 }
 
 export interface InquiryAnalyticsMetrics {

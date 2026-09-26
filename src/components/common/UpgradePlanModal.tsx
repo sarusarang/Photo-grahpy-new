@@ -21,29 +21,38 @@ import {
   CreditCard,
   AlertCircle,
   PackageOpen,
+  ShieldAlert,
 } from 'lucide-react';
 import { renderPlanFeature } from '../../data/plansData';
 import { useStudioPlans, useCurrentSubscription, usePlanUpgradeFlow } from '@/service/plans/usePlans';
+import { usePlanQuota } from '@/hooks/usePlanQuota';
 import type { StudioPlan } from '@/service/plans/type';
 
 export interface UpgradePlanModalProps {
   isOpen: boolean;
   onClose: () => void;
+  errorCode?: string;
+  errorMessage?: string;
+  lockedFeature?: string;
 }
 
-const getPlanIcon = (planId: string) => {
-  if (planId.includes('elite') || planId.includes('premium')) return Gem;
-  if (planId.includes('1y') || planId.includes('annual')) return Crown;
+const getPlanIcon = (plan: StudioPlan) => {
+  if (plan.tier === 'premium' || plan.tag_type === 'popular') return Gem;
+  if (plan.billing_cycle === 'annual') return Crown;
   return Sprout;
 };
 
 export const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({
   isOpen,
   onClose,
+  errorCode,
+  errorMessage,
+  lockedFeature,
 }) => {
   const { subscription, upgradeSubscription } = useGallery();
   const { showToast } = useToast();
   const navigate = useNavigate();
+  const planQuota = usePlanQuota();
 
   // API hooks for studio plans and active subscription
   const {
@@ -91,13 +100,13 @@ export const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({
   // Real API plans
   const plans = (apiPlans || []).map((p: StudioPlan) => {
     const price = typeof p.monthly_price === 'string' ? parseFloat(p.monthly_price) : (Number(p.monthly_price) || 0);
-    const originalPrice = p.original_monthly_price ? parseFloat(p.original_monthly_price) : undefined;
+    const originalPrice = p.original_monthly_price != null ? (typeof p.original_monthly_price === 'string' ? parseFloat(p.original_monthly_price) : Number(p.original_monthly_price)) : undefined;
     return {
       ...p,
       price,
       originalPrice,
       billing: p.billing_text || '',
-      icon: getPlanIcon(p.id),
+      icon: getPlanIcon(p),
       tagType: p.tag_type || 'default',
       ctaText: p.cta_text,
       features: Array.isArray(p.features) ? p.features : [],
@@ -105,11 +114,11 @@ export const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({
   });
 
   // Active subscription details (syncing API with GalleryContext fallback)
-  const activePlanId = activeApiSub?.plan?.id || subscription?.id || 'plan-standard-1y';
-  const activePlanName = activeApiSub?.plan?.name || subscription?.name?.replace(/\s*\(.*?\)/, '') || 'Standard Annual';
-  const storageLimit = activeApiSub?.storage?.limit_gb ?? subscription?.storageLimitGB ?? 210;
-  const storageUsed = activeApiSub?.storage?.used_gb ?? subscription?.storageUsedGB ?? 28.7;
-  const usedPercentage = activeApiSub?.storage?.used_percentage ?? Math.max(1, Math.min(100, Math.round((storageUsed / storageLimit) * 100)));
+  const activePlanId = planQuota.planId || activeApiSub?.plan?.id || subscription?.id || '';
+  const activePlanName = planQuota.planName || activeApiSub?.plan?.name || 'Current Studio Plan';
+  const storageLimit = planQuota.storageLimitGB || (activeApiSub?.storage?.limit_gb ?? 0);
+  const storageUsed = planQuota.storageUsedGB || (activeApiSub?.storage?.used_gb ?? 0);
+  const usedPercentage = planQuota.storageUsedPercent || (activeApiSub?.storage?.used_percentage ?? 0);
 
   const handleSelectPlan = async (plan: StudioPlan) => {
     if (plan.id === activePlanId || isUpgrading) return;
@@ -147,6 +156,30 @@ export const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({
         >
           <X className="w-4 h-4" />
         </button>
+
+        {/* Dynamic Context / Plan Limit Notice Banner */}
+        {errorMessage && (
+          <div className="relative z-20 p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-amber-500/15 via-amber-500/10 to-transparent border border-amber-500/30 flex items-start gap-3.5 shadow-lg">
+            <div className="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0 shadow-inner">
+              <ShieldAlert className="w-5 h-5 text-amber-400" />
+            </div>
+            <div className="space-y-1 flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[10px] sm:text-xs font-mono font-bold uppercase tracking-wider text-amber-400">
+                  {errorCode ? errorCode.replace(/_/g, ' ') : 'Plan Quota Limit Reached'}
+                </span>
+                {lockedFeature && (
+                  <span className="px-2 py-0.5 rounded-full bg-amber-400 text-neutral-950 font-bold text-[9px] uppercase tracking-wider">
+                    {lockedFeature}
+                  </span>
+                )}
+              </div>
+              <p className="text-xs sm:text-sm text-neutral-200 leading-relaxed font-medium">
+                {errorMessage}
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* 1. Hero Header with Camera & Script Artwork */}
         <div className="relative pt-1 pb-2">

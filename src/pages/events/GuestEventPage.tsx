@@ -1,36 +1,42 @@
-import React, { useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import React, { useState, useMemo } from 'react';
+import { useParams } from 'react-router-dom';
 import {
   Sparkles,
-  Camera,
-  Upload,
   Clock,
   Download,
   CheckCircle2,
-  Heart,
-  Share2,
   RefreshCw,
   Mail,
-  ShieldCheck,
-  ChevronRight,
-  ArrowDown,
 } from 'lucide-react';
-import { useEvent } from '../../context/EventContext';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../components/ui/Toast';
-import { searchPhotosByFace, type FaceMatchResult } from '../../services/faceRecognitionService';
+import { useEventDetail } from '@/hooks/useAtelierQueries';
+import { normalizeServerEvent } from '../../utils/eventNormalizer';
 import { AIFaceSearchBox } from '../../components/gallery/AIFaceSearchBox';
 import { GalleryHeroBanner } from '../../components/gallery/GalleryHeroBanner';
 import { LightboxModal } from '../../components/gallery/LightboxModal';
 import { ClientGalleryFooter } from '../../components/gallery/ClientGalleryFooter';
+import { EventListSkeleton } from '@/components/common/LoadingSkeleton';
+import { ErrorState } from '@/components/common/ErrorState';
 
 export const GuestEventPage: React.FC = () => {
   const { eventId } = useParams<{ eventId: string }>();
-  const { getEventByIdOrSlug, incrementEventStat } = useEvent();
   const { photographer } = useAuth();
   const { showToast } = useToast();
 
-  const event = getEventByIdOrSlug(eventId || '');
+  // TanStack Query: Fetch live event detail from DRF backend
+  const {
+    data: apiEvent,
+    isLoading: isEventLoading,
+    isError: isEventError,
+    refetch: refetchEvent,
+  } = useEventDetail(eventId || '');
+
+  // Normalize server live event
+  const event = useMemo(() => {
+    if (!apiEvent) return null;
+    return normalizeServerEvent(apiEvent);
+  }, [apiEvent]);
 
   // AI Face Search State
   const [matchedIds, setMatchedIds] = useState<string[] | null>(null);
@@ -38,19 +44,28 @@ export const GuestEventPage: React.FC = () => {
   const [showAllStream, setShowAllStream] = useState(false);
   const [isDownloadingAll, setIsDownloadingAll] = useState(false);
 
-  if (!event) {
+  if (isEventLoading) {
     return (
-      <div className="min-h-screen bg-[#07080b] text-white flex flex-col items-center justify-center p-6 text-center">
-        <h2 className="text-3xl font-serif">Event Link Not Found</h2>
-        <p className="text-xs text-neutral-400 mt-2">
-          The requested event QR link may have expired or is invalid.
-        </p>
-        <Link
-          to="/"
-          className="mt-6 px-6 py-2.5 rounded-xl bg-amber-400 text-neutral-950 font-bold text-xs uppercase font-mono"
-        >
-          Return Home
-        </Link>
+      <div className="min-h-screen bg-[#07080b] text-white p-8 max-w-4xl mx-auto space-y-6 pt-16">
+        <div className="text-center space-y-2 mb-8">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-neutral-900 border border-neutral-800 text-[10px] font-mono uppercase tracking-widest text-amber-400">
+            Connecting to Live Studio Event...
+          </div>
+          <h2 className="text-2xl font-serif">Loading Event Stream</h2>
+        </div>
+        <EventListSkeleton count={3} />
+      </div>
+    );
+  }
+
+  if (isEventError || !event) {
+    return (
+      <div className="min-h-screen bg-[#07080b] text-white flex items-center justify-center p-6">
+        <ErrorState
+          title="Event Link Not Found"
+          message="The requested event link may have expired, or does not exist."
+          onRetry={refetchEvent}
+        />
       </div>
     );
   }
@@ -136,6 +151,7 @@ export const GuestEventPage: React.FC = () => {
     : [];
 
   const handleDownloadAllMatched = () => {
+    if (displayedMedia.length === 0) return;
     setIsDownloadingAll(true);
     setTimeout(() => {
       setIsDownloadingAll(false);
@@ -152,7 +168,7 @@ export const GuestEventPage: React.FC = () => {
         a.click();
         document.body.removeChild(a);
       }
-    }, 800);
+    }, 600);
   };
 
   return (
@@ -180,18 +196,19 @@ export const GuestEventPage: React.FC = () => {
             </h2>
             <p className="text-xs sm:text-sm text-neutral-600 font-light leading-relaxed">
               Upload a selfie or snap a live photo with your camera. Our facial recognition
-              technology will instantly scan all {event.media.length} event photos and show only you!
+              technology will scan all {event.media.length} event photos and show only you!
             </p>
           </div>
 
-          {/* AI Face Search Interactive Component */}
+          {/* AI Face Search Interactive Component with live API eventId */}
           <div className="pt-2">
             <AIFaceSearchBox
+              eventId={event.id}
+              galleryId={event.associatedGalleryId}
               mediaItems={event.media}
               onMatchesFound={(matched) => {
                 setMatchedIds(matched);
                 if (matched && matched.length > 0) {
-                  incrementEventStat(event.id, 'matchesFound');
                   showToast(
                     'AI Match Complete!',
                     `Found ${matched.length} photograph(s) of you from this celebration.`,

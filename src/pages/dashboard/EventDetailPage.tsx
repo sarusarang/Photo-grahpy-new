@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -7,7 +7,6 @@ import {
   QrCode,
   Layers,
   Sparkles,
-  Clock,
   MapPin,
   CheckCircle2,
   Trash2,
@@ -16,11 +15,12 @@ import {
   Printer,
   Copy,
   Check,
-  RefreshCw,
   Zap,
-  Play,
   Pause,
 } from 'lucide-react';
+import { useEventDetail, useTetherPhotoUpload } from '@/hooks/useAtelierQueries';
+import { ErrorState } from '@/components/common/ErrorState';
+import { EventListSkeleton } from '@/components/common/LoadingSkeleton';
 import { useEvent } from '../../context/EventContext';
 import { useToast } from '../../components/ui/Toast';
 import { EventQRCodeModal } from '../../components/events/EventQRCodeModal';
@@ -40,7 +40,69 @@ export const EventDetailPage: React.FC = () => {
   } = useEvent();
   const { showToast } = useToast();
 
-  const event = getEventByIdOrSlug(eventId || '');
+  const {
+    data: apiEvent,
+    isLoading: isLoadingEvent,
+    refetch: refetchEvent,
+  } = useEventDetail(eventId || '');
+
+  const { mutateAsync: uploadTetherPhoto } = useTetherPhotoUpload(eventId || '');
+
+  const localEvent = getEventByIdOrSlug(eventId || '');
+  const event = useMemo(() => {
+    if (apiEvent && (apiEvent as any).id) {
+      const e = apiEvent as any;
+      return {
+        id: String(e.id),
+        slug: e.slug || String(e.id),
+        title: e.title || localEvent?.title || 'Live Shoot',
+        clientName: e.client_name || e.clientName || localEvent?.clientName || 'Client',
+        eventType: e.event_type || e.eventType || localEvent?.eventType || 'wedding',
+        status: e.status || localEvent?.status || 'live',
+        bannerUrl: e.banner_url || e.bannerUrl || localEvent?.bannerUrl || 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1200&q=80',
+        eventDate: e.event_date || e.eventDate || localEvent?.eventDate || new Date().toISOString().split('T')[0],
+        eventTime: e.event_time || localEvent?.eventTime,
+        venue: e.venue || localEvent?.venue || 'Studio Ballroom',
+        city: e.city || localEvent?.city,
+        qrSettings: {
+          validFrom: e.qr_settings?.valid_from || localEvent?.qrSettings?.validFrom || new Date().toISOString(),
+          expiresAt: e.qr_settings?.expires_at || localEvent?.qrSettings?.expiresAt || new Date(Date.now() + 86400000).toISOString(),
+          durationHours: e.qr_settings?.duration_hours || localEvent?.qrSettings?.durationHours || 24,
+          isActive: Boolean(e.qr_settings?.is_active ?? localEvent?.qrSettings?.isActive ?? true),
+          pinCode: e.qr_settings?.pin_code || localEvent?.qrSettings?.pinCode,
+          allowGuestUploads: Boolean(e.qr_settings?.allow_guest_uploads ?? localEvent?.qrSettings?.allowGuestUploads),
+        },
+        media: (e.media && e.media.length > 0)
+          ? e.media.map((m: any) => ({
+              id: String(m.id),
+              galleryId: String(e.id),
+              type: m.type || 'photo',
+              url: m.file_url || m.url || '',
+              thumbnailUrl: m.thumbnail_url || m.thumbnailUrl || m.file_url || '',
+              title: m.title || m.original_filename || 'Shot',
+              sectionTitle: m.section_title || m.sectionTitle || 'LIVE STREAM',
+              aspectRatio: m.aspect_ratio || m.aspectRatio || 1.5,
+              sizeMB: m.sizeMB || 3.5,
+              isFavorite: Boolean(m.is_favorite ?? m.isFavorite),
+              isCover: Boolean(m.is_cover ?? m.isCover),
+              dateAdded: m.created_at || m.dateAdded || new Date().toISOString(),
+            }))
+          : (localEvent?.media || []),
+        stats: {
+          views: e.guest_views || e.stats?.views || localEvent?.stats?.views || 0,
+          qrScans: e.qr_scans || e.stats?.qrScans || localEvent?.stats?.qrScans || 0,
+          aiSearches: e.ai_searches || e.stats?.aiSearches || localEvent?.stats?.aiSearches || 0,
+          matchesFound: e.matches_found || e.stats?.matchesFound || localEvent?.stats?.matchesFound || 0,
+          downloadsCount: e.downloads_count || e.stats?.downloadsCount || localEvent?.stats?.downloadsCount || 0,
+        },
+        autoSyncEnabled: Boolean(e.auto_sync_enabled ?? localEvent?.autoSyncEnabled ?? false),
+        tetherCount: e.tether_count || localEvent?.tetherCount || 0,
+        createdAt: e.created_at || localEvent?.createdAt || new Date().toISOString(),
+        updatedAt: e.updated_at || localEvent?.updatedAt || new Date().toISOString(),
+      };
+    }
+    return localEvent;
+  }, [apiEvent, localEvent]);
 
   // Modals state
   const [isQRModalOpen, setIsQRModalOpen] = useState(false);
@@ -73,21 +135,24 @@ export const EventDetailPage: React.FC = () => {
     return () => clearInterval(interval);
   }, [event?.autoSyncEnabled, event?.status, event?.id, simulateTetherShot, showToast]);
 
+  if (isLoadingEvent && !event) {
+    return (
+      <div className="p-8 max-w-5xl mx-auto">
+        <EventListSkeleton count={2} />
+      </div>
+    );
+  }
+
   if (!event) {
     return (
-      <div className="min-h-[70vh] flex flex-col items-center justify-center p-6 text-center">
-        <h2 className="text-2xl font-serif font-bold text-neutral-900 dark:text-white">
-          Event Not Found
-        </h2>
-        <p className="text-xs text-neutral-500 mt-2">
-          The requested event could not be located in your studio workspace.
-        </p>
-        <Link
-          to="/dashboard/events"
-          className="mt-6 px-6 py-2.5 rounded-xl bg-amber-400 text-neutral-950 font-mono font-bold text-xs uppercase"
-        >
-          Return to Events
-        </Link>
+      <div className="min-h-[70vh] flex flex-col items-center justify-center p-6 text-center max-w-md mx-auto">
+        <ErrorState
+          title="Event Not Found"
+          message="The requested event could not be located in your studio workspace."
+          onRetry={() => refetchEvent()}
+          actionLabel="Return to Events"
+          onAction={() => navigate('/dashboard/events')}
+        />
       </div>
     );
   }
@@ -97,7 +162,7 @@ export const EventDetailPage: React.FC = () => {
     guestUrl
   )}&margin=8`;
 
-  const totalSizeMB = event.media.reduce((acc, m) => acc + (m.sizeMB || 3.5), 0).toFixed(1);
+  const totalSizeMB = event.media.reduce((acc: number, m: any) => acc + (m.sizeMB || 3.5), 0).toFixed(1);
   const matchRate =
     event.stats.aiSearches > 0
       ? Math.min(100, Math.round((event.stats.matchesFound / event.stats.aiSearches) * 100))
@@ -136,7 +201,12 @@ export const EventDetailPage: React.FC = () => {
     }> = [];
 
     let processed = 0;
-    Array.from(files).forEach((file, index) => {
+    Array.from(files).forEach((file) => {
+      // Async upload to backend tethering endpoint
+      uploadTetherPhoto(file).catch(() => {
+        // Fallback to local
+      });
+
       const reader = new FileReader();
       reader.onload = () => {
         const dataUrl = reader.result as string;
@@ -545,7 +615,7 @@ export const EventDetailPage: React.FC = () => {
           </div>
         ) : (
           <div className="columns-2 sm:columns-3 lg:columns-4 gap-3">
-            {event.media.map((item) => (
+            {event.media.map((item: any) => (
               <div
                 key={item.id}
                 className="group relative break-inside-avoid mb-3 rounded-2xl overflow-hidden bg-neutral-900 border border-neutral-200/40 dark:border-neutral-800/80 shadow-xs"

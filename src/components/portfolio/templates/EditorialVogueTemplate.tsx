@@ -1,35 +1,20 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import type { PortfolioTemplateProps } from './PortfolioTemplateRegistry';
-import type { PortfolioProject, PortfolioConfig } from '../../../types/portfolio';
+import type { PortfolioProject } from '../../../types/portfolio';
 import { CURATED_HERO_PRESETS } from '../../../services/portfolioService';
 import {
   Sparkles,
   MapPin,
-  Calendar,
   Mail,
-  Phone,
   ArrowRight,
-  Heart,
   CheckCircle2,
   Send,
-  ExternalLink,
-  ChevronDown,
-  Award,
   Film,
-  Camera,
-  Layers,
-  MessageCircle,
-  Clock,
-  Globe,
-  Sliders,
   Edit2,
   Edit3,
   Plus,
   Trash2,
-  Image as ImageIcon,
   X,
-  Check,
-  Upload,
 } from 'lucide-react';
 
 const InstagramIcon: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
@@ -43,7 +28,6 @@ const InstagramIcon: React.FC<{ className?: string }> = ({ className = 'w-4 h-4'
 export const EditorialVogueTemplate: React.FC<PortfolioTemplateProps> = ({
   config,
   onInquirySubmit,
-  isPreview = false,
   isEditable = false,
   onUpdateConfig,
 }) => {

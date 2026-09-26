@@ -89,7 +89,9 @@ export const useCheckoutPlan = () => {
           description: data.message || 'Your studio subscription is now active!',
         });
         queryClient.invalidateQueries({ queryKey: ['current-subscription'] });
+        queryClient.invalidateQueries({ queryKey: ['subscription', 'current'] });
         queryClient.invalidateQueries({ queryKey: ['photographer-profile'] });
+        queryClient.invalidateQueries({ queryKey: ['profile', 'me'] });
       }
     },
     onError: (error: Error) => {
@@ -115,7 +117,9 @@ export const useVerifyPayment = () => {
         description: data?.message || 'Payment confirmed! Your new storage tier is now active.',
       });
       queryClient.invalidateQueries({ queryKey: ['current-subscription'] });
+      queryClient.invalidateQueries({ queryKey: ['subscription', 'current'] });
       queryClient.invalidateQueries({ queryKey: ['photographer-profile'] });
+      queryClient.invalidateQueries({ queryKey: ['profile', 'me'] });
     },
     onError: (error: Error) => {
       toast.error('Verification Failed', {
@@ -140,6 +144,7 @@ export const useCancelAutoRenew = () => {
         description: data?.message || 'Auto-renewal has been turned off.',
       });
       queryClient.invalidateQueries({ queryKey: ['current-subscription'] });
+      queryClient.invalidateQueries({ queryKey: ['subscription', 'current'] });
     },
     onError: (error: Error) => {
       toast.error('Action Failed', {

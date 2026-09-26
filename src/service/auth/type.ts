@@ -1,75 +1,13 @@
-export interface AuthUser {
-  id: number;
-  username: string;
-  email: string;
-  phone?: string | null;
-  unique_id?: string;
-  fullname?: string;
-  role?: string;
-  is_email_verified?: boolean;
-  avatar_url?: string;
-}
+/**
+ * Re-export all centralized auth types from @/types/auth
+ */
+export * from '@/types/auth';
 
-export interface SendOtpPayload {
-  email: string;
-}
+import type { AuthUser } from '@/types/auth';
 
-export interface SendOtpResponse {
-  status: string;
-  message: string;
-  email?: string;
-  is_registered: boolean;
-}
-
-export interface VerifyOtpPayload {
-  email: string;
-  otp: string;
-  fullname?: string;
-  role?: string;
-}
-
-export interface VerifyOtpResponse {
-  status: string;
-  message: string;
-  is_new_user: boolean;
-  user: AuthUser;
-  access_token?: string;
-  refresh_token?: string;
-}
-
-/** Check Login Success (200 OK) */
-export interface CheckLoginSuccessResponse {
-  is_logged_in: true;
-  user: AuthUser;
-  message?: string;
-}
-
-/** Check Login Unauthenticated (401 Unauthorized or not logged in) */
-export interface CheckLoginUnauthenticatedResponse {
-  is_logged_in: false;
-  message: string;
-}
-
-export type CheckLoginResponse = CheckLoginSuccessResponse | CheckLoginUnauthenticatedResponse;
-
-/** Logout Response */
-export interface LogoutResponse {
-  message: string;
-  status?: string | number;
-}
-
-/** Refresh Token Response */
-export interface RefreshTokenResponse {
-  message: string;
-}
-
-/** Normalized API Error */
-export interface ApiErrorResponse {
-  status?: number;
-  message: string;
-  data?: unknown;
-}
-
+/**
+ * Generic Auth Response for loose backend response handling
+ */
 export interface AuthResponse {
   status?: string | boolean | number;
   is_logged_in?: boolean;
@@ -80,4 +18,3 @@ export interface AuthResponse {
   data?: unknown;
   [key: string]: unknown;
 }
-

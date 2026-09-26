@@ -1,10 +1,13 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { useGallery } from '../../context/GalleryContext';
-import { useCurrentSubscription } from '@/service/plans/usePlans';
-import { getInquiries, getInquiryAnalytics, subscribeInquiries } from '../../services/inquiryService';
+import { usePlanQuota } from '@/hooks/usePlanQuota';
+import { useGalleries, useInquiries, useInquiriesAnalytics } from '@/hooks/useAtelierQueries';
+import { normalizeServerGallery } from '@/utils/galleryNormalizer';
+import { getInquiries, getInquiryAnalytics } from '../../services/inquiryService';
 import type { PortfolioInquiry, InquiryAnalyticsMetrics } from '../../types/inquiry';
+import type { Gallery } from '../../types';
+import { getInitialGalleryCover, handleCoverImageError } from '@/utils/coverImageUtils';
 import { UpgradePlanModal } from '../../components/common/UpgradePlanModal';
 import { useToast } from '../../components/ui/Toast';
 import {
@@ -23,46 +26,72 @@ import {
   Sparkles,
   ArrowRight,
   CheckCircle2,
-  Clock,
-  ChevronRight,
-  Film,
-  Camera,
-  Layers,
-  Zap,
 } from 'lucide-react';
 
 export const OverviewPage: React.FC = () => {
   const { photographer, user } = useAuth();
-  const { galleries, subscription } = useGallery();
-  const { data: activeApiSub } = useCurrentSubscription();
+  const planQuota = usePlanQuota();
+  const { data: apiGalleries } = useGalleries();
+  const { data: apiInquiriesData } = useInquiries();
+  const { data: apiInquiriesAnalytics } = useInquiriesAnalytics();
   const { showToast } = useToast();
   const navigate = useNavigate();
 
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
-  const [inquiries, setInquiries] = useState<PortfolioInquiry[]>(() => getInquiries());
-  const [inquiryStats, setInquiryStats] = useState<InquiryAnalyticsMetrics>(() =>
-    getInquiryAnalytics()
-  );
 
-  // Subscribe to real-time inquiry changes
-  useEffect(() => {
-    const unsubscribe = subscribeInquiries((updated) => {
-      setInquiries(updated);
-      setInquiryStats(getInquiryAnalytics(updated));
-    });
-    return unsubscribe;
-  }, []);
+  // Normalize server galleries strictly from API — zero dummy fallbacks
+  const galleries = useMemo<Gallery[]>(() => {
+    if (apiGalleries && Array.isArray(apiGalleries)) {
+      return apiGalleries.map((g: any) => normalizeServerGallery(g));
+    }
+    return [];
+  }, [apiGalleries]);
 
-  // Compute storage and subscription metrics
-  const activePlanName =
-    activeApiSub?.plan?.name || subscription?.name?.replace(/\s*\(.*?\)/, '') || 'Standard Annual';
-  const activeTier = activeApiSub?.plan?.tier || subscription?.tier || 'pro';
-  const storageLimit = activeApiSub?.storage?.limit_gb ?? subscription?.storageLimitGB ?? 210;
-  const storageUsed = activeApiSub?.storage?.used_gb ?? subscription?.storageUsedGB ?? 28.7;
-  const storagePercentage =
-    activeApiSub?.storage?.used_percentage ??
-    Math.min(100, Math.max(1, Math.round((storageUsed / storageLimit) * 100)));
-  const daysRemaining = activeApiSub?.days_remaining ?? subscription?.daysRemaining ?? 312;
+  // Normalize server inquiries
+  const inquiries = useMemo<PortfolioInquiry[]>(() => {
+    if (apiInquiriesData?.inquiries && Array.isArray(apiInquiriesData.inquiries)) {
+      return apiInquiriesData.inquiries.map((inq: any) => ({
+        id: String(inq.id),
+        clientName: inq.clientName || inq.client_name || 'Client',
+        clientEmail: inq.clientEmail || inq.client_email || 'client@example.com',
+        clientPhone: inq.clientPhone || inq.client_phone || '',
+        eventType: inq.eventType || inq.event_type || 'wedding',
+        eventDate: inq.eventDate || inq.event_date || new Date().toISOString().split('T')[0],
+        location: inq.location || 'Studio',
+        budget: inq.budget || 'Custom',
+        message: inq.message || '',
+        status: inq.status || 'new',
+        createdAt: inq.createdAt || inq.created_at || new Date().toISOString(),
+        isLocked: inq.is_locked,
+      }));
+    }
+    return getInquiries();
+  }, [apiInquiriesData]);
+
+  // Compute inquiry analytics
+  const inquiryStats = useMemo<InquiryAnalyticsMetrics>(() => {
+    const fallback = getInquiryAnalytics(inquiries);
+    if (apiInquiriesAnalytics) {
+      const pipelineVal = parseFloat(apiInquiriesAnalytics.total_pipeline_value || '0');
+      return {
+        totalInquiries: inquiries.length,
+        newLeads: apiInquiriesAnalytics.status_counts?.new ?? fallback.newLeads,
+        inDiscussion: apiInquiriesAnalytics.status_counts?.contacted ?? fallback.inDiscussion,
+        bookedCount: apiInquiriesAnalytics.status_counts?.booked ?? fallback.bookedCount,
+        archivedCount: apiInquiriesAnalytics.status_counts?.archived ?? fallback.archivedCount,
+        conversionRate: apiInquiriesAnalytics.conversion_rate ?? fallback.conversionRate,
+        estimatedPipelineValue: !isNaN(pipelineVal) && pipelineVal > 0 ? pipelineVal : fallback.estimatedPipelineValue,
+      };
+    }
+    return fallback;
+  }, [apiInquiriesAnalytics, inquiries]);
+
+  // Compute storage and subscription metrics (100% dynamic from backend)
+  const activePlanName = planQuota.planName;
+  const storageLimit = planQuota.storageLimitGB;
+  const storageUsed = planQuota.storageUsedGB;
+  const storagePercentage = planQuota.storageUsedPercent;
+  const daysRemaining = planQuota.daysRemaining;
 
   // Aggregate gallery metrics
   const totalGalleries = galleries.length;
@@ -71,14 +100,7 @@ export const OverviewPage: React.FC = () => {
 
   const totalPhotosCount = useMemo(() => {
     return galleries.reduce(
-      (acc, g) => acc + g.media.filter((m) => m.type !== 'video').length,
-      0
-    );
-  }, [galleries]);
-
-  const totalVideosCount = useMemo(() => {
-    return galleries.reduce(
-      (acc, g) => acc + g.media.filter((m) => m.type === 'video').length,
+      (acc, g) => acc + (g.photosCount ?? g.media.filter((m) => m.type !== 'video').length),
       0
     );
   }, [galleries]);
@@ -179,7 +201,7 @@ export const OverviewPage: React.FC = () => {
             </button>
 
             <button
-              onClick={() => navigate('/dashboard/drive')}
+              onClick={() => navigate('/dashboard/gallery')}
               className="px-4 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 text-xs font-bold flex items-center gap-2 transition-all hover:scale-105 active:scale-95 shadow-md"
             >
               <Plus className="w-4 h-4 stroke-[2.5]" />
@@ -252,7 +274,7 @@ export const OverviewPage: React.FC = () => {
               <CheckCircle2 className="w-3 h-3" />
               <span>100% Online</span>
             </span>
-            <Link to="/dashboard/drive" className="text-neutral-500 hover:text-neutral-900 dark:hover:text-white font-semibold">
+            <Link to="/dashboard/gallery" className="text-neutral-500 hover:text-neutral-900 dark:hover:text-white font-semibold">
               Manage →
             </Link>
           </div>
@@ -352,7 +374,7 @@ export const OverviewPage: React.FC = () => {
               { month: 'Jul', views: 950, downloads: 240, heightPct: '68%' },
               { month: 'Aug', views: 1320, downloads: 340, heightPct: '88%' },
               { month: 'Sep', views: 1420, downloads: 385, heightPct: '96%' },
-            ].map((item, idx) => (
+            ].map((item) => (
               <div key={item.month} className="flex-1 flex flex-col items-center gap-2 h-full justify-end group">
                 <div className="text-[10px] font-mono font-bold text-neutral-400 opacity-0 group-hover:opacity-100 transition-opacity">
                   {item.views}
@@ -467,7 +489,7 @@ export const OverviewPage: React.FC = () => {
               </p>
             </div>
             <Link
-              to="/dashboard/drive"
+              to="/dashboard/gallery"
               className="text-xs text-amber-600 dark:text-amber-400 font-semibold hover:underline flex items-center gap-1"
             >
               <span>All Galleries</span>
@@ -485,8 +507,10 @@ export const OverviewPage: React.FC = () => {
                 <div className="flex items-center gap-3.5 min-w-0">
                   <div className="relative w-12 h-12 rounded-xl overflow-hidden shrink-0 border border-neutral-200 dark:border-neutral-800">
                     <img
-                      src={gallery.coverImage || gallery.media[0]?.url}
-                      alt={gallery.title}
+                      src={gallery.coverImage || gallery.media[0]?.url || getInitialGalleryCover(gallery.templateId)}
+                      alt=""
+                      loading="lazy"
+                      onError={(e) => handleCoverImageError(e, getInitialGalleryCover(gallery.templateId))}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
                     <span className="absolute top-1 left-1 w-4 h-4 rounded-md bg-black/70 backdrop-blur-xs text-[10px] text-white font-mono flex items-center justify-center font-bold">
@@ -495,7 +519,7 @@ export const OverviewPage: React.FC = () => {
                   </div>
                   <div className="min-w-0">
                     <Link
-                      to={`/dashboard/drive/${gallery.id}`}
+                      to={`/dashboard/gallery/${gallery.id}`}
                       className="text-sm font-bold text-neutral-900 dark:text-white hover:text-amber-500 truncate block transition-colors"
                     >
                       {gallery.title}

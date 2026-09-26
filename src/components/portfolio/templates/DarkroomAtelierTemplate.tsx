@@ -1,35 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import type { PortfolioTemplateProps } from './PortfolioTemplateRegistry';
 import type { PortfolioProject } from '../../../types/portfolio';
-import { CURATED_HERO_PRESETS, DEFAULT_PORTFOLIO_PROJECTS } from '../../../services/portfolioService';
+import { DEFAULT_PORTFOLIO_PROJECTS } from '../../../services/portfolioService';
 import {
-  Camera,
   Film,
   Sparkles,
   MapPin,
-  Calendar,
-  Mail,
-  Phone,
   ArrowRight,
   ArrowUpRight,
   Send,
   CheckCircle2,
-  SlidersHorizontal,
-  Layers,
   Clock,
-  Eye,
   X,
   Edit2,
   Edit3,
   Plus,
   Trash2,
-  Check,
 } from 'lucide-react';
 
 export const DarkroomAtelierTemplate: React.FC<PortfolioTemplateProps> = ({
   config,
   onInquirySubmit,
-  isPreview = false,
   isEditable = false,
   onUpdateConfig,
 }) => {

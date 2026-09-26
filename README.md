@@ -1,6 +1,10 @@
-# React + TypeScript + Vite
+# EX SHARE Atelier (Photo-garaphy)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+> **Backend Architecture & API Specification:** See [DJANGO_BACKEND_API_SPECIFICATION.md](file:///d:/Projects/Photo-garaphy/DJANGO_BACKEND_API_SPECIFICATION.md) for the complete production Python Django REST Framework backend API architecture, database models, plan quota enforcer, and Razorpay payment integration guide.
+
+## Frontend Client (React + TypeScript + Vite)
+
+This project provides the luxury photographer client proofing, cloud drive, AI face recognition, live event tethering, and studio portfolio application.
 
 Currently, two official plugins are available:
 

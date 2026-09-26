@@ -1,5 +1,5 @@
 import React from 'react';
-import { Heart, Play, Check, Sparkles } from 'lucide-react';
+import { Play, Check, Sparkles } from 'lucide-react';
 import { GalleryHeroBanner } from '../../GalleryHeroBanner';
 import { ClientSectionFilterBar } from '../../ClientSectionFilterBar';
 import { AIFaceSearchBox } from '../../AIFaceSearchBox';
@@ -10,7 +10,6 @@ import { useGalleryTemplateState } from '../useGalleryTemplateState';
 export const MinimalLayout: React.FC<TemplateLayoutProps> = ({
   gallery,
   onOpenLightbox,
-  onToggleFavorite,
   selectedMediaIds = new Set(),
   onToggleSelectMedia,
   studioName,
@@ -24,7 +23,6 @@ export const MinimalLayout: React.FC<TemplateLayoutProps> = ({
     coverImage,
     shootDate,
     filteredMedia,
-    favoritesCount,
     photosCount,
     videosCount,
     findOriginalIndex,
@@ -41,19 +39,14 @@ export const MinimalLayout: React.FC<TemplateLayoutProps> = ({
       />
 
       {/* ─── ARCHIVAL FILTER BAR ─── */}
-      <div className="sticky top-0 z-30 bg-[#F5F5F2]/95 backdrop-blur-md border-b border-neutral-200/90 py-3 shadow-xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <ClientSectionFilterBar
-            sections={gallerySections}
-            activeFilter={activeFilter}
-            onSelectFilter={setActiveFilter}
-            favoritesCount={favoritesCount}
-            totalPhotosCount={photosCount}
-            totalVideosCount={videosCount}
-            theme="minimal"
-          />
-        </div>
-      </div>
+      <ClientSectionFilterBar
+        sections={gallerySections}
+        activeFilter={activeFilter}
+        onSelectFilter={setActiveFilter}
+        totalPhotosCount={photosCount}
+        totalVideosCount={videosCount}
+        theme="minimal"
+      />
 
       {/* ─── AI FACE SEARCH COMPONENT (only when AI Search is active) ─── */}
       {activeFilter.type === 'ai-face' && (
@@ -89,10 +82,9 @@ export const MinimalLayout: React.FC<TemplateLayoutProps> = ({
           </div>
         ) : (
           <div className="columns-2 sm:columns-3 lg:columns-3 xl:columns-4 gap-3">
-            {filteredMedia.map((item, index) => {
+            {filteredMedia.map((item) => {
               const originalIndex = findOriginalIndex(item);
               const isSelected = selectedMediaIds.has(item.id);
-              const isFav = item.isFavorite;
 
               return (
                 <div key={item.id} className="group flex flex-col break-inside-avoid mb-3">
@@ -107,12 +99,6 @@ export const MinimalLayout: React.FC<TemplateLayoutProps> = ({
                       loading="lazy"
                       onClick={() => onOpenLightbox(originalIndex)}
                       className="w-full h-auto block object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03] cursor-pointer"
-                    />
-
-                    {/* Overlay */}
-                    <div
-                      onClick={() => onOpenLightbox(originalIndex)}
-                      className="absolute inset-0 bg-black/15 opacity-0 group-hover:opacity-100 transition-opacity duration-300 cursor-pointer pointer-events-none"
                     />
 
                     {/* Video Badge */}
@@ -137,32 +123,6 @@ export const MinimalLayout: React.FC<TemplateLayoutProps> = ({
                         <Check className={`w-3.5 h-3.5 ${isSelected ? 'stroke-[3]' : 'stroke-2'}`} />
                       </button>
                     )}
-
-                    {/* Favorite */}
-                    {onToggleFavorite && (
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); onToggleFavorite(item.id); }}
-                        className={`absolute bottom-2 right-2 z-10 p-1.5 rounded-full backdrop-blur-sm transition-all ${
-                          isFav
-                            ? 'bg-rose-500 text-white opacity-100'
-                            : 'bg-white/80 text-neutral-700 hover:bg-rose-500 hover:text-white opacity-0 group-hover:opacity-100 shadow-sm'
-                        }`}
-                        title="Favorite photo"
-                      >
-                        <Heart className={`w-3.5 h-3.5 ${isFav ? 'fill-current' : ''}`} />
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Caption below image */}
-                  <div className="mt-1.5 flex items-baseline justify-between text-[10px] font-mono text-neutral-400 px-0.5">
-                    <span className="text-neutral-700 font-medium tracking-tight truncate max-w-[70%]">
-                      {item.title || `Plate ${index + 1 < 10 ? `0${index + 1}` : index + 1}`}
-                    </span>
-                    <span className="text-[9px] tracking-widest text-neutral-400 uppercase">
-                      {item.sectionTitle || 'Print'}
-                    </span>
                   </div>
                 </div>
               );

@@ -307,7 +307,7 @@ export const OnboardingPage: React.FC = () => {
         isOnboarded: true,
       });
 
-      navigate('/dashboard/drive');
+      navigate('/dashboard/gallery');
     } catch {
       // Handled by mutation toast
     }

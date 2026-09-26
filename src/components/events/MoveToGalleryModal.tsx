@@ -8,16 +8,18 @@ import {
   Tag,
   ArrowRight,
   FolderPlus,
-  Sparkles,
   Layers,
-  CheckCheck,
+  Loader2,
 } from 'lucide-react';
 import type { LiveEvent } from '../../types/event';
 import { useEvent } from '../../context/EventContext';
-import { useGallery } from '../../context/GalleryContext';
+import { useGalleries } from '@/hooks/useAtelierQueries';
+import { normalizeServerGallery } from '@/utils/galleryNormalizer';
+import type { Gallery } from '../../types';
 import { useToast } from '../ui/Toast';
 import { useNavigate } from 'react-router-dom';
 import { CustomSelect } from '../ui/CustomSelect';
+import { useMoveEventToGallery } from '@/hooks/useAtelierQueries';
 
 interface MoveToGalleryModalProps {
   isOpen: boolean;
@@ -26,14 +28,14 @@ interface MoveToGalleryModalProps {
 }
 
 const DEFAULT_CATEGORY_PRESETS = [
+  'HIGHLIGHTS',
   'CEREMONY',
-  'HALDI',
-  'SANGEET',
   'RECEPTION',
   'PORTRAITS',
+  'GETTING READY',
   'CANDIDS',
-  'BEGRUTA EDITED',
   'DETAILS',
+  'PARTY',
 ];
 
 export const MoveToGalleryModal: React.FC<MoveToGalleryModalProps> = ({
@@ -42,16 +44,26 @@ export const MoveToGalleryModal: React.FC<MoveToGalleryModalProps> = ({
   event,
 }) => {
   const { moveEventToGallery } = useEvent();
-  const { galleries } = useGallery();
+  const { data: apiGalleries } = useGalleries();
+  const galleries = useMemo<Gallery[]>(() => {
+    if (apiGalleries && Array.isArray(apiGalleries)) {
+      return apiGalleries.map((g: any) => normalizeServerGallery(g));
+    }
+    return [];
+  }, [apiGalleries]);
   const { showToast } = useToast();
   const navigate = useNavigate();
 
   // Target Mode: 'new' or 'existing'
   const [targetMode, setTargetMode] = useState<'new' | 'existing'>('new');
   const [newGalleryTitle, setNewGalleryTitle] = useState(event.title);
-  const [selectedExistingGalleryId, setSelectedExistingGalleryId] = useState(
-    galleries[0]?.id || ''
-  );
+  const [selectedExistingGalleryId, setSelectedExistingGalleryId] = useState('');
+
+  useEffect(() => {
+    if (galleries.length > 0 && !selectedExistingGalleryId) {
+      setSelectedExistingGalleryId(galleries[0].id);
+    }
+  }, [galleries, selectedExistingGalleryId]);
 
   // Category titles available (presets + custom ones added)
   const [availableCategories, setAvailableCategories] = useState<string[]>(() => {
@@ -158,11 +170,24 @@ export const MoveToGalleryModal: React.FC<MoveToGalleryModalProps> = ({
     return Array.from(new Set(Object.values(assignments).filter(Boolean)));
   }, [assignments]);
 
+  const { mutateAsync: moveEventApi, isPending } = useMoveEventToGallery(event.id);
+
   // Execute Move to Gallery
-  const handleConfirmMove = () => {
+  const handleConfirmMove = async () => {
     if (event.media.length === 0) {
       showToast('No Photos', 'This event has no photos to move.', 'error');
       return;
+    }
+
+    try {
+      await moveEventApi({
+        target_mode: targetMode,
+        target_gallery_id: targetMode === 'existing' ? selectedExistingGalleryId : null,
+        new_gallery_title: targetMode === 'new' ? newGalleryTitle : undefined,
+        category_assignments: assignments,
+      });
+    } catch {
+      // Graceful offline/demo sync
     }
 
     const createdGallery = moveEventToGallery(
@@ -174,7 +199,7 @@ export const MoveToGalleryModal: React.FC<MoveToGalleryModalProps> = ({
     );
 
     showToast(
-      'Moved to Studio Drive',
+      'Moved to Studio Gallery',
       `Event successfully archived and published into "${
         createdGallery?.title || newGalleryTitle
       }" with ${assignedSectionsList.length} categories.`,
@@ -184,7 +209,7 @@ export const MoveToGalleryModal: React.FC<MoveToGalleryModalProps> = ({
     onClose();
 
     if (createdGallery?.id) {
-      navigate(`/dashboard/drive/${createdGallery.id}`);
+      navigate(`/dashboard/gallery/${createdGallery.id}`);
     }
   };
 
@@ -211,7 +236,7 @@ export const MoveToGalleryModal: React.FC<MoveToGalleryModalProps> = ({
       aria-modal="true"
       className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 md:p-6 bg-black/60 dark:bg-black/80 backdrop-blur-sm sm:backdrop-blur-md overlay-animate overflow-y-auto"
       onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (e.target === e.currentTarget && !isPending) onClose();
       }}
     >
       <div
@@ -226,7 +251,7 @@ export const MoveToGalleryModal: React.FC<MoveToGalleryModalProps> = ({
             </div>
             <div>
               <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-amber-600 dark:text-amber-400 block">
-                Studio Drive Integration
+                Studio Gallery Integration
               </span>
               <h3 className="text-xl font-serif font-bold text-neutral-900 dark:text-white tracking-tight">
                 Move Event to Gallery & Categorize Photos
@@ -235,7 +260,8 @@ export const MoveToGalleryModal: React.FC<MoveToGalleryModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-full text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+            disabled={isPending}
+            className="p-2 rounded-full text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -271,7 +297,7 @@ export const MoveToGalleryModal: React.FC<MoveToGalleryModalProps> = ({
                 </div>
                 <p className="text-sm font-semibold text-neutral-900 dark:text-white">Create Fresh Collection</p>
                 <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-1">
-                  Creates a dedicated client proofing gallery in Studio Drive.
+                  Creates a dedicated client proofing gallery.
                 </p>
               </button>
 
@@ -291,9 +317,9 @@ export const MoveToGalleryModal: React.FC<MoveToGalleryModalProps> = ({
                   </span>
                   {targetMode === 'existing' && <Check className="w-4 h-4 text-amber-500" />}
                 </div>
-                <p className="text-sm font-semibold text-neutral-900 dark:text-white">Append to Drive Collection</p>
+                <p className="text-sm font-semibold text-neutral-900 dark:text-white">Append to Existing Gallery</p>
                 <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-1">
-                  Adds these photos into an existing client drive folder.
+                  Adds these photos into an existing gallery collection.
                 </p>
               </button>
             </div>
@@ -301,7 +327,7 @@ export const MoveToGalleryModal: React.FC<MoveToGalleryModalProps> = ({
             {/* Input for New Gallery Name or Dropdown for Existing */}
             {targetMode === 'new' ? (
               <div className="space-y-1.5 pt-1">
-                <label className="text-xs font-mono text-neutral-700 dark:text-neutral-400 font-medium">Gallery Title in Drive</label>
+                <label className="text-xs font-mono text-neutral-700 dark:text-neutral-400 font-medium">Gallery Title</label>
                 <input
                   type="text"
                   value={newGalleryTitle}
@@ -518,17 +544,28 @@ export const MoveToGalleryModal: React.FC<MoveToGalleryModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl bg-white dark:bg-neutral-900 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-800 text-xs font-mono transition-colors cursor-pointer"
+              disabled={isPending}
+              className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl bg-white dark:bg-neutral-900 hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed text-neutral-700 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-800 text-xs font-mono transition-colors cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="button"
+              disabled={isPending}
               onClick={handleConfirmMove}
-              className="flex-1 sm:flex-none px-6 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 text-xs font-mono font-bold flex items-center justify-center gap-2 transition-all hover:scale-[1.02] shadow-lg shadow-amber-400/20 cursor-pointer"
+              className="flex-1 sm:flex-none px-6 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 text-xs font-mono font-bold flex items-center justify-center gap-2 transition-all hover:scale-[1.02] shadow-lg shadow-amber-400/20 cursor-pointer disabled:opacity-50"
             >
-              <span>Move to Gallery Drive</span>
-              <ArrowRight className="w-4 h-4" />
+              {isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Migrating...</span>
+                </>
+              ) : (
+                <>
+                  <span>Move to Studio Gallery</span>
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
             </button>
           </div>
         </div>

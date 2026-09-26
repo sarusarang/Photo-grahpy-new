@@ -63,11 +63,11 @@ export const MediaShareModal: React.FC<MediaShareModalProps> = ({
   const currentItem = mediaItems[activePreviewIndex] || mediaItems[0];
   const isMultiple = mediaItems.length > 1;
 
-  // Build direct shareable URL
-  const baseUrl = window.location.origin;
+  // Build direct shareable URL on canonical domain https://exshare.ai
+  const baseUrl = 'https://exshare.ai';
   const shareUrl = gallerySlug
-    ? `${baseUrl}/gallery/${gallerySlug}?photo=${currentItem.id}`
-    : window.location.href;
+    ? `${baseUrl}/gallery/${encodeURIComponent(gallerySlug)}?photo=${encodeURIComponent(currentItem.id)}`
+    : `${baseUrl}/gallery/${currentItem.galleryId || 'collection'}?photo=${encodeURIComponent(currentItem.id)}`;
 
   const shareText = isMultiple
     ? `Check out these ${mediaItems.length} photos from "${galleryTitle}"`

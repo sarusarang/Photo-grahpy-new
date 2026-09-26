@@ -18,6 +18,7 @@ import {
   Maximize2,
   RotateCcw,
   Share2,
+  Loader2,
 } from 'lucide-react';
 
 interface LightboxModalProps {
@@ -27,6 +28,7 @@ interface LightboxModalProps {
   currentIndex: number;
   onNavigate: (newIndex: number) => void;
   onToggleFavorite?: (mediaId: string) => void;
+  isFavoriting?: boolean;
   onDelete?: (mediaId: string) => void;
   studioName?: string;
   allowDownloads?: boolean;
@@ -42,6 +44,7 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
   currentIndex,
   onNavigate,
   onToggleFavorite,
+  isFavoriting = false,
   onDelete,
   studioName = 'EX SHARE',
   allowDownloads = true,
@@ -280,15 +283,33 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
         <div className="flex items-center gap-2 sm:gap-3">
           {onToggleFavorite && (
             <button
-              onClick={() => onToggleFavorite(currentItem.id)}
-              className={`p-2.5 rounded-full transition-all active:scale-95 ${
-                currentItem.isFavorite
-                  ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/30'
-                  : 'bg-white/10 text-neutral-300 hover:text-white hover:bg-white/20'
+              type="button"
+              disabled={isFavoriting}
+              onClick={() => {
+                if (!isFavoriting) {
+                  onToggleFavorite(currentItem.id);
+                }
+              }}
+              className={`p-2.5 rounded-full transition-all ${
+                isFavoriting
+                  ? 'bg-black/60 text-amber-400 opacity-90 cursor-not-allowed border border-amber-400/30'
+                  : currentItem.isFavorite
+                  ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/30 active:scale-95 cursor-pointer'
+                  : 'bg-white/10 text-neutral-300 hover:text-white hover:bg-white/20 active:scale-95 cursor-pointer'
               }`}
-              title="Add to Favorites"
+              title={
+                isFavoriting
+                  ? 'Updating favorite...'
+                  : currentItem.isFavorite
+                  ? 'Remove from Favorites'
+                  : 'Add to Favorites'
+              }
             >
-              <Heart className={`w-4 h-4 ${currentItem.isFavorite ? 'fill-current' : ''}`} />
+              {isFavoriting ? (
+                <Loader2 className="w-4 h-4 animate-spin text-amber-400" />
+              ) : (
+                <Heart className={`w-4 h-4 ${currentItem.isFavorite ? 'fill-current' : ''}`} />
+              )}
             </button>
           )}
 

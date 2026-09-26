@@ -4,10 +4,8 @@ import {
   Camera,
   Trash2,
   UploadCloud,
-  Tag,
   Calendar,
   MapPin,
-  ChevronDown,
   ExternalLink,
   Image as ImageIcon,
 } from 'lucide-react';
@@ -114,7 +112,7 @@ export const PortfolioWorkCard: React.FC<PortfolioWorkCardProps> = ({
 
           {project.gallerySlug && (
             <span className="text-[10px] font-mono text-amber-300/90 bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-md border border-white/15">
-              Drive Synced
+              Gallery Synced
             </span>
           )}
         </div>

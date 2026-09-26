@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Heart, Play, Check, Sparkles } from 'lucide-react';
+import { Play, Check, Sparkles } from 'lucide-react';
 import { ClientSectionFilterBar } from '../../ClientSectionFilterBar';
 import { AIFaceSearchBox } from '../../AIFaceSearchBox';
 import { ClientGalleryFooter } from '../../ClientGalleryFooter';
@@ -14,7 +14,6 @@ const isVideoUrl = (url?: string): boolean => {
 export const CinematicLayout: React.FC<TemplateLayoutProps> = ({
   gallery,
   onOpenLightbox,
-  onToggleFavorite,
   selectedMediaIds = new Set(),
   onToggleSelectMedia,
   studioName,
@@ -25,8 +24,8 @@ export const CinematicLayout: React.FC<TemplateLayoutProps> = ({
     setActiveFilter,
     setSearchQuery,
     setAiMatchedIds,
+    coverImage,
     filteredMedia,
-    favoritesCount,
     photosCount,
     videosCount,
     findOriginalIndex,
@@ -34,11 +33,19 @@ export const CinematicLayout: React.FC<TemplateLayoutProps> = ({
 
   const videos = gallery.media.filter((m) => m.type === 'video');
   const bannerVideoUrl =
-    gallery.templateBanners?.['cinematic'] && isVideoUrl(gallery.templateBanners?.['cinematic'])
+    (gallery.templateBanners?.['cinematic'] && isVideoUrl(gallery.templateBanners?.['cinematic']))
       ? gallery.templateBanners?.['cinematic']
-      : videos[0]?.url;
+      : (isVideoUrl(coverImage)
+          ? coverImage
+          : videos[0]?.url);
 
-  const featuredPhoto = gallery.media.find((m) => m.type !== 'video') || gallery.media[0];
+  const heroImage =
+    coverImage ||
+    gallery.templateBanners?.['cinematic'] ||
+    gallery.coverImage ||
+    gallery.media.find((m) => m.type !== 'video')?.url ||
+    gallery.media[0]?.url;
+
   const videoRef = useRef<HTMLVideoElement>(null);
 
   return (
@@ -56,11 +63,11 @@ export const CinematicLayout: React.FC<TemplateLayoutProps> = ({
               playsInline
               className="w-full h-full object-cover opacity-80"
             />
-          ) : featuredPhoto ? (
+          ) : heroImage ? (
             <img
-              src={featuredPhoto.url}
+              src={heroImage}
               alt="Cinematic frame"
-              className="w-full h-full object-cover opacity-75 filter contrast-105"
+              className="w-full h-full object-cover opacity-85 filter contrast-105"
             />
           ) : null}
 
@@ -98,19 +105,14 @@ export const CinematicLayout: React.FC<TemplateLayoutProps> = ({
       </div>
 
       {/* ─── FILTER & SECTION NAVIGATION ─── */}
-      <div className="sticky top-0 z-30 bg-[#030304]/95 backdrop-blur-md border-b border-neutral-900 py-3 shadow-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <ClientSectionFilterBar
-            sections={gallerySections}
-            activeFilter={activeFilter}
-            onSelectFilter={setActiveFilter}
-            favoritesCount={favoritesCount}
-            totalPhotosCount={photosCount}
-            totalVideosCount={videosCount}
-            theme="cinematic"
-          />
-        </div>
-      </div>
+      <ClientSectionFilterBar
+        sections={gallerySections}
+        activeFilter={activeFilter}
+        onSelectFilter={setActiveFilter}
+        totalPhotosCount={photosCount}
+        totalVideosCount={videosCount}
+        theme="cinematic"
+      />
 
       {/* ─── AI FACE SEARCH COMPONENT (only when AI Search is active) ─── */}
       {activeFilter.type === 'ai-face' && (
@@ -151,7 +153,6 @@ export const CinematicLayout: React.FC<TemplateLayoutProps> = ({
             {filteredMedia.map((item) => {
               const originalIndex = findOriginalIndex(item);
               const isSelected = selectedMediaIds.has(item.id);
-              const isFav = item.isFavorite;
 
               return (
                 <div
@@ -166,12 +167,6 @@ export const CinematicLayout: React.FC<TemplateLayoutProps> = ({
                     loading="lazy"
                     onClick={() => onOpenLightbox(originalIndex)}
                     className="w-full h-auto block object-cover transition-transform duration-700 ease-out group-hover:scale-105 cursor-pointer filter brightness-90 group-hover:brightness-100"
-                  />
-
-                  {/* Gradient Overlay */}
-                  <div
-                    onClick={() => onOpenLightbox(originalIndex)}
-                    className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30 opacity-0 group-hover:opacity-100 transition-opacity duration-300 cursor-pointer pointer-events-none"
                   />
 
                   {/* Video Play Badge */}
@@ -197,37 +192,6 @@ export const CinematicLayout: React.FC<TemplateLayoutProps> = ({
                       title="Select frame"
                     >
                       <Check className={`w-3.5 h-3.5 ${isSelected ? 'stroke-[3]' : 'stroke-2'}`} />
-                    </button>
-                  )}
-
-                  {/* Caption Overlay */}
-                  <div className="absolute bottom-2.5 left-2.5 right-12 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
-                    <p className="font-serif italic text-xs text-white drop-shadow truncate">
-                      {item.title || 'Cinema Still'}
-                    </p>
-                    {item.sectionTitle && (
-                      <span className="text-[10px] tracking-widest text-amber-400/80 uppercase block font-mono">
-                        {item.sectionTitle}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Favorite Heart Button */}
-                  {onToggleFavorite && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onToggleFavorite(item.id);
-                      }}
-                      className={`absolute bottom-2.5 right-2.5 z-10 p-1.5 rounded-full backdrop-blur-sm transition-all ${
-                        isFav
-                          ? 'bg-rose-500 text-white opacity-100'
-                          : 'bg-black/40 text-neutral-400 hover:bg-rose-500 hover:text-white opacity-0 group-hover:opacity-100'
-                      }`}
-                      title="Favorite photo"
-                    >
-                      <Heart className={`w-3.5 h-3.5 ${isFav ? 'fill-current' : ''}`} />
                     </button>
                   )}
                 </div>

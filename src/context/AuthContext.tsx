@@ -1,70 +1,48 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import type { PhotographerProfile } from '../types';
-import type { AuthUser } from '../service/auth/type';
-import { useCheckLogin, useLogout } from '../service/auth/useAuth';
-import { INITIAL_PHOTOGRAPHER } from '../data/demoData';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import type { PhotographerProfile } from '@/types';
+import type { AuthUser, AuthContextType } from '@/types/auth';
+import { useCheckLogin, useLogout, AUTH_QUERY_KEYS } from '@/service/auth';
+import { INITIAL_PHOTOGRAPHER } from '@/data/demoData';
 
-export interface AuthContextType {
-  isAuthenticated: boolean;
-  isLoading: boolean;
-  isLoggingOut: boolean;
-  user: AuthUser | null;
-  photographer: PhotographerProfile;
-  checkLoginError: Error | null;
-  login: (userData?: Partial<AuthUser>, profileData?: Partial<PhotographerProfile>) => void;
-  logout: () => Promise<void>;
-  refetchAuth: () => Promise<unknown>;
-  updateProfile: (updates: Partial<PhotographerProfile>) => void;
-  completeOnboarding: (data: Partial<PhotographerProfile>) => void;
-  resetProfile: () => void;
-}
+// Re-export type contract for backward compatibility
+export type { AuthContextType };
 
-const STORAGE_KEY = 'photo_saas_auth_v2';
-const PROFILE_KEY = 'photo_saas_profile_v2';
-const USER_KEY = 'photo_saas_user_v2';
-
-const createEmptyProfile = (u?: Partial<AuthUser> | null): PhotographerProfile => ({
-  id: u?.id?.toString() || '',
-  studioName: u?.fullname ? `${u.fullname} Studio` : 'Studio',
-  fullName: u?.fullname || u?.username || '',
-  email: u?.email || '',
-  phone: u?.phone || '',
-  location: '',
-  bio: '',
-  avatarUrl: u?.avatar_url || '',
-  websiteUrl: '',
-  instagramHandle: '',
-  watermarkText: '© EX SHARE',
-  enableWatermark: false,
-  isOnboarded: Boolean(u?.id),
+/**
+ * Builds a normalized PhotographerProfile combining authenticated AuthUser data
+ * with optional in-memory profile overrides.
+ */
+const buildPhotographerProfile = (
+  user?: Partial<AuthUser> | null,
+  override?: Partial<PhotographerProfile> | null
+): PhotographerProfile => ({
+  id: user?.id?.toString() || override?.id || '',
+  studioName: user?.fullname ? `${user.fullname} Studio` : override?.studioName || 'Studio',
+  fullName: user?.fullname || user?.username || override?.fullName || '',
+  email: user?.email || override?.email || '',
+  phone: user?.phone || override?.phone || '',
+  location: override?.location || '',
+  bio: override?.bio || '',
+  avatarUrl: user?.avatar_url || override?.avatarUrl || '',
+  websiteUrl: override?.websiteUrl || '',
+  instagramHandle: override?.instagramHandle || '',
+  watermarkText: override?.watermarkText || '© EX SHARE',
+  enableWatermark: override?.enableWatermark ?? false,
+  isOnboarded: override?.isOnboarded ?? Boolean(user?.id),
 });
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+/**
+ * Enterprise AuthProvider
+ * - Driven strictly by HTTP-only cookie session validation (/api/auth/check-login/).
+ * - Zero reliance on localStorage for tokens or authentication states.
+ * - Reactive query-driven session status.
+ */
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    return saved !== null ? JSON.parse(saved) : true;
-  });
+  const queryClient = useQueryClient();
 
-  const [user, setUser] = useState<AuthUser | null>(() => {
-    const saved = localStorage.getItem(USER_KEY);
-    return saved ? JSON.parse(saved) : null;
-  });
-
-  const [photographer, setPhotographer] = useState<PhotographerProfile>(() => {
-    const saved = localStorage.getItem(PROFILE_KEY);
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch {
-        return INITIAL_PHOTOGRAPHER;
-      }
-    }
-    return INITIAL_PHOTOGRAPHER;
-  });
-
-  // Query check-login API
+  // 1. Single Source of Truth: Backend cookie session validation query
   const {
     data: checkLoginData,
     isLoading: isCheckingLogin,
@@ -72,125 +50,95 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     refetch: refetchAuth,
   } = useCheckLogin();
 
-  // Mutation for logout API
   const logoutMutation = useLogout();
 
-  // Sync state when check-login query responds
-  useEffect(() => {
-    if (!checkLoginData) return;
+  // 2. In-memory profile edits for the active session
+  const [profileOverride, setProfileOverride] = useState<Partial<PhotographerProfile> | null>(null);
 
-    if (checkLoginData.is_logged_in && checkLoginData.user) {
-      const u = checkLoginData.user;
-      setIsAuthenticated(true);
-      setUser((prev) => ({
-        ...prev,
-        ...u,
-      }));
-      setPhotographer((prev) => ({
-        ...prev,
-        id: u.id?.toString() || prev.id,
-        fullName: u.fullname || prev.fullName || u.username || '',
-        email: u.email || prev.email,
-        phone: u.phone || prev.phone,
-        studioName: u.fullname ? `${u.fullname} Studio` : prev.studioName,
-      }));
-    } else if (checkLoginData.is_logged_in === false) {
-      setIsAuthenticated(false);
-      setUser(null);
-      localStorage.removeItem(STORAGE_KEY);
-      localStorage.removeItem(USER_KEY);
-    }
+  // 3. Strictly derive authentication status from check-login API
+  const isAuthenticated = useMemo(() => {
+    return Boolean(checkLoginData?.is_logged_in && checkLoginData.user);
   }, [checkLoginData]);
 
-  // Persist auth & profile to local storage for instant optimistic loads
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(isAuthenticated));
-  }, [isAuthenticated]);
-
-  useEffect(() => {
-    if (user) {
-      localStorage.setItem(USER_KEY, JSON.stringify(user));
-    } else {
-      localStorage.removeItem(USER_KEY);
+  const user = useMemo<AuthUser | null>(() => {
+    if (checkLoginData?.is_logged_in && checkLoginData.user) {
+      return checkLoginData.user;
     }
-  }, [user]);
+    return null;
+  }, [checkLoginData]);
 
-  useEffect(() => {
-    localStorage.setItem(PROFILE_KEY, JSON.stringify(photographer));
-  }, [photographer]);
+  const photographer = useMemo<PhotographerProfile>(() => {
+    if (user) {
+      return buildPhotographerProfile(user, profileOverride);
+    }
+    return INITIAL_PHOTOGRAPHER;
+  }, [user, profileOverride]);
 
-  // Cross-tab logout listener
+  // 4. Session expired listener (triggered by Axios 401 refresh failure)
   useEffect(() => {
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'logout' || e.key === STORAGE_KEY) {
-        const authFlag = localStorage.getItem(STORAGE_KEY);
-        if (!authFlag || authFlag === 'false') {
-          setIsAuthenticated(false);
-          setUser(null);
-          setPhotographer(createEmptyProfile());
-        }
-      }
+    const handleSessionExpired = () => {
+      queryClient.setQueryData(AUTH_QUERY_KEYS.checkLogin, {
+        is_logged_in: false,
+        message: 'Session expired',
+      });
+      queryClient.invalidateQueries({ queryKey: AUTH_QUERY_KEYS.checkLogin });
+      setProfileOverride(null);
     };
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
-  }, []);
 
+    window.addEventListener('auth:session-expired', handleSessionExpired);
+    return () => window.removeEventListener('auth:session-expired', handleSessionExpired);
+  }, [queryClient]);
+
+  // 5. Authentication Actions
   const login = useCallback(
     (userData?: Partial<AuthUser>, profileData?: Partial<PhotographerProfile>) => {
-      if (userData) {
-        const fullUser = userData as AuthUser;
-        setUser(fullUser);
-        setPhotographer((prev) => ({
-          ...prev,
-          id: fullUser.id?.toString() || prev.id,
-          fullName: fullUser.fullname || prev.fullName || fullUser.username,
-          email: fullUser.email || prev.email,
-          phone: fullUser.phone || prev.phone,
-          avatarUrl: fullUser.avatar_url || prev.avatarUrl,
-          studioName: fullUser.fullname ? `${fullUser.fullname} Studio` : prev.studioName,
-          ...profileData,
-        }));
+      if (userData && userData.email) {
+        queryClient.setQueryData(AUTH_QUERY_KEYS.checkLogin, {
+          is_logged_in: true,
+          user: userData as AuthUser,
+        });
       }
-      setIsAuthenticated(true);
+      if (profileData) {
+        setProfileOverride((prev) => ({ ...prev, ...profileData }));
+      }
+      queryClient.invalidateQueries({ queryKey: AUTH_QUERY_KEYS.checkLogin });
     },
-    []
+    [queryClient]
   );
 
   const logout = useCallback(async () => {
     try {
       await logoutMutation.mutateAsync();
     } catch {
-      // Local cleanups are also performed in mutation onError/onSuccess
+      // Error handled by mutation toast
     } finally {
-      setIsAuthenticated(false);
-      setUser(null);
-      setPhotographer(createEmptyProfile());
-      localStorage.removeItem(STORAGE_KEY);
-      localStorage.removeItem(PROFILE_KEY);
-      localStorage.removeItem(USER_KEY);
-      localStorage.removeItem('access_token');
+      setProfileOverride(null);
+      queryClient.setQueryData(AUTH_QUERY_KEYS.checkLogin, {
+        is_logged_in: false,
+        message: 'Logged out',
+      });
+      queryClient.clear();
     }
-  }, [logoutMutation]);
+  }, [logoutMutation, queryClient]);
 
   const updateProfile = useCallback((updates: Partial<PhotographerProfile>) => {
-    setPhotographer((prev) => ({ ...prev, ...updates }));
+    setProfileOverride((prev) => ({ ...prev, ...updates }));
   }, []);
 
   const completeOnboarding = useCallback((data: Partial<PhotographerProfile>) => {
-    setPhotographer((prev) => ({
+    setProfileOverride((prev) => ({
       ...prev,
       ...data,
       isOnboarded: true,
     }));
-    setIsAuthenticated(true);
   }, []);
 
   const resetProfile = useCallback(() => {
-    setPhotographer(createEmptyProfile(user));
-  }, [user]);
+    setProfileOverride(null);
+  }, []);
 
-  // Only consider loading on initial check if there is no cached auth
-  const isLoading = isCheckingLogin && !checkLoginData && !isAuthenticated;
+  // Loading state active only on initial cold check when query is pending and no data exists yet
+  const isLoading = isCheckingLogin && checkLoginData === undefined;
 
   return (
     <AuthContext.Provider
@@ -200,7 +148,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isLoggingOut: logoutMutation.isPending,
         user,
         photographer,
-        checkLoginError,
+        checkLoginError: checkLoginError as Error | null,
         login,
         logout,
         refetchAuth,
@@ -214,6 +162,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   );
 };
 
+/**
+ * Access the unified authentication state & actions
+ */
 export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
   if (!context) {
@@ -222,3 +173,4 @@ export const useAuth = (): AuthContextType => {
   return context;
 };
 
+export default AuthContext;

@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Printer, Sparkles, Camera, ArrowRight, ShieldCheck } from 'lucide-react';
+import { X, Printer, Sparkles, ShieldCheck } from 'lucide-react';
 import type { LiveEvent } from '../../types/event';
 
 interface EventPrintStandModalProps {

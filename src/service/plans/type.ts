@@ -8,20 +8,33 @@ export interface StudioPlan {
   subtitle: string;
   tier: 'standard' | 'premium' | 'custom' | string;
   billing_cycle: 'quarterly' | 'annual' | 'monthly' | string;
-  period_label: string;
+  period_label?: string;
   duration_months: number;
-  monthly_price: string;
-  original_monthly_price: string | null;
-  total_price: string;
-  billing_text: string;
+  monthly_price: string | number;
+  original_monthly_price: string | number | null;
+  total_price: string | number;
+  billing_text?: string;
   currency: string;
   tag: string;
   tag_type: 'default' | 'popular' | 'current';
-  image_storage: string;
-  video_storage: string;
+  image_storage?: string;
+  video_storage?: string;
+  image_storage_gb?: number;
+  video_storage_gb?: number;
   storage_limit_bytes: number;
   features: string[];
   cta_text: string;
+  max_galleries?: number;
+  gallery_expiry_days?: number;
+  face_search_enabled?: boolean;
+  max_events?: number;
+  allowed_templates?: string[];
+  allowed_portfolio_templates?: string[];
+  max_portfolio_posts?: number;
+  max_inquiries?: number;
+  has_full_inquiry_access?: boolean;
+  can_upgrade_storage?: boolean;
+  max_upgrade_image_gb?: number;
   is_active: boolean;
   sort_order: number;
 }
@@ -34,11 +47,31 @@ export interface StorageQuotaMetrics {
   used_percentage: number;
 }
 
+export interface ResourceUsageMetric {
+  used: number;
+  limit: number;
+  remaining: number | null;
+  is_unlimited: boolean;
+}
+
+export interface SubscriptionUsageSummary {
+  galleries: ResourceUsageMetric;
+  events: ResourceUsageMetric;
+  portfolio_posts: ResourceUsageMetric;
+}
+
 export interface CurrentSubscriptionPlanSummary {
   id: string;
   name: string;
-  tier: string;
-  billing_cycle: string;
+  tier: 'standard' | 'premium' | 'custom' | string;
+  billing_cycle: 'quarterly' | 'annual' | 'monthly' | string;
+  max_galleries?: number;
+  allowed_templates?: string[];
+  face_search_enabled?: boolean;
+  gallery_expiry_days?: number;
+  max_events?: number;
+  max_portfolio_posts?: number;
+  has_full_inquiry_access?: boolean;
   duration_months?: number;
   total_price?: string;
   currency?: string;
@@ -52,6 +85,7 @@ export interface CurrentSubscription {
   expiry_date: string;
   days_remaining: number;
   storage: StorageQuotaMetrics;
+  usage?: SubscriptionUsageSummary;
   auto_renew: boolean;
   payment_gateway_ref?: string;
 }

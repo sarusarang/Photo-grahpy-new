@@ -5,7 +5,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
     id: 1,
     title: '1. Create a Gallery',
     shortDesc: 'Organize each photoshoot, wedding, or commercial project with tailored client details.',
-    details: 'Start by clicking "+ Add Gallery" in your Drive. Enter your client\'s name, event date, and an optional custom URL slug. You can also configure expiration dates or password protection to ensure exclusivity.',
+    details: 'Start by clicking "+ Add Gallery" in your Galleries. Enter your client\'s name, event date, and an optional custom URL slug. You can also configure expiration dates or password protection to ensure exclusivity.',
     iconName: 'FolderPlus',
     videoThumbUrl: 'https://images.unsplash.com/photo-1542038784456-1ea8e935640e?auto=format&fit=crop&w=800&q=80',
     videoDuration: '01:20',
@@ -15,8 +15,8 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
       'Optional 4-digit PIN / password security',
       'Automatic high-res storage allocation tracking',
     ],
-    actionLabel: 'Go to Drive to Create',
-    actionRoute: '/dashboard/drive',
+    actionLabel: 'Go to Galleries to Create',
+    actionRoute: '/dashboard/gallery',
   },
   {
     id: 2,
@@ -33,7 +33,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
       'Real-time upload progress with retry resiliency',
     ],
     actionLabel: 'View Active Galleries',
-    actionRoute: '/dashboard/drive',
+    actionRoute: '/dashboard/gallery',
   },
   {
     id: 3,
@@ -49,8 +49,8 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
       'Enable client heart/favorite proofing selections',
       'Watermark overlay toggles for pre-delivery review',
     ],
-    actionLabel: 'Manage Media in Drive',
-    actionRoute: '/dashboard/drive',
+    actionLabel: 'Manage Media in Gallery',
+    actionRoute: '/dashboard/gallery',
   },
   {
     id: 4,
@@ -67,7 +67,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
       'Zero coding required — switch templates anytime',
     ],
     actionLabel: 'Explore Gallery Designs',
-    actionRoute: '/dashboard/drive',
+    actionRoute: '/dashboard/gallery',
   },
   {
     id: 5,
@@ -84,7 +84,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
       'Track client view count and open timestamps',
     ],
     actionLabel: 'View Share Options',
-    actionRoute: '/dashboard/drive',
+    actionRoute: '/dashboard/gallery',
   },
   {
     id: 6,

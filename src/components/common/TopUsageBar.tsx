@@ -1,16 +1,13 @@
 import React, { useState } from 'react';
-import { useGallery } from '../../context/GalleryContext';
+import { usePlanQuota } from '@/hooks/usePlanQuota';
 import { UpgradePlanModal } from './UpgradePlanModal';
 import { HardDrive, Calendar, Zap, ShieldCheck } from 'lucide-react';
 
 export const TopUsageBar: React.FC = () => {
-  const { subscription } = useGallery();
+  const planQuota = usePlanQuota();
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
 
-  const percentageUsed = Math.min(
-    100,
-    Math.round((subscription.storageUsedGB / subscription.storageLimitGB) * 100)
-  );
+  const percentageUsed = planQuota.storageUsedPercent;
 
   return (
     <>
@@ -26,7 +23,7 @@ export const TopUsageBar: React.FC = () => {
               <div className="flex items-center gap-1.5 bg-neutral-800/90 px-2.5 py-1 rounded-md border border-neutral-700/60">
                 <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
                 <span className="text-xs font-semibold text-neutral-100 tracking-wide">
-                  {subscription.name}
+                  {planQuota.planName}
                 </span>
               </div>
             </div>
@@ -37,7 +34,7 @@ export const TopUsageBar: React.FC = () => {
               <div className="flex-1">
                 <div className="flex justify-between text-[11px] font-medium tracking-tight mb-1.5">
                   <span className="text-neutral-300">
-                    <strong className="text-white font-semibold">{subscription.storageUsedGB} GB</strong> of {subscription.storageLimitGB} GB
+                    <strong className="text-white font-semibold">{planQuota.storageUsedGB} GB</strong> of {planQuota.storageLimitGB} GB
                   </span>
                   <span className="text-amber-400 font-mono font-medium">{percentageUsed}%</span>
                 </div>
@@ -57,8 +54,10 @@ export const TopUsageBar: React.FC = () => {
               <Calendar className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
               <span className="hidden sm:inline">Billing Cycle:</span>
               <span className="text-neutral-200 font-medium">
-                <span className="text-amber-400 font-semibold">{subscription.daysRemaining} days remaining</span>
-                <span className="text-neutral-400 text-[11px] ml-1.5">(Expires {subscription.expiryDate})</span>
+                <span className="text-amber-400 font-semibold">{planQuota.daysRemaining} days remaining</span>
+                {planQuota.expiryDate && (
+                  <span className="text-neutral-400 text-[11px] ml-1.5">(Expires {planQuota.expiryDate.split('T')[0]})</span>
+                )}
               </span>
             </div>
 

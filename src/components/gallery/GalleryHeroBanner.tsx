@@ -1,6 +1,7 @@
 import React from 'react';
 import { ArrowDown } from 'lucide-react';
 import { isVideoMedia } from '../../data/demoData';
+import { getInitialGalleryCover, handleCoverImageError } from '@/utils/coverImageUtils';
 
 export type GalleryHeroTemplate = 'editorial' | 'masonry' | 'cinematic' | 'minimal';
 
@@ -46,17 +47,13 @@ export const GalleryHeroBanner: React.FC<GalleryHeroBannerProps> = ({
   template,
   title,
   shootDate,
-  coverImage = 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1600&q=85',
+  coverImage,
   videoUrl,
-  additionalImages = [],
   className = '',
 }) => {
+  const activeCover = coverImage || getInitialGalleryCover(template);
   const formattedDate = formatHeroShootDate(shootDate);
 
-  // Fallback images for multi-image layouts
-  const img2 = additionalImages[0] || 'https://images.unsplash.com/photo-1583939003579-730e3918a45a?auto=format&fit=crop&w=800&q=80';
-  const img3 = additionalImages[1] || 'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?auto=format&fit=crop&w=800&q=80';
-  const img4 = additionalImages[2] || 'https://images.unsplash.com/photo-1519225421980-715cb0215aed?auto=format&fit=crop&w=800&q=80';
 
   // ─────────────────────────────────────────────────────────────
   // 1. EDITORIAL TEMPLATE HERO (Haute-Couture Vogue Magazine Edition)
@@ -68,8 +65,10 @@ export const GalleryHeroBanner: React.FC<GalleryHeroBannerProps> = ({
       >
         <div className="absolute inset-0 z-0">
           <img
-            src={coverImage}
-            alt={title}
+            src={activeCover}
+            alt=""
+            loading="eager"
+            onError={(e) => handleCoverImageError(e, getInitialGalleryCover(template))}
             className="w-full h-full object-cover animate-kenburns scale-105"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/60 pointer-events-none" />
@@ -107,113 +106,68 @@ export const GalleryHeroBanner: React.FC<GalleryHeroBannerProps> = ({
   }
 
   // ─────────────────────────────────────────────────────────────
-  // 2. MASONRY TEMPLATE HERO (Botanical 4-Photo Curated Mosaic with High-Contrast Floating Atelier Badge)
+  // 2. MASONRY TEMPLATE HERO (Botanical Single Hero Edition with High-Contrast Floating Atelier Badge)
   // ─────────────────────────────────────────────────────────────
   if (template === 'masonry') {
     return (
       <header
-        className={`w-full h-[100dvh] max-h-[100dvh] bg-[#09110E] text-white py-3 sm:py-6 px-3 sm:px-8 border-b border-emerald-950/80 relative overflow-hidden select-none flex flex-col justify-center items-center ${className}`}
+        className={`w-full h-[100dvh] min-h-[580px] bg-[#09110E] text-white py-3 sm:py-6 px-3 sm:px-8 border-b border-emerald-950/80 relative overflow-hidden select-none flex flex-col justify-center items-center ${className}`}
       >
         {/* Soft Ambient Botanical Glow */}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[500px] bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="max-w-6xl xl:max-w-7xl w-full h-[84vh] max-h-[640px] flex flex-col items-center justify-center relative z-10">
-          {/* Curated 4-Photo Organic Mosaic Container */}
-          <div className="relative w-full h-full rounded-2xl sm:rounded-3xl overflow-hidden shadow-2xl shadow-black/90 border border-emerald-500/30">
-            <div className="w-full h-full grid grid-cols-12 gap-1.5 sm:gap-2.5 p-1.5 sm:p-2 bg-[#060c0a]">
-              {/* Slot 1: Left Main Vertical Focal Photo (5 cols) */}
-              <div className="col-span-5 h-full relative rounded-xl sm:rounded-2xl overflow-hidden shadow-md group">
-                <img
-                  src={coverImage}
-                  alt={title}
-                  onError={(e) => {
-                    (e.currentTarget as HTMLImageElement).src =
-                      'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1200&q=80';
-                  }}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent pointer-events-none" />
-              </div>
+        <div className="max-w-6xl xl:max-w-7xl w-full h-[84vh] max-h-[680px] flex flex-col items-center justify-center relative z-10">
+          {/* Curated Single Photo Container */}
+          <div className="relative w-full h-full rounded-2xl sm:rounded-3xl overflow-hidden shadow-2xl shadow-black/90 border border-emerald-500/30 group">
+            <img
+              src={activeCover}
+              alt=""
+              loading="eager"
+              onError={(e) => handleCoverImageError(e, getInitialGalleryCover(template))}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000 ease-out"
+            />
+            {/* Emerald Mood Overlay */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/35 to-black/50 pointer-events-none" />
+            <div className="absolute inset-0 bg-emerald-950/20 mix-blend-multiply pointer-events-none" />
 
-              {/* Middle: Stack of 2 Detail Photos (Slots 2 & 3, 4 cols) */}
-              <div className="col-span-4 h-full flex flex-col gap-1.5 sm:gap-2.5">
-                <div className="flex-1 w-full relative rounded-xl sm:rounded-2xl overflow-hidden shadow-md group">
-                  <img
-                    src={img2}
-                    alt="Detail Still 1"
-                    onError={(e) => {
-                      (e.currentTarget as HTMLImageElement).src =
-                        'https://images.unsplash.com/photo-1583939003579-730e3918a45a?auto=format&fit=crop&w=800&q=80';
-                    }}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
-                </div>
-                <div className="flex-1 w-full relative rounded-xl sm:rounded-2xl overflow-hidden shadow-md group">
-                  <img
-                    src={img3}
-                    alt="Detail Still 2"
-                    onError={(e) => {
-                      (e.currentTarget as HTMLImageElement).src =
-                        'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?auto=format&fit=crop&w=800&q=80';
-                    }}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
-                </div>
-              </div>
-
-              {/* Slot 4: Right Vertical Accent Photo (3 cols) */}
-              <div className="col-span-3 h-full relative rounded-xl sm:rounded-2xl overflow-hidden shadow-md group">
-                <img
-                  src={img4}
-                  alt="Atmosphere Accent"
-                  onError={(e) => {
-                    (e.currentTarget as HTMLImageElement).src =
-                      'https://images.unsplash.com/photo-1519225421980-715cb0215aed?auto=format&fit=crop&w=800&q=80';
-                  }}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent pointer-events-none" />
-              </div>
-            </div>
-
-            {/* Bottom Vignette Scrim across the entire mosaic base */}
-            <div className="absolute inset-x-0 bottom-0 h-44 bg-gradient-to-t from-black/90 via-black/50 to-transparent pointer-events-none z-10" />
+            {/* Bottom Vignette Scrim */}
+            <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-black/95 via-black/60 to-transparent pointer-events-none z-10" />
 
             {/* Centered Floating Atelier Glassmorphism Title Capsule - 100% Readable on ANY Photo */}
-            <div className="absolute bottom-5 sm:bottom-8 left-1/2 -translate-x-1/2 z-20 w-[92%] sm:w-auto max-w-2xl px-6 sm:px-10 py-3.5 sm:py-4.5 rounded-2xl sm:rounded-3xl bg-[#09110E]/85 backdrop-blur-xl border border-white/20 dark:border-emerald-500/30 shadow-2xl shadow-black text-center space-y-1.5 pointer-events-auto">
+            <div className="absolute bottom-6 sm:bottom-10 left-1/2 -translate-x-1/2 z-20 w-[92%] sm:w-auto max-w-2xl px-6 sm:px-12 py-4 sm:py-5 rounded-2xl sm:rounded-3xl bg-[#09110E]/85 backdrop-blur-xl border border-white/20 dark:border-emerald-500/30 shadow-2xl shadow-black text-center space-y-1.5 pointer-events-auto">
               <div className="flex items-center justify-center gap-2.5 text-emerald-400">
                 <span className="h-px w-6 sm:w-10 bg-emerald-500/60" />
                 <span className="text-[10px] sm:text-xs font-mono uppercase tracking-[0.3em] font-semibold text-emerald-400">
-                  {formattedDate}
+                  // {formattedDate} //
                 </span>
                 <span className="h-px w-6 sm:w-10 bg-emerald-500/60" />
               </div>
               <h1 className="text-2xl sm:text-4xl md:text-5xl font-serif italic text-white tracking-tight leading-tight drop-shadow-lg">
                 {title}
               </h1>
+              <span className="text-[9px] font-mono uppercase tracking-[0.25em] text-emerald-400/80 block pt-0.5">
+                Atelier Masonry Edition
+              </span>
             </div>
           </div>
+        </div>
+
+        {/* Subtle Bottom Prompt */}
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-1.5 text-emerald-400/60 pointer-events-none">
+          <span className="text-[8px] font-mono tracking-[0.3em] uppercase">Scroll to explore</span>
+          <ArrowDown className="w-3.5 h-3.5 animate-bounce text-emerald-400" />
         </div>
       </header>
     );
   }
 
   // ─────────────────────────────────────────────────────────────
-  // 3. CINEMATIC TEMPLATE HERO (2.39:1 Anamorphic IMAX Cinema Screen - VIDEO ONLY)
+  // 3. CINEMATIC TEMPLATE HERO (2.39:1 Anamorphic IMAX Cinema Screen)
   // ─────────────────────────────────────────────────────────────
   if (template === 'cinematic') {
-    const videoSrc =
-      videoUrl ||
-      (isVideoMedia(coverImage)
-        ? coverImage
-        : 'https://assets.mixkit.co/videos/preview/mixkit-fashion-model-in-neon-lights-42998-large.mp4');
-
-    const videoPoster =
-      coverImage && !isVideoMedia(coverImage)
-        ? coverImage
-        : 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1600&q=85';
+    const isVideo = isVideoMedia(videoUrl) || isVideoMedia(activeCover);
+    const videoSrc = videoUrl || (isVideoMedia(activeCover) ? activeCover : undefined);
+    const imageSrc = activeCover;
 
     return (
       <header
@@ -225,18 +179,27 @@ export const GalleryHeroBanner: React.FC<GalleryHeroBannerProps> = ({
             {/* Ambient Golden Amber Flare behind the screen */}
             <div className="absolute -inset-3 sm:-inset-6 bg-amber-500/15 rounded-3xl blur-2xl pointer-events-none" />
 
-            {/* Anamorphic Cinema Screen Frame - Pure Video Playback with NO Top HUD Badges */}
+            {/* Anamorphic Cinema Screen Frame */}
             <div className="relative w-full h-full rounded-xl sm:rounded-2xl overflow-hidden shadow-2xl shadow-black bg-black border border-amber-500/35 ring-1 ring-amber-400/20 group">
-              <video
-                src={videoSrc}
-                poster={videoPoster}
-                autoPlay
-                muted
-                loop
-                playsInline
-                preload="auto"
-                className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-1000 ease-out"
-              />
+              {isVideo ? (
+                <video
+                  src={videoSrc}
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  preload="auto"
+                  className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-1000 ease-out"
+                />
+              ) : (
+                <img
+                  src={imageSrc}
+                  alt=""
+                  loading="eager"
+                  onError={(e) => handleCoverImageError(e, getInitialGalleryCover(template))}
+                  className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-1000 ease-out"
+                />
+              )}
 
               {/* Anamorphic Lens Flare Gradient */}
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-amber-500/10 pointer-events-none" />
@@ -273,8 +236,10 @@ export const GalleryHeroBanner: React.FC<GalleryHeroBannerProps> = ({
         <div className="lg:col-span-7 flex justify-center">
           <div className="p-3 sm:p-4 bg-white shadow-2xl border border-neutral-200/90 w-full max-w-xl h-[76vh] sm:h-[80vh] max-h-[620px] relative overflow-hidden group">
             <img
-              src={coverImage}
-              alt={title}
+              src={activeCover}
+              alt=""
+              loading="eager"
+              onError={(e) => handleCoverImageError(e, getInitialGalleryCover(template))}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000 ease-out"
             />
           </div>

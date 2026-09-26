@@ -4,7 +4,7 @@ import { Toaster } from 'sonner';
 import { DashboardLayout } from './layouts/DashboardLayout';
 import { LandingLayout } from './layouts/LandingLayout';
 
-import { ProtectedRoute } from './components/auth/ProtectedRoute';
+import { ProtectedRoute, GuestRoute } from './components/auth';
 
 // Lazy loaded page components for optimal production performance
 const LandingPlaceholder = lazy(() =>
@@ -22,8 +22,8 @@ const OverviewPage = lazy(() =>
 const InquiriesPage = lazy(() =>
   import('./pages/dashboard/InquiriesPage').then((m) => ({ default: m.InquiriesPage }))
 );
-const DrivePage = lazy(() =>
-  import('./pages/dashboard/DrivePage').then((m) => ({ default: m.DrivePage }))
+const GalleryPage = lazy(() =>
+  import('./pages/dashboard/GalleryPage').then((m) => ({ default: m.GalleryPage }))
 );
 const GalleryDetailPage = lazy(() =>
   import('./pages/dashboard/GalleryDetailPage').then((m) => ({
@@ -57,16 +57,7 @@ const GuestEventPage = lazy(() =>
   import('./pages/events/GuestEventPage').then((m) => ({ default: m.GuestEventPage }))
 );
 
-function LoadingScreen() {
-  return (
-    <div className="min-h-screen bg-neutral-950 flex flex-col items-center justify-center text-neutral-400 gap-3">
-      <div className="w-8 h-8 rounded-full border-2 border-amber-400 border-t-transparent animate-spin" />
-      <span className="text-xs uppercase tracking-widest font-mono text-neutral-500">
-        Loading Atelier...
-      </span>
-    </div>
-  );
-}
+import { SuspenseLoader } from './components/common/SuspenseLoader';
 
 export default function App() {
   return (
@@ -83,7 +74,7 @@ export default function App() {
           },
         }}
       />
-      <Suspense fallback={<LoadingScreen />}>
+      <Suspense fallback={<SuspenseLoader />}>
         <Routes>
           {/* Public Landing Page Layout & Placeholder */}
           <Route element={<LandingLayout />}>
@@ -91,9 +82,30 @@ export default function App() {
           </Route>
 
           {/* Authentication & Onboarding Routes */}
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/signup" element={<OnboardingPage />} />
-          <Route path="/register" element={<OnboardingPage />} />
+          <Route
+            path="/login"
+            element={
+              <GuestRoute>
+                <LoginPage />
+              </GuestRoute>
+            }
+          />
+          <Route
+            path="/signup"
+            element={
+              <GuestRoute>
+                <OnboardingPage />
+              </GuestRoute>
+            }
+          />
+          <Route
+            path="/register"
+            element={
+              <GuestRoute>
+                <OnboardingPage />
+              </GuestRoute>
+            }
+          />
           <Route path="/onboarding" element={<OnboardingPage />} />
 
           {/* Authenticated Photographer Dashboard Routes (Outlet based, Protected) */}
@@ -107,8 +119,9 @@ export default function App() {
           >
             <Route index element={<Navigate to="/dashboard/overview" replace />} />
             <Route path="overview" element={<OverviewPage />} />
-            <Route path="home" element={<Navigate to="/dashboard/overview" replace />} />
-            <Route path="drive" element={<DrivePage />} />
+            <Route path="gallery" element={<GalleryPage />} />
+            <Route path="gallery/:galleryId" element={<GalleryDetailPage />} />
+            <Route path="drive" element={<Navigate to="/dashboard/gallery" replace />} />
             <Route path="drive/:galleryId" element={<GalleryDetailPage />} />
             <Route path="events" element={<EventsPage />} />
             <Route path="events/:eventId" element={<EventDetailPage />} />
@@ -126,6 +139,9 @@ export default function App() {
 
           {/* Public Guest Event QR Code Destination (Editorial Template with AI-Only Search) */}
           <Route path="/events/:eventId" element={<GuestEventPage />} />
+
+          {/* Preview route for SuspenseLoader */}
+          <Route path="/loader-preview" element={<SuspenseLoader />} />
 
           {/* Catch all fallback */}
           <Route path="*" element={<Navigate to="/dashboard/overview" replace />} />

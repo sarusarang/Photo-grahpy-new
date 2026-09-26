@@ -20,7 +20,7 @@ export interface PhotographerProfile {
 export interface SubscriptionPlan {
   id: string;
   name: string;
-  tier: 'starter' | 'pro' | 'studio' | 'master';
+  tier: 'starter' | 'pro' | 'studio' | 'master' | 'standard' | 'premium' | 'custom';
   priceMonthly: number;
   billingCycle: 'monthly' | 'annual';
   storageLimitGB: number;
@@ -39,7 +39,7 @@ export interface MediaItem {
   thumbnailUrl?: string;
   title: string;
   caption?: string;
-  sectionTitle?: string; // e.g. "BEGRUTA EDITED", "HALDI EDITED", "CEREMONY", "RECEPTION"
+  sectionTitle?: string; // e.g. "Highlights", "Ceremony", "Reception", "Portraits"
   aspectRatio: number; // width / height
   width: number;
   height: number;
@@ -59,7 +59,8 @@ export interface Gallery {
   clientEmail?: string;
   eventDate: string;
   createdAt: string;
-  expiresAt?: string;
+  expiresAt?: string | null;
+  isExpired?: boolean;
   coverImage: string;
   templateId: GalleryTemplateId;
   templateBanners?: Partial<Record<GalleryTemplateId, string>>;
@@ -70,9 +71,16 @@ export interface Gallery {
   allowDownloads: boolean;
   allowFavorites: boolean;
   media: MediaItem[];
-  sections?: string[]; // Custom section titles created by photographer e.g. ["BEGRUTA EDITED", "HALDI EDITED", "CEREMONY"]
+  sections?: string[]; // Custom section titles created by photographer e.g. ["Highlights", "Ceremony", "Reception"]
   viewsCount: number;
   downloadsCount: number;
+  favoritesCount?: number;
+  photosCount?: number;
+  videosCount?: number;
+  nextCursor?: string | null;
+  hasMore?: boolean;
+  totalMediaCount?: number;
+  filteredMediaCount?: number;
 }
 
 export interface GalleryTemplate {
