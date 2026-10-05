@@ -6,11 +6,16 @@ import { MobileNav } from '../components/common/MobileNav';
 import { UpgradePlanModal } from '../components/common/UpgradePlanModal';
 import { CreateGalleryModal } from '../components/gallery/CreateGalleryModal';
 import { SmoothScrollProvider } from '../components/common/SmoothScroll';
+import { SubscriptionCancelAlertBanner } from '../components/common/SubscriptionCancelAlertBanner';
 import { useAuth } from '../context/AuthContext';
-import { X } from 'lucide-react';
+import { usePlanQuota } from '../hooks/usePlanQuota';
+import { CriticalApiErrorFallback } from '../components/common/CriticalApiErrorFallback';
+import { StudioPaywallGate } from '../components/billing/StudioPaywallGate';
+import { X, Loader2 } from 'lucide-react';
 
 export const DashboardLayout: React.FC = () => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, logout } = useAuth();
+  const planQuota = usePlanQuota();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLElement>(null);
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
@@ -40,6 +45,41 @@ export const DashboardLayout: React.FC = () => {
   // Redirect to login if not authenticated
   if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  // 1. Critical API Outage: Pause dashboard and show enterprise recovery fallback
+  if (planQuota.isApiError) {
+    return (
+      <CriticalApiErrorFallback
+        error={planQuota.apiError}
+        onRetry={planQuota.refetchPlan}
+        onSignOut={() => logout()}
+        serviceName="Studio Entitlement Engine"
+      />
+    );
+  }
+
+  // 2. Initial Studio Entitlement Verification
+  // While validating subscription entitlements on cold start / page reload,
+  // hold at loading screen to avoid prematurely flashing paywall or dashboard.
+  if (planQuota.isLoading && !planQuota.hasActivePlan) {
+    return (
+      <div className="h-screen w-full bg-[#0a0b0e] flex flex-col items-center justify-center gap-3 text-neutral-400">
+        <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 to-amber-600 flex items-center justify-center text-black font-serif font-black text-2xl shadow-xl shadow-amber-500/20 animate-pulse">
+          S
+        </div>
+        <div className="flex items-center gap-2 text-xs font-mono text-neutral-400 mt-2">
+          <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-500" />
+          <span>Verifying Studio Entitlements...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // 3. New User Paywall: Strictly no free plan for new users.
+  // Must purchase a studio plan to unlock the workspace.
+  if (planQuota.isNoPlan) {
+    return <StudioPaywallGate />;
   }
 
   return (
@@ -106,6 +146,11 @@ export const DashboardLayout: React.FC = () => {
           ref={scrollContainerRef}
           className="flex-1 flex flex-col min-w-0 overflow-y-auto pb-24 md:pb-8 transition-all duration-300 ease-[cubic-bezier(0.2,0,0,1)]"
         >
+          {/* Netflix-Style Subscription Cancellation Banner (Sticky / Top of Stage) */}
+          <div className="px-4 sm:px-6 lg:px-8 pt-4 empty:hidden">
+            <SubscriptionCancelAlertBanner onOpenUpgrade={() => setIsUpgradeModalOpen(true)} />
+          </div>
+
           <main
             ref={contentRef}
             key={location.pathname}

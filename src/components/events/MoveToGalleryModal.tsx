@@ -79,7 +79,7 @@ export const MoveToGalleryModal: React.FC<MoveToGalleryModalProps> = ({
   const [assignments, setAssignments] = useState<Record<string, string>>(() => {
     const initial: Record<string, string> = {};
     event.media.forEach((m) => {
-      initial[m.id] = (m.sectionTitle || 'CEREMONY').toUpperCase();
+      initial[m.id] = (m.sectionTitle || 'HIGHLIGHTS').toUpperCase();
     });
     return initial;
   });
@@ -180,36 +180,30 @@ export const MoveToGalleryModal: React.FC<MoveToGalleryModalProps> = ({
     }
 
     try {
-      await moveEventApi({
+      const resGallery = await moveEventApi({
         target_mode: targetMode,
         target_gallery_id: targetMode === 'existing' ? selectedExistingGalleryId : null,
         new_gallery_title: targetMode === 'new' ? newGalleryTitle : undefined,
         category_assignments: assignments,
       });
-    } catch {
-      // Graceful offline/demo sync
-    }
 
-    const createdGallery = moveEventToGallery(
-      event.id,
-      targetMode,
-      targetMode === 'existing' ? selectedExistingGalleryId : undefined,
-      assignments,
-      newGalleryTitle
-    );
+      showToast(
+        'Moved to Studio Gallery',
+        `Event photos successfully published into "${
+          resGallery?.title || newGalleryTitle
+        }" with ${assignedSectionsList.length} categories. Event has been permanently removed from events.`,
+        'success'
+      );
 
-    showToast(
-      'Moved to Studio Gallery',
-      `Event successfully archived and published into "${
-        createdGallery?.title || newGalleryTitle
-      }" with ${assignedSectionsList.length} categories.`,
-      'success'
-    );
+      onClose();
 
-    onClose();
-
-    if (createdGallery?.id) {
-      navigate(`/dashboard/gallery/${createdGallery.id}`);
+      if (resGallery?.id) {
+        navigate(`/dashboard/gallery/${resGallery.id}`);
+      } else {
+        navigate('/dashboard/drive');
+      }
+    } catch (err: any) {
+      showToast('Move Failed', err?.message || 'Failed to move event to gallery.', 'error');
     }
   };
 
@@ -327,12 +321,14 @@ export const MoveToGalleryModal: React.FC<MoveToGalleryModalProps> = ({
             {/* Input for New Gallery Name or Dropdown for Existing */}
             {targetMode === 'new' ? (
               <div className="space-y-1.5 pt-1">
-                <label className="text-xs font-mono text-neutral-700 dark:text-neutral-400 font-medium">Gallery Title</label>
+                <label className="atelier-label mb-1">
+                  <span>Gallery Title</span>
+                </label>
                 <input
                   type="text"
                   value={newGalleryTitle}
                   onChange={(e) => setNewGalleryTitle(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-sm text-neutral-900 dark:text-white focus:outline-none focus:border-amber-400"
+                  className="atelier-input font-medium"
                   placeholder="e.g. Royal Palace Wedding • Ananya & Kabir"
                 />
               </div>

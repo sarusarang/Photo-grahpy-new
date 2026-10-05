@@ -149,6 +149,45 @@ export const normalizeServerGallery = (g: any): Gallery => {
   // The cover image MUST be the selected banner of the user's current template
   const resolvedCoverImage = currentTemplateBanner;
 
+  // Resolve total storage metrics directly from DRF backend response with resilient fallback
+  const rawSizeBytes =
+    typeof g.total_size_bytes === 'number'
+      ? g.total_size_bytes
+      : typeof g.totalSizeBytes === 'number'
+        ? g.totalSizeBytes
+        : undefined;
+
+  const rawSizeMB =
+    typeof g.total_size_mb === 'number'
+      ? g.total_size_mb
+      : typeof g.totalSizeMB === 'number'
+        ? g.totalSizeMB
+        : undefined;
+
+  const rawSizeFormatted = g.total_size_formatted || g.totalSizeFormatted;
+
+  // Fallback calculation from loaded media if backend hasn't populated aggregate yet
+  const computedBytes = mediaList.reduce((acc, m) => {
+    const b = (m as any).size_bytes || (m as any).sizeBytes || (m.sizeMB ? m.sizeMB * 1024 * 1024 : 0);
+    return acc + b;
+  }, 0);
+
+  const totalSizeBytes = rawSizeBytes !== undefined ? rawSizeBytes : (computedBytes > 0 ? computedBytes : undefined);
+  const totalSizeMB =
+    rawSizeMB !== undefined
+      ? rawSizeMB
+      : totalSizeBytes !== undefined
+        ? Number((totalSizeBytes / (1024 * 1024)).toFixed(1))
+        : undefined;
+
+  const totalSizeFormatted =
+    rawSizeFormatted ||
+    (totalSizeBytes !== undefined
+      ? totalSizeBytes > 1024 * 1024 * 1024
+        ? `${(totalSizeBytes / (1024 * 1024 * 1024)).toFixed(2)} GB`
+        : `${(totalSizeBytes / (1024 * 1024)).toFixed(1)} MB`
+      : undefined);
+
   return {
     id: galleryId,
     slug: g.slug || galleryId,
@@ -165,6 +204,68 @@ export const normalizeServerGallery = (g: any): Gallery => {
     isPasswordProtected: Boolean(g.is_password_protected ?? g.isPasswordProtected),
     allowDownloads: Boolean(g.allow_downloads ?? g.allowDownloads ?? true),
     allowFavorites: Boolean(g.allow_favorites ?? g.allowFavorites ?? true),
+    face_search_enabled: Boolean(g.face_search_enabled ?? g.faceSearchEnabled ?? false),
+    faceSearchEnabled: Boolean(g.face_search_enabled ?? g.faceSearchEnabled ?? false),
+    watermark_enabled: Boolean(
+      g.watermark_enabled ??
+      g.watermarkEnabled ??
+      g.watermark_config?.enabled ??
+      false
+    ),
+    watermarkEnabled: Boolean(
+      g.watermark_enabled ??
+      g.watermarkEnabled ??
+      g.watermark_config?.enabled ??
+      false
+    ),
+    watermark_text: (() => {
+      const resolvedPhotographerName =
+        g.photographer_name ||
+        g.photographer_full_name ||
+        g.photographerName ||
+        g.photographer?.fullName ||
+        g.photographer?.name ||
+        g.user?.full_name ||
+        g.user?.username ||
+        undefined;
+
+      const rawWatermarkText =
+        g.watermark_text ||
+        g.watermarkText ||
+        g.watermark_config?.text;
+
+      const isOldPlaceholder =
+        !rawWatermarkText ||
+        rawWatermarkText === 'Ex Studio' ||
+        rawWatermarkText === '© Ex Studio' ||
+        rawWatermarkText === 'ATELIER STUDIO' ||
+        rawWatermarkText === 'ATELIER PHOTOGRAPHY' ||
+        rawWatermarkText === '© STUDIO';
+
+      if (isOldPlaceholder) {
+        return resolvedPhotographerName
+          ? (resolvedPhotographerName.startsWith('©') ? resolvedPhotographerName : `© ${resolvedPhotographerName}`)
+          : (g.studio_name || g.studioName ? `© ${g.studio_name || g.studioName}` : undefined);
+      }
+      return rawWatermarkText;
+    })(),
+    watermark_opacity:
+      typeof g.watermark_opacity === 'number'
+        ? g.watermark_opacity
+        : typeof g.watermark_config?.opacity === 'number'
+          ? g.watermark_config.opacity
+          : 0.45,
+    watermark_position:
+      g.watermark_position ||
+      g.watermarkPosition ||
+      g.watermark_config?.position ||
+      'bottom-right',
+    watermark_image:
+      g.watermark_image ||
+      g.watermarkImage ||
+      g.watermark_image_url ||
+      g.watermark_config?.image_url ||
+      null,
     expiresAt: g.expires_at !== undefined ? g.expires_at : (g.expiresAt !== undefined ? g.expiresAt : null),
     isExpired: Boolean(g.is_expired ?? g.isExpired ?? false),
     viewsCount: g.views_count ?? g.viewsCount ?? 0,
@@ -177,8 +278,24 @@ export const normalizeServerGallery = (g: any): Gallery => {
     createdAt: g.created_at || g.createdAt || new Date().toISOString(),
     nextCursor: g.next_cursor || g.nextCursor || g.pagination?.next_cursor || null,
     hasMore: Boolean(g.has_more ?? g.hasMore ?? g.pagination?.has_more ?? false),
-    totalMediaCount: g.total_media_count ?? g.totalMediaCount ?? g.pagination?.total_count ?? mediaList.length,
-    filteredMediaCount: g.filtered_media_count ?? g.filteredMediaCount ?? mediaList.length,
+    totalMediaCount: g.total_media_count ?? g.totalMediaCount ?? g.pagination?.total_count ?? (photosCount + videosCount > 0 ? photosCount + videosCount : mediaList.length),
+    filteredMediaCount: g.filtered_media_count ?? g.filteredMediaCount ?? (photosCount + videosCount > 0 ? photosCount + videosCount : mediaList.length),
+    sectionCounts: g.section_counts || g.sectionCounts || undefined,
+    totalSizeBytes,
+    totalSizeMB,
+    totalSizeFormatted,
+    photographerName:
+      g.photographer_name ||
+      g.photographer_full_name ||
+      g.photographerName ||
+      g.photographer?.fullName ||
+      g.photographer?.name ||
+      undefined,
+    studioName:
+      g.studio_name ||
+      g.studioName ||
+      g.photographer?.studioName ||
+      undefined,
   };
 };
 

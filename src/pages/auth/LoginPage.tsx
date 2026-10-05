@@ -15,30 +15,32 @@ import {
 import { Logo } from '../../components/common/Logo';
 import {
   emailSchema,
-  otpSchema,
   type EmailFormData,
-  type OtpFormData,
 } from '../../schemas/authSchemas';
 import { useSendLoginOtp, useVerifyLoginOtp, useResendLoginOtp } from '../../service/auth/useAuth';
+import { OtpSection } from '../../components/auth';
 
 export const LoginPage: React.FC = () => {
-  const { login, isAuthenticated } = useAuth();
+  const { login, isAuthenticated, photographer } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
-  const from = (location.state as any)?.from?.pathname || '/dashboard/gallery';
+  const locationState = location.state as { from?: { pathname?: string } } | null;
+  const from = locationState?.from?.pathname || '/dashboard/gallery';
 
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      navigate(from, { replace: true });
+      if (!photographer.isOnboarded) {
+        navigate('/onboarding', { replace: true });
+      } else {
+        navigate(from, { replace: true });
+      }
     }
-  }, [isAuthenticated, navigate, from]);
+  }, [isAuthenticated, photographer.isOnboarded, navigate, from]);
 
   const [step, setStep] = useState<'email' | 'otp'>('email');
   const [sentEmail, setSentEmail] = useState('');
-  const [otpDigits, setOtpDigits] = useState(['', '', '', '', '', '']);
-
 
   const sendOtpMutation = useSendLoginOtp();
   const verifyOtpMutation = useVerifyLoginOtp();
@@ -51,13 +53,6 @@ export const LoginPage: React.FC = () => {
     mode: 'onTouched',
   });
 
-  // OTP form
-  const otpForm = useForm<OtpFormData>({
-    resolver: zodResolver(otpSchema),
-    defaultValues: { otp: '' },
-    mode: 'onChange',
-  });
-
   const onEmailSubmit = async (data: EmailFormData) => {
     setSentEmail(data.email);
     try {
@@ -68,128 +63,44 @@ export const LoginPage: React.FC = () => {
     }
   };
 
-  const handleOtpPaste = (e: React.ClipboardEvent<HTMLInputElement>, startIndex: number) => {
-    e.preventDefault();
-    const pastedText = e.clipboardData.getData('text');
-    const digits = pastedText.replace(/\D/g, '');
-    if (!digits) return;
-
-    const nextDigits = [...otpDigits];
-    // If full OTP or more pasted, fill all slots starting at index 0
-    const startFrom = digits.length >= 6 ? 0 : startIndex;
-    const chars = digits.slice(0, 6 - startFrom).split('');
-
-    chars.forEach((d, i) => {
-      if (startFrom + i < 6) {
-        nextDigits[startFrom + i] = d;
-      }
-    });
-
-    setOtpDigits(nextDigits);
-    const fullCode = nextDigits.join('');
-    otpForm.setValue('otp', fullCode, { shouldValidate: fullCode.length === 6 });
-
-    const focusIndex = Math.min(5, startFrom + chars.length - 1);
-    document.getElementById(`login-otp-${focusIndex}`)?.focus();
-  };
-
-  const handleOtpDigitChange = (index: number, val: string) => {
-    const digitsOnly = val.replace(/\D/g, '');
-
-    if (!digitsOnly) {
-      const nextDigits = [...otpDigits];
-      nextDigits[index] = '';
-      setOtpDigits(nextDigits);
-      const fullCode = nextDigits.join('');
-      otpForm.setValue('otp', fullCode, { shouldValidate: fullCode.length === 6 });
-      return;
-    }
-
-    // If more than 1 character was entered (autofill, native paste, or rapid input)
-    if (digitsOnly.length > 1) {
-      // If user typed a single character while input was already filled
-      if (digitsOnly.length === 2 && digitsOnly[0] === otpDigits[index]) {
-        const char = digitsOnly[1];
-        const nextDigits = [...otpDigits];
-        nextDigits[index] = char;
-        setOtpDigits(nextDigits);
-        const fullCode = nextDigits.join('');
-        otpForm.setValue('otp', fullCode, { shouldValidate: fullCode.length === 6 });
-        if (index < 5) {
-          document.getElementById(`login-otp-${index + 1}`)?.focus();
-        }
-        return;
-      }
-
-      const nextDigits = [...otpDigits];
-      const startFrom = digitsOnly.length >= 6 ? 0 : index;
-      const chars = digitsOnly.slice(0, 6 - startFrom).split('');
-
-      chars.forEach((c, idx) => {
-        if (startFrom + idx < 6) {
-          nextDigits[startFrom + idx] = c;
-        }
-      });
-
-      setOtpDigits(nextDigits);
-      const fullCode = nextDigits.join('');
-      otpForm.setValue('otp', fullCode, { shouldValidate: fullCode.length === 6 });
-
-      const focusIndex = Math.min(5, startFrom + chars.length - 1);
-      document.getElementById(`login-otp-${focusIndex}`)?.focus();
-      return;
-    }
-
-    // Single digit input
-    const nextDigits = [...otpDigits];
-    nextDigits[index] = digitsOnly;
-    setOtpDigits(nextDigits);
-
-    const fullCode = nextDigits.join('');
-    otpForm.setValue('otp', fullCode, { shouldValidate: fullCode.length === 6 });
-
-    if (index < 5) {
-      const nextEl = document.getElementById(`login-otp-${index + 1}`);
-      nextEl?.focus();
-    }
-  };
-
-  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Backspace' && !otpDigits[index] && index > 0) {
-      const prevEl = document.getElementById(`login-otp-${index - 1}`);
-      prevEl?.focus();
-    }
-  };
-
-  const onOtpSubmit = async (data: OtpFormData) => {
+  const handleVerifyOtp = async (code: string) => {
     try {
       const res = await verifyOtpMutation.mutateAsync({
         email: sentEmail,
-        otp: data.otp,
+        otp: code,
       });
 
       if (res?.user) {
         login(res.user);
       }
-      navigate(from, { replace: true });
+
+      // Check if new user or profile incomplete: route directly to onboarding profile setup
+      const isNewUser = Boolean(res?.is_new_user);
+      const isUserOnboarded = Boolean(
+        (res?.user as any)?.is_onboarded ||
+        (res?.user?.fullname && res.user.fullname.trim().length > 0)
+      );
+
+      if (isNewUser || !isUserOnboarded) {
+        navigate('/onboarding', { replace: true });
+      } else {
+        navigate(from, { replace: true });
+      }
     } catch {
-      // Error handled by mutation
+      // Error handled by mutation toast
     }
   };
 
-  const handleResend = async () => {
+  const handleResendOtp = async () => {
     if (!sentEmail) return;
-    setOtpDigits(['', '', '', '', '', '']);
-    otpForm.setValue('otp', '');
-    try {
-      await resendOtpMutation.mutateAsync({ email: sentEmail });
-    } catch {
-      // Handled
-    }
+    await resendOtpMutation.mutateAsync({ email: sentEmail });
+  };
+
+  const handleChangeEmail = () => {
+    setStep('email');
   };
 
   const isEmailLoading = sendOtpMutation.isPending;
-  const isOtpLoading = verifyOtpMutation.isPending;
 
   return (
     <div className="min-h-screen min-h-[100dvh] w-full flex overflow-x-hidden bg-neutral-950 text-white font-sans select-none">
@@ -278,85 +189,18 @@ export const LoginPage: React.FC = () => {
               </p>
             </>
           ) : (
-            <>
-              <h1 className="text-2xl sm:text-[28px] font-extrabold text-white tracking-tight leading-tight mb-1">
-                Check your email
-              </h1>
-              <p className="text-xs sm:text-[13px] text-neutral-400 mb-4 sm:mb-6 leading-relaxed">
-                We sent a 6-digit code to <strong className="text-amber-400 font-semibold">{sentEmail}</strong>
-              </p>
-
-              <form onSubmit={otpForm.handleSubmit(onOtpSubmit)} className="flex flex-col gap-3">
-                <div className="flex gap-2 justify-between my-1">
-                  {otpDigits.map((digit, i) => (
-                    <input
-                      key={i}
-                      id={`login-otp-${i}`}
-                      type="text"
-                      inputMode="numeric"
-                      maxLength={6}
-                      value={digit}
-                      onChange={(e) => handleOtpDigitChange(i, e.target.value)}
-                      onKeyDown={(e) => handleOtpKeyDown(i, e)}
-                      onPaste={(e) => handleOtpPaste(e, i)}
-                      onFocus={(e) => e.target.select()}
-                      className={`w-11 h-12 sm:w-12 sm:h-14 text-center rounded-xl font-mono text-lg font-bold outline-none transition-all ${
-                        digit
-                          ? 'bg-amber-400/10 border border-amber-400 text-amber-400'
-                          : 'bg-neutral-900 border border-neutral-800 text-white focus:border-amber-400'
-                      }`}
-                      autoFocus={i === 0}
-                    />
-                  ))}
-                </div>
-
-                {otpForm.formState.errors.otp && (
-                  <div className="flex items-center gap-1.5 text-rose-400 text-[11px] justify-center">
-                    <AlertCircle className="w-3 h-3 shrink-0" />
-                    <span>{otpForm.formState.errors.otp.message}</span>
-                  </div>
-                )}
-
-                <button
-                  type="submit"
-                  disabled={isOtpLoading || otpDigits.join('').length < 6}
-                  className="w-full py-2.5 sm:py-3 px-4 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 font-bold text-xs sm:text-sm tracking-wide transition-all shadow-md shadow-amber-400/20 active:scale-[0.99] flex items-center justify-center gap-2 mt-1 cursor-pointer disabled:opacity-50"
-                >
-                  {isOtpLoading ? (
-                    <Loader2 className="w-4 h-4 animate-spin text-neutral-950" />
-                  ) : (
-                    <>
-                      <span>Verify & Sign In</span>
-                      <ArrowRight className="w-4 h-4 stroke-[2.2]" />
-                    </>
-                  )}
-                </button>
-              </form>
-
-              <p className="text-center text-xs text-neutral-500 mt-4">
-                Didn't receive the code?{' '}
-                <button
-                  type="button"
-                  onClick={handleResend}
-                  disabled={resendOtpMutation.isPending}
-                  className="text-amber-400 font-semibold hover:text-amber-300 cursor-pointer disabled:opacity-50"
-                >
-                  {resendOtpMutation.isPending ? 'Sending...' : 'Resend'}
-                </button>
-                {' · '}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setStep('email');
-                    setOtpDigits(['', '', '', '', '', '']);
-                    otpForm.setValue('otp', '');
-                  }}
-                  className="text-neutral-400 hover:text-white cursor-pointer"
-                >
-                  Change email
-                </button>
-              </p>
-            </>
+            <OtpSection
+              email={sentEmail}
+              onVerify={handleVerifyOtp}
+              onResend={handleResendOtp}
+              onChangeEmail={handleChangeEmail}
+              isVerifying={verifyOtpMutation.isPending}
+              isResending={resendOtpMutation.isPending}
+              validityMinutes={10}
+              resendCooldownSeconds={30}
+              idPrefix="login-otp"
+              submitLabel="Verify & Sign In"
+            />
           )}
         </main>
 

@@ -164,7 +164,7 @@ export const PortfolioWorkCard: React.FC<PortfolioWorkCardProps> = ({
             </label>
             <CustomSelect
               value={project.category}
-              onChange={(val) => onUpdate(project.id, { category: val as any })}
+              onChange={(val) => onUpdate(project.id, { category: val as PortfolioProject['category'] })}
               options={[
                 { value: 'weddings', label: 'Weddings' },
                 { value: 'editorial', label: 'Editorial' },

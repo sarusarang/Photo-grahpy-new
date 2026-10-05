@@ -14,9 +14,11 @@ import {
   Layers,
   Settings,
   Loader2,
+  Download,
 } from 'lucide-react';
 import type { Gallery } from '@/types';
 import { formatHeroShootDate } from '../GalleryHeroBanner';
+import { getGalleryShareUrl } from '@/utils/domain';
 
 export type GalleryTabType = 'media' | 'analytics' | 'design' | 'settings';
 
@@ -30,6 +32,9 @@ interface GalleryDetailHeaderProps {
   onOpenShare: () => void;
   isUpdatingStatus: boolean;
   onSetStatus: (status: 'active' | 'delivered') => void;
+  onDownloadZip?: () => void;
+  isDownloadingZip?: boolean;
+  downloadZipProgress?: number;
 }
 
 export const GalleryDetailHeader: React.FC<GalleryDetailHeaderProps> = ({
@@ -42,6 +47,9 @@ export const GalleryDetailHeader: React.FC<GalleryDetailHeaderProps> = ({
   onOpenShare,
   isUpdatingStatus,
   onSetStatus,
+  onDownloadZip,
+  isDownloadingZip = false,
+  downloadZipProgress = 0,
 }) => {
   const navigate = useNavigate();
   const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
@@ -230,12 +238,34 @@ export const GalleryDetailHeader: React.FC<GalleryDetailHeaderProps> = ({
             <span>Share</span>
           </button>
 
+          {onDownloadZip && (
+            <button
+              type="button"
+              onClick={onDownloadZip}
+              disabled={isDownloadingZip || gallery.media.length === 0}
+              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-white dark:bg-neutral-900 hover:bg-neutral-100 dark:hover:bg-neutral-800 border border-neutral-200 dark:border-neutral-800 text-neutral-800 dark:text-neutral-200 text-xs font-medium transition-all cursor-pointer active:scale-95 disabled:opacity-50"
+              title="Download all gallery photos into a ZIP archive"
+            >
+              {isDownloadingZip ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-500" />
+                  <span>Packaging {downloadZipProgress}%...</span>
+                </>
+              ) : (
+                <>
+                  <Download className="w-3.5 h-3.5 text-amber-500" />
+                  <span>Download ZIP ({gallery.totalMediaCount || gallery.media.length})</span>
+                </>
+              )}
+            </button>
+          )}
+
           <a
-            href={`https://exshare.ai/gallery/${encodeURIComponent(gallery.slug || gallery.id)}`}
+            href={getGalleryShareUrl(gallery.slug || gallery.id)}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-white dark:bg-neutral-900 hover:bg-neutral-100 dark:hover:bg-neutral-800 border border-neutral-200 dark:border-neutral-800 text-amber-600 dark:text-amber-400 text-xs font-medium transition-colors cursor-pointer active:scale-95"
-            title="Open Live Client View (https://exshare.ai)"
+            title="Open Live Client View"
           >
             <ExternalLink className="w-3.5 h-3.5" />
             <span>Client View</span>
@@ -254,7 +284,7 @@ export const GalleryDetailHeader: React.FC<GalleryDetailHeaderProps> = ({
           }`}
         >
           <ImageIcon className="w-4 h-4 text-amber-500 dark:text-amber-400" />
-          <span>Photos & Videos ({gallery.media.length})</span>
+          <span>Photos & Videos ({gallery.totalMediaCount || gallery.media.length})</span>
         </button>
 
         <button

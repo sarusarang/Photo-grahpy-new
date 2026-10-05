@@ -3,13 +3,27 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useGallery } from '../../context/GalleryContext';
 import { useToast } from '../../components/ui/Toast';
-import { CustomSelect } from '../../components/ui/CustomSelect';
-import { UpgradePlanModal } from '../../components/common/UpgradePlanModal';
+import { UpgradePlanModal, getPlanRank } from '../../components/common/UpgradePlanModal';
+import { CancelPlanModal } from '../../components/common/CancelPlanModal';
 import { PersonalInformationSection } from '../../components/settings/PersonalInformationSection';
+import { NotificationSettingsSection } from '../../components/settings/NotificationSettingsSection';
+import { WatermarkSettingsSection } from '../../components/settings/WatermarkSettingsSection';
 import { renderPlanFeature } from '../../data/plansData';
-import { useStudioPlans, useCurrentSubscription, usePlanUpgradeFlow } from '@/service/plans/usePlans';
-import { useUpdateWatermark } from '@/hooks/useAtelierQueries';
+import {
+  renderPlanBillingText,
+  getAutopayBadgeText,
+  formatPlanCtaText,
+  formatPlanSubtitle,
+} from '@/components/billing/planUtils';
+import {
+  useStudioPlans,
+  useCurrentSubscription,
+  usePlanUpgradeFlow,
+  useCancelAutoRenew,
+  useResumeSubscription,
+} from '@/service/plans/usePlans';
 import { usePlanQuota } from '@/hooks/usePlanQuota';
+import { getPortfolioShareUrl } from '@/utils/domain';
 import type { StudioPlan } from '@/service/plans/type';
 import {
   User,
@@ -20,7 +34,6 @@ import {
   Crown,
   Check,
   Zap,
-  RotateCcw,
   LogOut,
   Loader2,
   Sprout,
@@ -32,11 +45,18 @@ import {
   Globe,
   Headphones,
   ExternalLink,
+  Lock,
+  Clock,
+  Ban,
+  RotateCcw,
+  AlertTriangle,
+  CheckCircle2,
+  Stamp,
 } from 'lucide-react';
 
 export const SettingsPage: React.FC = () => {
-  const { photographer, user, updateProfile, logout, resetProfile, isLoggingOut } = useAuth();
-  const { subscription, upgradeSubscription, resetAllDemoData } = useGallery();
+  const { photographer, user, updateProfile, logout, isLoggingOut } = useAuth();
+  const { subscription, upgradeSubscription } = useGallery();
   const { showToast } = useToast();
   const navigate = useNavigate();
   const planQuota = usePlanQuota();
@@ -49,8 +69,9 @@ export const SettingsPage: React.FC = () => {
     refetch: refetchPlans,
   } = useStudioPlans();
 
-  const [activeTab, setActiveTab] = useState<'profile' | 'billing' | 'drive' | 'notifications' | 'account'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'watermark' | 'billing' | 'notifications' | 'account'>('profile');
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
 
   const { data: activeApiSub } = useCurrentSubscription(activeTab === 'billing');
 
@@ -59,49 +80,21 @@ export const SettingsPage: React.FC = () => {
     showToast('Subscription Activated', `Switched to ${plan.name} successfully!`, 'success');
   });
 
-  // Drive & Watermark settings state
-  const [defaultTemplate, setDefaultTemplate] = useState('editorial');
-  const [enableWatermark, setEnableWatermark] = useState(photographer.enableWatermark || false);
-  const [watermarkText, setWatermarkText] = useState(photographer.watermarkText || '© EX SHARE');
-  const [watermarkOpacity, setWatermarkOpacity] = useState(0.45);
-  const [watermarkPosition, setWatermarkPosition] = useState<'bottom-right' | 'bottom-left' | 'top-right' | 'center' | 'tiled'>('bottom-right');
+  const { mutate: resumeSubscription, isPending: isResumingSubscription } = useResumeSubscription();
 
-  const updateWatermarkMutation = useUpdateWatermark();
-  const isSavingDrive = updateWatermarkMutation.isPending;
-
-  const handleSaveDrive = async () => {
-    try {
-      await updateWatermarkMutation.mutateAsync({
-        enable_watermark: enableWatermark,
-        watermark_text: watermarkText,
-        watermark_opacity: watermarkOpacity,
-        watermark_position: watermarkPosition,
-      });
-      updateProfile({
-        enableWatermark,
-        watermarkText,
-      });
-      showToast('Settings Saved', 'Drive and studio watermark preferences synced with backend.', 'success');
-    } catch {
-      updateProfile({
-        enableWatermark,
-        watermarkText,
-      });
-      showToast('Settings Saved (Local)', 'Watermark preferences saved locally.', 'info');
-    }
+  const handleOpenCancelModal = () => {
+    setIsCancelModalOpen(true);
   };
 
-  // Notifications state
-  const [notifyVisited, setNotifyVisited] = useState(true);
-  const [notifyDownloaded, setNotifyDownloaded] = useState(true);
-  const [notifyWeeklyReport, setNotifyWeeklyReport] = useState(true);
-
-  const handleResetDemo = () => {
-    if (window.confirm('Reset all demo galleries, media, and profile settings to factory defaults?')) {
-      resetAllDemoData();
-      resetProfile();
-      showToast('Demo Reset', 'Restored original demo photography data.', 'info');
-    }
+  const handleResumeAutopay = () => {
+    resumeSubscription(undefined, {
+      onSuccess: () => {
+        showToast('Membership Restarted', 'Recurring autopay is active again. Your plan will renew automatically.', 'success');
+      },
+      onError: (err: any) => {
+        showToast('Error', err?.message || 'Failed to restart subscription.', 'error');
+      },
+    });
   };
 
   const handleSignOut = async () => {
@@ -153,8 +146,8 @@ export const SettingsPage: React.FC = () => {
       <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-white dark:bg-[#121319] border border-neutral-200 dark:border-neutral-800/90 w-full sm:w-fit overflow-x-auto no-scrollbar flex-nowrap shadow-xs -mx-4 px-4 sm:mx-0 sm:px-1">
         {[
           { id: 'profile', label: 'Profile', icon: User },
+          { id: 'watermark', label: 'Watermark Suite', icon: Stamp },
           { id: 'billing', label: 'Plan & Billing', icon: CreditCard },
-          { id: 'drive', label: 'Gallery & Preferences', icon: Cloud },
           { id: 'notifications', label: 'Notifications', icon: Bell },
           { id: 'account', label: 'Account', icon: Shield },
         ].map((tab) => {
@@ -194,7 +187,7 @@ export const SettingsPage: React.FC = () => {
                   </span>
                 </h3>
                 <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate mt-0.5">
-                  {window.location.origin}/portfolio/{user?.username || photographer.id || 'studio'}
+                  {getPortfolioShareUrl(user?.username || photographer.id || 'studio')}
                 </p>
               </div>
             </div>
@@ -203,7 +196,7 @@ export const SettingsPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => {
-                  navigator.clipboard.writeText(`${window.location.origin}/portfolio/${user?.username || photographer.id || 'studio'}`);
+                  navigator.clipboard.writeText(getPortfolioShareUrl(user?.username || photographer.id || 'studio'));
                   showToast('Public portfolio link copied to clipboard!', 'success');
                 }}
                 className="px-3.5 py-2 rounded-xl bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 text-xs font-semibold transition-colors cursor-pointer"
@@ -228,6 +221,11 @@ export const SettingsPage: React.FC = () => {
         </div>
       )}
 
+      {/* Tab: Watermark Suite */}
+      {activeTab === 'watermark' && (
+        <WatermarkSettingsSection onManagePlan={() => setActiveTab('billing')} />
+      )}
+
       {/* Tab 2: Plan & Billing */}
       {activeTab === 'billing' && (() => {
         const billingActivePlanId = planQuota.planId || activeApiSub?.plan?.id || subscription?.id || '';
@@ -236,71 +234,228 @@ export const SettingsPage: React.FC = () => {
         const billingStorageUsed = planQuota.storageUsedGB || (activeApiSub?.storage?.used_gb ?? 0);
         const billingUsedPct = planQuota.storageUsedPercent || (activeApiSub?.storage?.used_percentage ?? 0);
 
+        const hasActivePlan = Boolean(billingActivePlanId) && (activeApiSub?.status === 'active' || planQuota.isActive);
+        const isExpired = Boolean(
+          activeApiSub?.status === 'expired' ||
+          planQuota.isExpired ||
+          (typeof planQuota.daysRemaining === 'number' && planQuota.daysRemaining <= 0 && Boolean(activeApiSub?.expiry_date))
+        );
+        const isRestrictedToUpgrades = hasActivePlan && !isExpired;
+        const isAnyPlanUpgrading = Boolean(upgradingPlanId) || isUpgrading;
+
         const billingPlans = (apiPlans || []).map((p: StudioPlan) => {
           const price = typeof p.monthly_price === 'string' ? parseFloat(p.monthly_price) : (Number(p.monthly_price) || 0);
           const originalPrice = p.original_monthly_price != null ? (typeof p.original_monthly_price === 'string' ? parseFloat(p.original_monthly_price) : Number(p.original_monthly_price)) : undefined;
+          const durationMonths = p.duration_months || (p.billing_cycle === 'annual' ? 12 : p.billing_cycle === 'quarterly' ? 3 : 1);
+          const isPremium = p.id.includes('premium') || p.tier === 'premium';
+          const tag = isPremium && p.tag === 'MOST POPULAR' ? '2XSTANDARD PLAN' : (p.tag || (isPremium ? '2XSTANDARD PLAN' : ''));
+          const tagType = isPremium ? 'default' : (p.tag_type || (p.id === 'plan-standard-1y' ? 'popular' : 'default'));
+          const ctaText = formatPlanCtaText({ ...p, duration_months: durationMonths });
+          const subtitle = formatPlanSubtitle({ ...p, duration_months: durationMonths });
           return {
             ...p,
             price,
             originalPrice,
+            duration_months: durationMonths,
             billing: p.billing_text || (p.billing_cycle === 'annual' ? 'billed annually' : 'billed monthly'),
-            icon: p.tier === 'premium' || p.tag_type === 'popular' ? Gem : p.billing_cycle === 'annual' ? Crown : Sprout,
-            tagType: p.tag_type || 'default',
-            ctaText: p.cta_text,
+            icon: isPremium ? Gem : p.billing_cycle === 'annual' ? Crown : Sprout,
+            tag,
+            tagType,
+            ctaText,
+            subtitle,
             features: Array.isArray(p.features) ? p.features : [],
           };
         });
 
+        const currentPlanRank = activeApiSub?.plan
+          ? getPlanRank(activeApiSub.plan)
+          : (billingPlans.find((p) => p.id === billingActivePlanId) ? getPlanRank(billingPlans.find((p) => p.id === billingActivePlanId)!) : 0);
+
         return (
           <div className="space-y-6 fade-up">
-            {/* 1. Currently Active Storage Status Bar */}
-            <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#13141b]/95 border border-neutral-200 dark:border-neutral-800/90 flex flex-wrap items-center justify-between gap-4 shadow-sm dark:shadow-inner">
-              {/* Active Plan Info */}
-              <div className="flex items-center gap-3.5">
-                <div className="w-11 h-11 rounded-xl bg-neutral-100 dark:bg-neutral-900/90 border border-neutral-200 dark:border-neutral-700/70 flex items-center justify-center text-amber-500 dark:text-amber-400 shrink-0 shadow-sm">
-                  <Cloud className="w-5 h-5" />
+            {/* Resilient Fallback Notice Banner */}
+            {planQuota.isFallback && (
+              <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-between gap-3 text-xs text-amber-600 dark:text-amber-400 shadow-xs">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-amber-500" />
+                  <span>
+                    Viewing cached studio plan details. Your cloud storage and features remain completely accessible.
+                  </span>
                 </div>
-                <div>
-                  <p className="text-[11px] text-neutral-500 dark:text-neutral-400 font-semibold uppercase tracking-wider">
-                    Currently Active
-                  </p>
-                  <p className="text-sm sm:text-base font-bold text-neutral-900 dark:text-white tracking-tight">
-                    {billingActivePlanName} • {billingStorageLimit} GB Limit
-                  </p>
-                  {activeApiSub?.expiry_date && (
-                    <p className="text-[10px] text-neutral-400 font-mono mt-0.5">
-                      Renews: {new Date(activeApiSub.expiry_date).toLocaleDateString()} ({activeApiSub.days_remaining} days left)
-                    </p>
+                <button
+                  type="button"
+                  onClick={() => planQuota.refetchPlan()}
+                  className="px-3 py-1 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 text-xs font-bold shrink-0 transition-colors cursor-pointer"
+                >
+                  Retry Sync
+                </button>
+              </div>
+            )}
+
+            {/* 1. Executive Active Subscription & Autopay Status Card */}
+            <div className="p-5 sm:p-6 rounded-3xl bg-white dark:bg-[#13141b]/95 border border-neutral-200 dark:border-neutral-800/90 shadow-sm dark:shadow-xl space-y-5">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 pb-4 border-b border-neutral-100 dark:border-neutral-800/60">
+                {/* Left: Plan Identity & Real-time Status Badges */}
+                <div className="flex items-start sm:items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-center text-amber-500 dark:text-amber-400 shrink-0 shadow-sm">
+                    <Cloud className="w-6 h-6" />
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className={`text-[10px] font-mono font-bold uppercase tracking-wider ${
+                        isExpired ? 'text-rose-600 dark:text-rose-400' : 'text-amber-600 dark:text-amber-400'
+                      }`}>
+                        {isExpired ? 'MEMBERSHIP EXPIRED' : 'ACTIVE MEMBERSHIP'}
+                      </span>
+                      {isExpired ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-[10px] font-bold font-mono">
+                          <AlertCircle className="w-3 h-3" />
+                          EXPIRED
+                        </span>
+                      ) : activeApiSub?.auto_renew ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold font-mono">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          AUTOPAY ACTIVE
+                        </span>
+                      ) : (activeApiSub?.days_remaining ?? 0) > 0 ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-[10px] font-bold font-mono">
+                          <AlertTriangle className="w-3 h-3" />
+                          CANCELLATION SCHEDULED
+                        </span>
+                      ) : planQuota.isFallback ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-[10px] font-bold font-mono">
+                          <CheckCircle2 className="w-3 h-3" />
+                          STUDIO ACTIVE
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-500 text-[10px] font-bold font-mono">
+                          INACTIVE
+                        </span>
+                      )}
+                    </div>
+
+                    <h2 className="text-lg sm:text-xl font-bold text-neutral-900 dark:text-white tracking-tight flex items-center gap-2">
+                      <span>{billingActivePlanName}</span>
+                      <span className="text-xs font-normal text-neutral-400">({billingStorageLimit} GB Storage)</span>
+                    </h2>
+
+                    {activeApiSub?.expiry_date && (
+                      <p className={`text-xs font-mono flex items-center gap-1.5 ${
+                        isExpired ? 'text-rose-500 dark:text-rose-400' : 'text-neutral-500 dark:text-neutral-400'
+                      }`}>
+                        <Clock className="w-3.5 h-3.5" />
+                        <span>
+                          {isExpired ? (
+                            <>
+                              Plan expired on{' '}
+                              <strong className="text-rose-600 dark:text-rose-300">
+                                {new Date(activeApiSub.expiry_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                              </strong>{' '}
+                              (Studio creation features paused)
+                            </>
+                          ) : (
+                            <>
+                              {activeApiSub.auto_renew ? 'Renews automatically on' : 'Access active until'}{' '}
+                              <strong className="text-neutral-800 dark:text-neutral-200">
+                                {new Date(activeApiSub.expiry_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                              </strong>{' '}
+                              ({activeApiSub.days_remaining} days left)
+                            </>
+                          )}
+                        </span>
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Right: Actions Row */}
+                <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+                  {/* If expired: Prominent Renew / Select Plan Button */}
+                  {isExpired && (
+                    <button
+                      type="button"
+                      onClick={() => setIsUpgradeModalOpen(true)}
+                      disabled={isAnyPlanUpgrading}
+                      className={`px-5 py-2.5 rounded-xl bg-gradient-to-r from-rose-500 to-amber-500 hover:from-rose-400 hover:to-amber-400 text-white font-bold text-xs flex items-center gap-2 transition-all cursor-pointer shadow-lg shadow-rose-500/20 active:scale-95 ${
+                        isAnyPlanUpgrading ? 'opacity-40 cursor-not-allowed pointer-events-none' : ''
+                      }`}
+                    >
+                      <Zap className="w-3.5 h-3.5 fill-current" />
+                      <span>Renew / Select Plan</span>
+                    </button>
+                  )}
+
+                  {/* If recurring autopay is active and NOT expired: Modern Cancel Autopay Button */}
+                  {!isExpired && activeApiSub?.auto_renew && (
+                    <button
+                      type="button"
+                      onClick={handleOpenCancelModal}
+                      disabled={isAnyPlanUpgrading}
+                      className={`px-3.5 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-700/80 hover:border-rose-400 dark:hover:border-rose-800/80 hover:bg-rose-50/60 dark:hover:bg-rose-950/20 text-neutral-600 dark:text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm active:scale-95 ${
+                        isAnyPlanUpgrading ? 'opacity-40 cursor-not-allowed pointer-events-none' : ''
+                      }`}
+                    >
+                      <Ban className="w-3.5 h-3.5" />
+                      <span>Cancel Autopay</span>
+                    </button>
+                  )}
+
+                  {/* If cancelled: Modern Restart Membership Button */}
+                  {!isExpired && !activeApiSub?.auto_renew && (activeApiSub?.days_remaining ?? 0) > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleResumeAutopay}
+                      disabled={isResumingSubscription || isAnyPlanUpgrading}
+                      className="px-4 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-md hover:shadow-amber-500/20 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      {isResumingSubscription ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>Restarting...</span>
+                        </>
+                      ) : (
+                        <>
+                          <RotateCcw className="w-3.5 h-3.5" />
+                          <span>Restart Membership</span>
+                        </>
+                      )}
+                    </button>
+                  )}
+
+                  {/* Upgrade Studio Modal Trigger if NOT expired */}
+                  {!isExpired && (
+                    <button
+                      type="button"
+                      onClick={() => setIsUpgradeModalOpen(true)}
+                      disabled={isAnyPlanUpgrading}
+                      className={`px-4 py-2.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 dark:bg-white dark:hover:bg-neutral-100 text-white dark:text-neutral-900 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm active:scale-95 ${
+                        isAnyPlanUpgrading ? 'opacity-40 cursor-not-allowed pointer-events-none' : ''
+                      }`}
+                    >
+                      <Zap className="w-3.5 h-3.5 fill-current text-amber-400 dark:text-amber-500" />
+                      <span>{hasActivePlan ? 'Change / Upgrade Plan' : 'Choose Studio Plan'}</span>
+                    </button>
                   )}
                 </div>
               </div>
 
-              {/* Storage Meter */}
-              <div className="flex flex-col sm:items-center">
-                <div className="flex items-center gap-3">
-                  <div className="w-44 sm:w-60 md:w-72 h-2 rounded-full bg-neutral-200 dark:bg-neutral-800/90 overflow-hidden ring-1 ring-neutral-300 dark:ring-neutral-700/50">
-                    <div
-                      className="h-full rounded-full bg-amber-400 transition-all duration-700 ease-out"
-                      style={{ width: `${billingUsedPct}%` }}
-                    />
-                  </div>
-                  <span className="text-xs font-mono font-bold text-amber-600 dark:text-amber-400 shrink-0">
-                    {billingUsedPct}% Used
+              {/* Bottom: Storage Meter */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs font-mono">
+                  <span className="text-neutral-500 dark:text-neutral-400">
+                    Cloud Storage Meter
+                  </span>
+                  <span className="font-bold text-amber-600 dark:text-amber-400">
+                    {billingStorageUsed} GB of {billingStorageLimit} GB used ({billingUsedPct}%)
                   </span>
                 </div>
-                <p className="text-[11px] text-neutral-500 dark:text-neutral-400 font-mono mt-1">
-                  {billingStorageUsed} GB of {billingStorageLimit} GB used
-                </p>
+                <div className="w-full h-2.5 rounded-full bg-neutral-100 dark:bg-neutral-800 overflow-hidden ring-1 ring-neutral-200 dark:ring-neutral-700/50">
+                  <div
+                    className="h-full rounded-full bg-amber-400 transition-all duration-700 ease-out"
+                    style={{ width: `${billingUsedPct}%` }}
+                  />
+                </div>
               </div>
-
-              {/* Upgrade Studio Modal Trigger */}
-              <button
-                onClick={() => setIsUpgradeModalOpen(true)}
-                className="px-4 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-700/80 bg-neutral-100 dark:bg-neutral-900/80 hover:bg-neutral-200 dark:hover:bg-neutral-800 text-neutral-800 dark:text-neutral-200 text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer shadow-sm active:scale-95"
-              >
-                <Zap className="w-3.5 h-3.5 fill-current text-amber-500" />
-                <span>Upgrade Studio Modal</span>
-              </button>
             </div>
 
             {/* Sync Status Banner */}
@@ -415,6 +570,16 @@ export const SettingsPage: React.FC = () => {
                   const isCurrent = billingActivePlanId === plan.id;
                   const Icon = plan.icon;
                   const isCardUpgrading = upgradingPlanId === plan.id;
+                  const isOtherPlanUpgrading = isAnyPlanUpgrading && !isCardUpgrading;
+                  const thisPlanRank = getPlanRank(plan);
+                  const isDownward = isRestrictedToUpgrades && !isCurrent && thisPlanRank <= currentPlanRank;
+                  const isButtonDisabled = isCardUpgrading || isOtherPlanUpgrading || isDownward || (isCurrent && !isExpired);
+
+                  const durationMonths =
+                    plan.duration_months ||
+                    (plan.billing_cycle === 'annual' ? 12 : plan.billing_cycle === 'quarterly' ? 3 : 1);
+
+                  const autopayBadge = getAutopayBadgeText(durationMonths);
 
                   return (
                     <div
@@ -422,8 +587,10 @@ export const SettingsPage: React.FC = () => {
                       className={`rounded-2xl p-6 flex flex-col justify-between transition-all duration-300 relative ${
                         isCurrent
                           ? 'bg-neutral-50 dark:bg-[#151419] border-2 border-amber-400/90 shadow-xl dark:shadow-2xl shadow-amber-500/10 ring-1 ring-amber-400/30 scale-[1.01]'
+                          : isDownward
+                          ? 'bg-neutral-50/50 dark:bg-[#101015]/60 border border-neutral-200/60 dark:border-neutral-800/60 opacity-60 hover:opacity-75'
                           : 'bg-white dark:bg-[#121319]/90 border border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700 hover:bg-neutral-50/50 dark:hover:bg-[#151620]'
-                      }`}
+                      } ${isOtherPlanUpgrading ? 'opacity-50' : ''}`}
                     >
                       <div>
                         {/* Card Header: Icon & Badge */}
@@ -432,6 +599,8 @@ export const SettingsPage: React.FC = () => {
                             className={`w-10 h-10 rounded-xl flex items-center justify-center ${
                               isCurrent
                                 ? 'bg-amber-500/15 border border-amber-500/30 text-amber-500 dark:text-amber-400'
+                                : isDownward
+                                ? 'bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-neutral-400'
                                 : plan.tagType === 'popular'
                                 ? 'bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-amber-500 dark:text-amber-400'
                                 : 'bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-300'
@@ -440,9 +609,18 @@ export const SettingsPage: React.FC = () => {
                             <Icon className="w-5 h-5" />
                           </div>
 
-                          {isCurrent ? (
+                          {isCurrent && isExpired ? (
+                            <span className="px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/40 font-bold text-[10px] uppercase tracking-wider shadow-sm">
+                              EXPIRED PLAN
+                            </span>
+                          ) : isCurrent ? (
                             <span className="px-3 py-1 rounded-full bg-amber-400 text-neutral-950 font-bold text-[10px] uppercase tracking-wider shadow-sm">
                               YOUR PLAN
+                            </span>
+                          ) : isDownward ? (
+                            <span className="px-2.5 py-0.5 rounded-full bg-neutral-100 dark:bg-neutral-800/80 border border-neutral-200 dark:border-neutral-700/60 text-[10px] uppercase font-bold text-neutral-400 tracking-wider flex items-center gap-1">
+                              <Lock className="w-3 h-3" />
+                              LOWER TIER
                             </span>
                           ) : plan.tagType === 'popular' ? (
                             <span className="px-3 py-1 rounded-full bg-amber-400 text-neutral-950 font-bold text-[10px] uppercase tracking-wider shadow-sm">
@@ -455,35 +633,52 @@ export const SettingsPage: React.FC = () => {
                           ) : null}
                         </div>
 
-                        {/* Title & Subtitle */}
-                        <h3 className="text-base font-bold text-neutral-900 dark:text-white mt-4">{plan.name}</h3>
-                        <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 min-h-[32px]">
-                          {plan.subtitle}
-                        </p>
+                        {/* Title & Subtitle with guaranteed identical height across all cards */}
+                        <div className="h-16 shrink-0 flex flex-col justify-start mt-4">
+                          <h3 className="text-base font-bold text-neutral-900 dark:text-white leading-tight">{plan.name}</h3>
+                          <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 leading-snug line-clamp-2">
+                            {plan.subtitle}
+                          </p>
+                        </div>
 
-                        {/* Price Block */}
-                        <div className="mt-3 pb-4 border-b border-neutral-200 dark:border-neutral-800/80">
-                          <div className="flex items-center gap-2.5 flex-wrap">
-                            {plan.originalPrice && (
-                              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-500/15 dark:bg-rose-500/20 border border-rose-500/30 dark:border-rose-500/40 text-rose-700 dark:text-rose-200 shadow-xs">
-                                <span className="text-sm font-semibold line-through decoration-rose-500 dark:decoration-rose-400 decoration-[2.5px]">
+                        {/* Price Block with Fixed Heights for Perfect Alignment */}
+                        <div className="mt-2 pb-4 border-b border-neutral-200 dark:border-neutral-800/80 flex flex-col shrink-0">
+                          {/* Row 1: Original Strikethrough Discount Pill (exact same height on all cards) */}
+                          <div className="h-6 shrink-0 flex items-center">
+                            {plan.originalPrice && plan.originalPrice > plan.price ? (
+                              <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-rose-500/15 dark:bg-rose-500/20 border border-rose-500/30 dark:border-rose-500/40 text-rose-700 dark:text-rose-200 shadow-xs">
+                                <span className="text-xs font-semibold line-through decoration-rose-500 dark:decoration-rose-400 decoration-[1.5px]">
                                   ₹{plan.originalPrice.toLocaleString('en-IN')}/-
                                 </span>
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-rose-600 dark:text-rose-300 bg-rose-500/20 px-1.5 py-0.5 rounded">
+                                <span className="text-[9px] font-bold uppercase tracking-wider text-rose-600 dark:text-rose-300 bg-rose-500/20 px-1 py-0.5 rounded">
                                   {Math.round(((plan.originalPrice - plan.price) / plan.originalPrice) * 100)}% OFF
                                 </span>
                               </div>
+                            ) : (
+                              <div className="h-6 shrink-0" />
                             )}
-                            <div className="flex items-baseline gap-1">
-                              <span className="text-3xl sm:text-4xl font-bold text-amber-500 dark:text-amber-400 tracking-tight">
+                          </div>
+
+                          {/* Row 2: Monthly Price and Billed Section in a single row */}
+                          <div className="flex items-center justify-between gap-2 mt-1 shrink-0 h-10">
+                            <div className="flex items-baseline gap-1 shrink-0">
+                              <span className="text-2xl sm:text-3xl lg:text-4xl font-bold text-amber-500 dark:text-amber-400 tracking-tight font-mono">
                                 ₹{plan.price.toLocaleString('en-IN')}
                               </span>
                               <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400">/ Month</span>
                             </div>
+                            <div className="shrink-0">
+                              {renderPlanBillingText(plan.billing)}
+                            </div>
                           </div>
-                          <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1.5">
-                            {plan.billing}
-                          </p>
+
+                          {/* Row 3: Autopay Badge */}
+                          <div className="mt-2.5 flex items-center shrink-0">
+                            <span className="text-[10px] sm:text-[11px] font-mono px-2.5 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 font-semibold inline-flex items-center gap-1.5 shadow-xs">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                              {autopayBadge}
+                            </span>
+                          </div>
                         </div>
 
                         {/* Features List with Amber Checkmarks */}
@@ -498,38 +693,62 @@ export const SettingsPage: React.FC = () => {
                       </div>
 
                       {/* Bottom Action CTA Button */}
-                      <button
-                        onClick={async () => {
-                          if (!isCurrent && !isUpgrading) {
-                            await handleUpgrade(plan, 'direct');
-                          }
-                        }}
-                        disabled={isCurrent || isUpgrading}
-                        className={`w-full py-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                          isCurrent
-                            ? 'bg-amber-400 hover:bg-amber-300 text-neutral-950 shadow-lg shadow-amber-500/20 active:scale-98 cursor-default'
-                            : isCardUpgrading
-                            ? 'bg-neutral-800 text-amber-400 cursor-wait'
-                            : 'bg-neutral-900 dark:bg-neutral-900/90 hover:bg-neutral-800 border border-neutral-800 hover:border-neutral-700 text-white active:scale-98'
-                        }`}
-                      >
-                        {isCardUpgrading ? (
-                          <>
-                            <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" />
-                            <span>Activating...</span>
-                          </>
-                        ) : isCurrent ? (
-                          <>
-                            <Check className="w-3.5 h-3.5 stroke-[2.5]" />
-                            <span>Current Plan</span>
-                          </>
-                        ) : (
-                          <>
-                            <span>{plan.ctaText || `Choose ${plan.name}`}</span>
-                            <ArrowRight className="w-3.5 h-3.5" />
-                          </>
+                      <div>
+                        <button
+                          onClick={async () => {
+                            if (!isButtonDisabled) {
+                              await handleUpgrade(plan);
+                            }
+                          }}
+                          disabled={isButtonDisabled}
+                          className={`w-full py-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                            isCardUpgrading
+                              ? 'bg-neutral-800 text-amber-400 cursor-wait'
+                              : isOtherPlanUpgrading
+                              ? 'bg-neutral-200 dark:bg-neutral-800/80 text-neutral-400 dark:text-neutral-500 opacity-40 cursor-not-allowed pointer-events-none shadow-none'
+                              : isCurrent && !isExpired
+                              ? 'bg-amber-400 hover:bg-amber-300 text-neutral-950 shadow-lg shadow-amber-500/20 active:scale-98 cursor-default'
+                              : isCurrent && isExpired
+                              ? 'bg-gradient-to-r from-rose-500 to-amber-500 hover:from-rose-400 hover:to-amber-400 text-white shadow-lg shadow-rose-500/20 active:scale-98 cursor-pointer'
+                              : isDownward
+                              ? 'bg-neutral-100 dark:bg-neutral-900/50 border border-neutral-200 dark:border-neutral-800/80 text-neutral-400 dark:text-neutral-500 cursor-not-allowed'
+                              : 'bg-amber-400 hover:bg-amber-300 text-neutral-950 font-bold shadow-md shadow-amber-500/20 active:scale-98 cursor-pointer'
+                          }`}
+                        >
+                          {isCardUpgrading ? (
+                            <>
+                              <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" />
+                              <span>Initiating Razorpay...</span>
+                            </>
+                          ) : isCurrent && !isExpired ? (
+                            <>
+                              <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                              <span>Current Plan</span>
+                            </>
+                          ) : isCurrent && isExpired ? (
+                            <>
+                              <Zap className="w-3.5 h-3.5 fill-current" />
+                              <span>Renew {plan.name}</span>
+                            </>
+                          ) : isDownward ? (
+                            <>
+                              <Lock className="w-3.5 h-3.5" />
+                              <span>Downgrade Unavailable</span>
+                            </>
+                          ) : (
+                            <>
+                              <CreditCard className="w-3.5 h-3.5" />
+                              <span>{isExpired ? `Select ${plan.name}` : `Upgrade to ${plan.name}`}</span>
+                              <ArrowRight className="w-3.5 h-3.5 ml-0.5" />
+                            </>
+                          )}
+                        </button>
+                        {isDownward && (
+                          <p className="text-[10px] text-neutral-400 dark:text-neutral-500 mt-2 text-center leading-tight">
+                            Active plans cannot be downgraded during active billing period
+                          </p>
                         )}
-                      </button>
+                      </div>
                     </div>
                   );
                 })}
@@ -584,245 +803,52 @@ export const SettingsPage: React.FC = () => {
 
 
 
-      {/* Tab 3: Drive & Preferences */}
-      {activeTab === 'drive' && (
-        <div className="max-w-2xl space-y-6 fade-up">
-          <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-[#121319] border border-neutral-200 dark:border-neutral-800/80 shadow-sm dark:shadow-xl space-y-6">
-            <h3 className="text-lg font-serif text-neutral-900 dark:text-white font-bold">Gallery Defaults & Watermark</h3>
 
-            {/* Default Client Layout */}
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-400 mb-2">
-                Default Layout For New Galleries
-              </label>
-              <CustomSelect
-                value={defaultTemplate}
-                onChange={(val) => setDefaultTemplate(String(val))}
-                options={[
-                  { value: 'editorial', label: 'Editorial', description: 'Haute couture & fine-art spacing' },
-                  { value: 'masonry', label: 'Masonry', description: 'Dynamic high-density grid' },
-                  { value: 'cinematic', label: 'Cinematic', description: 'Darkroom with ambient reels' },
-                  { value: 'minimal', label: 'Minimal', description: 'Clean gallery art layout' },
-                ]}
-              />
-            </div>
-
-            {/* Studio Watermarking Suite */}
-            <div className="p-5 rounded-2xl bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 space-y-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-semibold text-neutral-900 dark:text-white">Watermark Client Previews</p>
-                  <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
-                    Apply subtle copyright text over preview images on delivery
-                  </p>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={enableWatermark}
-                  onChange={(e) => setEnableWatermark(e.target.checked)}
-                  className="w-4 h-4 accent-amber-500 rounded cursor-pointer"
-                />
-              </div>
-
-              {enableWatermark && (
-                <div className="space-y-4 pt-3 border-t border-neutral-200 dark:border-neutral-800">
-                  {/* Watermark Text */}
-                  <div>
-                    <label className="block text-[11px] font-semibold text-neutral-600 dark:text-neutral-400 mb-1.5">
-                      Watermark Signature Text
-                    </label>
-                    <input
-                      type="text"
-                      value={watermarkText}
-                      onChange={(e) => setWatermarkText(e.target.value)}
-                      placeholder="© EX SHARE PHOTOGRAPHY"
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-neutral-900 dark:text-white text-xs focus:outline-none focus:border-amber-400 transition"
-                    />
-                  </div>
-
-                  {/* Opacity Slider */}
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="text-[11px] font-semibold text-neutral-600 dark:text-neutral-400">
-                        Overlay Opacity
-                      </label>
-                      <span className="text-xs font-mono font-bold text-amber-500">
-                        {Math.round(watermarkOpacity * 100)}%
-                      </span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0.05"
-                      max="1.0"
-                      step="0.05"
-                      value={watermarkOpacity}
-                      onChange={(e) => setWatermarkOpacity(parseFloat(e.target.value))}
-                      className="w-full h-1.5 bg-neutral-200 dark:bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-amber-400"
-                    />
-                    <div className="flex justify-between text-[10px] text-neutral-400 mt-1">
-                      <span>Subtle (5%)</span>
-                      <span>Balanced (45%)</span>
-                      <span>Prominent (100%)</span>
-                    </div>
-                  </div>
-
-                  {/* Watermark Position */}
-                  <div>
-                    <label className="block text-[11px] font-semibold text-neutral-600 dark:text-neutral-400 mb-1.5">
-                      Placement Position
-                    </label>
-                    <select
-                      value={watermarkPosition}
-                      onChange={(e) => setWatermarkPosition(e.target.value as any)}
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-neutral-900 dark:text-white text-xs focus:outline-none focus:border-amber-400 transition cursor-pointer"
-                    >
-                      <option value="bottom-right">Bottom Right (Default Fine-Art)</option>
-                      <option value="bottom-left">Bottom Left</option>
-                      <option value="top-right">Top Right</option>
-                      <option value="center">Center Stamp</option>
-                      <option value="tiled">Diagonal Tiled Security Pattern</option>
-                    </select>
-                  </div>
-
-                  {/* Live Watermark Preview Mockup */}
-                  <div className="mt-4 pt-4 border-t border-neutral-200 dark:border-neutral-800">
-                    <span className="block text-[10px] font-semibold uppercase tracking-wider text-neutral-400 mb-2">
-                      Live Delivery Mockup
-                    </span>
-                    <div className="relative w-full h-40 rounded-xl overflow-hidden bg-neutral-900 border border-neutral-800 shadow-inner flex items-center justify-center">
-                      <img
-                        src="https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=800&q=80"
-                        alt="Watermark preview mockup"
-                        className="w-full h-full object-cover filter brightness-75"
-                      />
-                      {watermarkPosition === 'tiled' ? (
-                        <div className="absolute inset-0 grid grid-cols-3 grid-rows-2 gap-4 p-4 pointer-events-none select-none">
-                          {[...Array(6)].map((_, i) => (
-                            <span
-                              key={i}
-                              style={{ opacity: watermarkOpacity }}
-                              className="text-[10px] font-bold text-white tracking-widest uppercase transform -rotate-12 flex items-center justify-center drop-shadow-md"
-                            >
-                              {watermarkText}
-                            </span>
-                          ))}
-                        </div>
-                      ) : (
-                        <div
-                          style={{ opacity: watermarkOpacity }}
-                          className={`absolute p-3 text-xs font-bold text-white tracking-wider pointer-events-none select-none drop-shadow-lg ${
-                            watermarkPosition === 'bottom-right'
-                              ? 'bottom-2 right-2 text-right'
-                              : watermarkPosition === 'bottom-left'
-                              ? 'bottom-2 left-2 text-left'
-                              : watermarkPosition === 'top-right'
-                              ? 'top-2 right-2 text-right'
-                              : 'top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center text-sm'
-                          }`}
-                        >
-                          {watermarkText}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <button
-              onClick={handleSaveDrive}
-              disabled={isSavingDrive}
-              className="px-6 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 font-bold text-xs uppercase tracking-wider shadow-sm flex items-center gap-2 cursor-pointer transition disabled:opacity-50"
-            >
-              {isSavingDrive ? (
-                <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span>Saving Studio Preferences...</span>
-                </>
-              ) : (
-                <span>Save Gallery Preferences</span>
-              )}
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Tab 4: Notifications */}
-      {activeTab === 'notifications' && (
+      {activeTab === 'notifications' && <NotificationSettingsSection />}
+
+
+      {/* Tab 4: Account & Authentication */}
+      {activeTab === 'account' && (
         <div className="max-w-2xl space-y-6 fade-up">
-          <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-[#121319] border border-neutral-200 dark:border-neutral-800/80 shadow-sm dark:shadow-xl space-y-6">
-            <h3 className="text-lg font-serif text-neutral-900 dark:text-white font-bold">Email & Studio Alerts</h3>
-
-            <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 rounded-2xl bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800">
-                <div>
-                  <p className="text-xs font-semibold text-neutral-900 dark:text-white">Client Gallery First Visit</p>
-                  <p className="text-[11px] text-neutral-500 dark:text-neutral-400">Receive an email notification when your client unlocks their gallery</p>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={notifyVisited}
-                  onChange={(e) => setNotifyVisited(e.target.checked)}
-                  className="w-4 h-4 accent-amber-500 rounded cursor-pointer"
-                />
+          {/* Account Credentials Card */}
+          <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-[#121319] border border-neutral-200 dark:border-neutral-800/80 shadow-sm space-y-5">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-amber-400/10 border border-amber-400/20 text-amber-500 flex items-center justify-center shrink-0">
+                <Shield className="w-5 h-5" />
               </div>
-
-              <div className="flex items-center justify-between p-4 rounded-2xl bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800">
-                <div>
-                  <p className="text-xs font-semibold text-neutral-900 dark:text-white">Full Gallery Download Started</p>
-                  <p className="text-[11px] text-neutral-500 dark:text-neutral-400">Alert when a client triggers high-res ZIP package export</p>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={notifyDownloaded}
-                  onChange={(e) => setNotifyDownloaded(e.target.checked)}
-                  className="w-4 h-4 accent-amber-500 rounded cursor-pointer"
-                />
-              </div>
-
-              <div className="flex items-center justify-between p-4 rounded-2xl bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800">
-                <div>
-                  <p className="text-xs font-semibold text-neutral-900 dark:text-white">Weekly Studio Analytics Digest</p>
-                  <p className="text-[11px] text-neutral-500 dark:text-neutral-400">Summary of total gallery views, favorite selections, and storage</p>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={notifyWeeklyReport}
-                  onChange={(e) => setNotifyWeeklyReport(e.target.checked)}
-                  className="w-4 h-4 accent-amber-500 rounded cursor-pointer"
-                />
+              <div>
+                <h3 className="text-lg font-serif text-neutral-900 dark:text-white font-bold">
+                  Account Credentials & Authentication
+                </h3>
+                <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                  Manage your authenticated session and photographer credentials.
+                </p>
               </div>
             </div>
 
-            <button
-              onClick={() => showToast('Preferences Saved', 'Notification options updated.', 'success')}
-              className="px-6 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 font-bold text-xs uppercase tracking-wider shadow-sm"
-            >
-              Save Notification Preferences
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Tab 5: Account & Demo Data */}
-      {activeTab === 'account' && (
-        <div className="max-w-2xl space-y-6 fade-up">
-          {/* Reset Demo Data */}
-          <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-[#121319] border border-neutral-200 dark:border-neutral-800/80 shadow-sm space-y-4">
-            <h3 className="text-lg font-serif text-neutral-900 dark:text-white font-bold">Demo Data Management</h3>
-            <p className="text-xs text-neutral-600 dark:text-neutral-400">
-              You are running the EX SHARE client demonstration suite. If you have added or deleted galleries and want to restore the pristine initial demo galleries and photos, click below.
-            </p>
-            <button
-              onClick={handleResetDemo}
-              className="px-5 py-2.5 rounded-xl bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-900 dark:text-white text-xs font-bold transition-all flex items-center gap-2"
-            >
-              <RotateCcw className="w-4 h-4" />
-              <span>Reset to Factory Demo Data</span>
-            </button>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-neutral-200 dark:border-neutral-800">
+              <div className="p-4 rounded-2xl bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800">
+                <span className="text-[11px] font-mono text-neutral-500 dark:text-neutral-400 uppercase tracking-wider block">
+                  Studio Photographer
+                </span>
+                <span className="text-sm font-semibold text-neutral-900 dark:text-white mt-1 block">
+                  {photographer.fullName || user?.username || 'Studio Artist'}
+                </span>
+              </div>
+              <div className="p-4 rounded-2xl bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800">
+                <span className="text-[11px] font-mono text-neutral-500 dark:text-neutral-400 uppercase tracking-wider block">
+                  Primary Email
+                </span>
+                <span className="text-sm font-semibold text-neutral-900 dark:text-white mt-1 block truncate">
+                  {photographer.email || user?.email || 'N/A'}
+                </span>
+              </div>
+            </div>
           </div>
 
-          {/* Sign Out Card */}
+          {/* Session & Sign Out Card */}
           <div className="p-6 sm:p-8 rounded-3xl bg-rose-50 dark:bg-red-950/20 border border-rose-200 dark:border-red-900/40 space-y-4">
             <h3 className="text-lg font-serif text-rose-700 dark:text-rose-400 font-bold">Session & Sign Out</h3>
             <p className="text-xs text-neutral-600 dark:text-neutral-400">
@@ -848,6 +874,12 @@ export const SettingsPage: React.FC = () => {
       <UpgradePlanModal
         isOpen={isUpgradeModalOpen}
         onClose={() => setIsUpgradeModalOpen(false)}
+      />
+
+      {/* Cancel Plan Modal (Netflix-Style) */}
+      <CancelPlanModal
+        isOpen={isCancelModalOpen}
+        onClose={() => setIsCancelModalOpen(false)}
       />
     </div>
   );

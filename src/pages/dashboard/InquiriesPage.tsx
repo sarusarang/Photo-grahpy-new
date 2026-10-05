@@ -14,6 +14,7 @@ import {
   useDeleteInquiry,
 } from '@/hooks/useAtelierQueries';
 import { ErrorState } from '@/components/common/ErrorState';
+import { TableRowSkeleton } from '@/components/common/LoadingSkeleton';
 import { usePlanQuota } from '@/hooks/usePlanQuota';
 import { PlanUpgradeModal } from '@/components/billing/PlanUpgradeModal';
 import type { PortfolioInquiry, InquiryStatus, InquiryEventType } from '../../types/inquiry';
@@ -37,6 +38,7 @@ import {
   TrendingUp,
   Check,
   Lock,
+  Loader2,
 } from 'lucide-react';
 
 /* ─── STATUS CONFIG & CUSTOM DROPDOWN ─── */
@@ -211,7 +213,7 @@ const EventTypeDropdown: React.FC<{
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="px-3.5 py-1.5 rounded-xl bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700 text-xs font-semibold text-neutral-800 dark:text-neutral-200 flex items-center gap-2 cursor-pointer transition-all shadow-xs"
+        className="px-3.5 py-1.5 rounded-xl bg-white/80 dark:bg-[#141622]/90 border border-neutral-200/80 dark:border-neutral-800/80 hover:border-amber-400/50 dark:hover:border-amber-400/40 text-xs font-semibold text-neutral-800 dark:text-neutral-200 flex items-center gap-2 cursor-pointer transition-all shadow-xs backdrop-blur-md"
       >
         <span>{currentLabel}</span>
         <ChevronDown
@@ -258,9 +260,9 @@ export const InquiriesPage: React.FC = () => {
   const { photographer, user } = useAuth();
   const { showToast } = useToast();
 
-  const { data: apiData, isError, refetch } = useInquiries();
-  const { mutate: updateStatusApi } = useUpdateInquiryStatus();
-  const { mutate: deleteInquiryApi } = useDeleteInquiry();
+  const { data: apiData, isLoading, isError, refetch } = useInquiries();
+  const { mutate: updateStatusApi, isPending: isUpdatingStatus } = useUpdateInquiryStatus();
+  const { mutate: deleteInquiryApi, isPending: isDeletingInquiry } = useDeleteInquiry();
   const planQuota = usePlanQuota();
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
 
@@ -533,14 +535,14 @@ export const InquiriesPage: React.FC = () => {
 
         {/* Search & Event Type Filter */}
         <div className="flex items-center gap-3 w-full md:w-auto">
-          <div className="relative flex-1 sm:w-64">
-            <Search className="w-3.5 h-3.5 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <div className="relative flex-1 sm:w-64 atelier-input-wrapper">
+            <Search className="w-3.5 h-3.5 atelier-input-icon left-3" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search by client, city, or event..."
-              className="w-full pl-9 pr-3 py-1.5 rounded-xl bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-xs text-neutral-900 dark:text-white placeholder:text-neutral-500 focus:outline-none focus:border-amber-400"
+              className="atelier-input !pl-9 !py-1.5 !text-xs !rounded-xl"
             />
           </div>
 
@@ -550,7 +552,9 @@ export const InquiriesPage: React.FC = () => {
 
       {/* ─── 4. INQUIRIES LIST / CARDS ─── */}
       <div className="space-y-4">
-        {filteredInquiries.length === 0 ? (
+        {isLoading && inquiries.length === 0 ? (
+          <TableRowSkeleton rows={4} />
+        ) : filteredInquiries.length === 0 ? (
           <div className="p-12 text-center rounded-3xl bg-white dark:bg-[#13141b]/95 border border-neutral-200 dark:border-neutral-800 space-y-3">
             <div className="w-12 h-12 rounded-2xl bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 flex items-center justify-center text-neutral-400 mx-auto">
               <MessageSquare className="w-6 h-6" />
@@ -601,10 +605,15 @@ export const InquiriesPage: React.FC = () => {
 
                   <button
                     onClick={() => handleDelete(inq.id)}
-                    className="p-2 rounded-xl text-neutral-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-colors cursor-pointer"
+                    disabled={isDeletingInquiry}
+                    className="p-2 rounded-xl text-neutral-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
                     title="Delete inquiry"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    {isDeletingInquiry ? (
+                      <Loader2 className="w-4 h-4 animate-spin text-rose-500" />
+                    ) : (
+                      <Trash2 className="w-4 h-4" />
+                    )}
                   </button>
                 </div>
               </div>

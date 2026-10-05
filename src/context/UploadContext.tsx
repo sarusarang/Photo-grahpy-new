@@ -1,8 +1,24 @@
-import React, { createContext, useContext, useState, useRef, useCallback } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useRef,
+  useCallback,
+  useMemo,
+  useEffect,
+} from 'react';
 import { useToast } from '../components/ui/Toast';
+import { useQueryClient } from '@tanstack/react-query';
 import { UploadMediaModal } from '../components/gallery/UploadMediaModal';
+import {
+  UploadReloadWarningModal,
+  type ActiveUploadItem,
+} from '../components/common/UploadReloadWarningModal';
+
+export type { ActiveUploadItem as ActiveUploadTask };
 
 export interface UploadContextType {
+  // Existing Gallery Upload Properties
   isUploading: boolean;
   uploadingGalleryId: string | null;
   uploadingGalleryTitle: string | null;
@@ -19,12 +35,22 @@ export interface UploadContextType {
   minimizeUploadModal: () => void;
   expandUploadModal: () => void;
   cancelActiveUpload: () => void;
+
+  // Multi-Upload & Reload Guard Registry
+  hasActiveUploads: boolean;
+  activeUploadTasks: ActiveUploadItem[];
+  registerUploadTask: (task: ActiveUploadItem) => void;
+  unregisterUploadTask: (id: string) => void;
+  triggerReloadWarning: () => void;
+  closeReloadWarning: () => void;
+  isReloadWarningOpen: boolean;
 }
 
 const UploadContext = createContext<UploadContextType | undefined>(undefined);
 
 export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { showToast } = useToast();
+  const queryClient = useQueryClient();
 
   const [isUploading, setIsUploading] = useState(false);
   const [uploadingGalleryId, setUploadingGalleryId] = useState<string | null>(null);
@@ -42,42 +68,160 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const activeAbortControllerRef = useRef<AbortController | null>(null);
 
+  // Multi-upload registry for tracking all uploads across galleries, events, and camera tethering
+  const [registeredTasks, setRegisteredTasks] = useState<Map<string, ActiveUploadItem>>(new Map());
+  const [isReloadWarningOpen, setIsReloadWarningOpen] = useState(false);
+
+  const registerUploadTask = useCallback((task: ActiveUploadItem) => {
+    setRegisteredTasks((prev) => {
+      const next = new Map(prev);
+      next.set(task.id, task);
+      return next;
+    });
+  }, []);
+
+  const unregisterUploadTask = useCallback((id: string) => {
+    setRegisteredTasks((prev) => {
+      if (!prev.has(id)) return prev;
+      const next = new Map(prev);
+      next.delete(id);
+      return next;
+    });
+  }, []);
+
+  // Consolidate all active tasks
+  const activeUploadTasks = useMemo<ActiveUploadItem[]>(() => {
+    const tasks = Array.from(registeredTasks.values());
+    if (isUploading) {
+      const galleryTaskExists = tasks.some((t) => t.source === 'gallery');
+      if (!galleryTaskExists) {
+        tasks.unshift({
+          id: `gallery-upload-${uploadingGalleryId || 'active'}`,
+          source: 'gallery',
+          title: uploadingGalleryTitle ? `Gallery: ${uploadingGalleryTitle}` : 'Gallery Media Upload',
+          details: uploadStatusText || `${uploadProgress}% completed`,
+          count: queuedFilesCount,
+          progress: uploadProgress,
+        });
+      }
+    }
+    return tasks;
+  }, [
+    registeredTasks,
+    isUploading,
+    uploadingGalleryId,
+    uploadingGalleryTitle,
+    uploadStatusText,
+    uploadProgress,
+    queuedFilesCount,
+  ]);
+
+  const hasActiveUploads = activeUploadTasks.length > 0;
+
+  // 1. Browser Native beforeunload prompt (protects browser reload button and tab close)
+  useEffect(() => {
+    if (!hasActiveUploads) return;
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = 'Upload in progress. Reloading or leaving will cancel active media ingestion.';
+      return e.returnValue;
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [hasActiveUploads]);
+
+  // 2. Intercept Keyboard Reload Shortcuts (F5, Ctrl+R, Cmd+R) with Custom Modal
+  useEffect(() => {
+    if (!hasActiveUploads) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isF5 = e.key === 'F5';
+      const isCtrlR = (e.ctrlKey || e.metaKey) && (e.key === 'r' || e.key === 'R');
+
+      if (isF5 || isCtrlR) {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsReloadWarningOpen(true);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown, true);
+    };
+  }, [hasActiveUploads]);
+
+  const triggerReloadWarning = useCallback(() => {
+    setIsReloadWarningOpen(true);
+  }, []);
+
+  const closeReloadWarning = useCallback(() => {
+    setIsReloadWarningOpen(false);
+  }, []);
+
+  const handleConfirmReload = useCallback(() => {
+    setIsReloadWarningOpen(false);
+    window.location.reload();
+  }, []);
+
   /**
    * Request to open upload modal for a specific gallery.
    * If another gallery is currently uploading, blocks the request and notifies the user.
    */
-  const openUploadModal = useCallback((galleryId: string, galleryTitle?: string): boolean => {
-    // Strictly prevent concurrent uploads to different galleries
-    if (isUploading && uploadingGalleryId && uploadingGalleryId !== galleryId) {
-      showToast(
-        'Upload in Progress',
-        `Cannot upload to "${galleryTitle || 'this gallery'}" while an upload is active for "${uploadingGalleryTitle || 'another gallery'}". Please wait until it completes or cancel the current upload.`,
-        'warning'
-      );
-      return false;
-    }
+  const openUploadModal = useCallback(
+    (galleryId: string, galleryTitle?: string): boolean => {
+      if (isUploading && uploadingGalleryId && uploadingGalleryId !== galleryId) {
+        showToast(
+          'Upload in Progress',
+          `Cannot upload to "${galleryTitle || 'this gallery'}" while an upload is active for "${uploadingGalleryTitle || 'another gallery'}". Please wait until it completes or cancel the current upload.`,
+          'warning'
+        );
+        return false;
+      }
 
-    setActiveGalleryId(galleryId);
-    if (galleryTitle) {
-      setActiveGalleryTitle(galleryTitle);
+      setActiveGalleryId(galleryId);
+      if (galleryTitle) {
+        setActiveGalleryTitle(galleryTitle);
+      }
+      setIsMinimized(false);
+      setIsUploadModalOpen(true);
+      return true;
+    },
+    [isUploading, uploadingGalleryId, uploadingGalleryTitle, showToast]
+  );
+
+  const syncGalleryCache = useCallback((gId?: string | null) => {
+    try {
+      if (gId) {
+        queryClient.invalidateQueries({ queryKey: ['gallery', gId] });
+      }
+      queryClient.invalidateQueries({ queryKey: ['gallery'] });
+      queryClient.invalidateQueries({ queryKey: ['galleries'] });
+      queryClient.invalidateQueries({ queryKey: ['current-subscription'] });
+      queryClient.invalidateQueries({ queryKey: ['subscription', 'current'] });
+      queryClient.refetchQueries({ queryKey: ['gallery'], exact: false });
+    } catch {
+      // safe fallback
     }
-    setIsMinimized(false);
-    setIsUploadModalOpen(true);
-    return true;
-  }, [isUploading, uploadingGalleryId, uploadingGalleryTitle, showToast]);
+  }, [queryClient]);
 
   const closeUploadModal = useCallback(() => {
     if (isUploading) {
-      // If uploading, closing the modal minimizes it so the background transfer continues uninterrupted
       setIsMinimized(true);
       setIsUploadModalOpen(false);
     } else {
+      const gId = activeGalleryId;
       setIsUploadModalOpen(false);
       setIsMinimized(false);
       setActiveGalleryId(null);
       setActiveGalleryTitle(null);
+      syncGalleryCache(gId);
     }
-  }, [isUploading]);
+  }, [isUploading, activeGalleryId, syncGalleryCache]);
 
   const minimizeUploadModal = useCallback(() => {
     setIsMinimized(true);
@@ -90,6 +234,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, []);
 
   const cancelActiveUpload = useCallback(() => {
+    const targetGId = uploadingGalleryId || activeGalleryId;
     if (activeAbortControllerRef.current) {
       activeAbortControllerRef.current.abort();
       activeAbortControllerRef.current = null;
@@ -103,8 +248,9 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setIsUploadModalOpen(false);
     setActiveGalleryId(null);
     setActiveGalleryTitle(null);
+    syncGalleryCache(targetGId);
     showToast('Upload Cancelled', 'File upload was stopped.', 'info');
-  }, [showToast]);
+  }, [uploadingGalleryId, activeGalleryId, syncGalleryCache, showToast]);
 
   const handleUploadStart = useCallback((controller: AbortController, count: number) => {
     activeAbortControllerRef.current = controller;
@@ -120,6 +266,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, []);
 
   const handleUploadComplete = useCallback(() => {
+    const targetGId = uploadingGalleryId || activeGalleryId;
     activeAbortControllerRef.current = null;
     setIsUploading(false);
     setUploadingGalleryId(null);
@@ -130,7 +277,8 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setIsUploadModalOpen(false);
     setActiveGalleryId(null);
     setActiveGalleryTitle(null);
-  }, []);
+    syncGalleryCache(targetGId);
+  }, [uploadingGalleryId, activeGalleryId, syncGalleryCache]);
 
   return (
     <UploadContext.Provider
@@ -150,6 +298,14 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         minimizeUploadModal,
         expandUploadModal,
         cancelActiveUpload,
+        // Multi-upload guard API
+        hasActiveUploads,
+        activeUploadTasks,
+        registerUploadTask,
+        unregisterUploadTask,
+        triggerReloadWarning,
+        closeReloadWarning,
+        isReloadWarningOpen,
       }}
     >
       {children}
@@ -170,6 +326,14 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           onUploadComplete={handleUploadComplete}
         />
       )}
+
+      {/* Global Reload Warning Modal: Appears when reloading during ANY active upload */}
+      <UploadReloadWarningModal
+        isOpen={isReloadWarningOpen}
+        onClose={closeReloadWarning}
+        onConfirmReload={handleConfirmReload}
+        activeTasks={activeUploadTasks}
+      />
     </UploadContext.Provider>
   );
 };

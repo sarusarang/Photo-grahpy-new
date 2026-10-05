@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useGallery } from '../../context/GalleryContext';
 import { useUpload } from '../../context/UploadContext';
 import { useToast } from '../../components/ui/Toast';
 import type { GalleryTemplateId, MediaItem, Gallery } from '../../types';
+import { GetGalleryDetailApi } from '@/service/galleries/GalleryApi';
 import { getInitialGalleryCover } from '@/utils/coverImageUtils';
 import { ShareModal } from '../../components/gallery/ShareModal';
 import { LightboxModal } from '../../components/gallery/LightboxModal';
@@ -41,8 +42,12 @@ import { ErrorState } from '@/components/common/ErrorState';
 import { EmptyState } from '@/components/common/EmptyState';
 import { normalizeServerGallery } from '@/utils/galleryNormalizer';
 import { useSmoothScroll } from '@/components/common/SmoothScroll';
-import { AlertTriangle, Archive } from 'lucide-react';
+import { AlertTriangle, Archive, Loader2, FolderInput, Trash2, Download, Lock, Sparkles, ChevronsUp, ChevronsDown } from 'lucide-react';
 import { usePlanQuota } from '@/hooks/usePlanQuota';
+import { downloadSingleImage, downloadMultipleAsZip, getGalleryWatermarkOptions } from '@/utils/downloadUtils';
+import { UpgradePlanModal } from '@/components/common/UpgradePlanModal';
+import { LockedPageScreen } from '@/components/common/ExpiredPlanLock';
+import { ReorderGalleryPhotosModal } from '@/components/gallery/detail/ReorderGalleryPhotosModal';
 
 export const GalleryDetailPage: React.FC = () => {
   const { galleryId } = useParams<{ galleryId: string }>();
@@ -69,6 +74,7 @@ export const GalleryDetailPage: React.FC = () => {
   // Section & Liked Filter State
   const [dashboardSectionFilter, setDashboardSectionFilter] = useState<string>('all');
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
 
   // TanStack Infinite Query Hook
   const {
@@ -117,6 +123,7 @@ export const GalleryDetailPage: React.FC = () => {
   // Optimistic Favorites & Loading State for card and lightbox
   const [optimisticFavorites, setOptimisticFavorites] = useState<Record<string, boolean>>({});
   const [favoritingMediaIds, setFavoritingMediaIds] = useState<Set<string>>(new Set());
+  const [isReorderModalOpen, setIsReorderModalOpen] = useState(false);
 
   // Base gallery metadata (from first page)
   const firstPageRaw = infiniteGalleryData?.pages[0];
@@ -319,6 +326,15 @@ export const GalleryDetailPage: React.FC = () => {
   const { openUploadModal, isUploading, uploadingGalleryId, uploadingGalleryTitle } = useUpload();
   const isAnotherGalleryUploading = Boolean(isUploading && uploadingGalleryId && gallery && uploadingGalleryId !== gallery.id);
 
+  // Auto-refresh gallery whenever upload finishes or is cancelled, ensuring all uploaded files immediately reflect
+  const prevIsUploadingRef = useRef(isUploading);
+  useEffect(() => {
+    if (prevIsUploadingRef.current && !isUploading) {
+      refetchGallery();
+    }
+    prevIsUploadingRef.current = isUploading;
+  }, [isUploading, refetchGallery]);
+
   // Modals & Action States
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
@@ -477,17 +493,24 @@ export const GalleryDetailPage: React.FC = () => {
     allowDownloads: boolean;
     expiresAt?: string | null;
     status: 'active' | 'delivered';
+    face_search_enabled: boolean;
+    watermark_enabled: boolean;
   }) => {
     if (!gallery || updateGalleryMutation.isPending) return;
     const resolvedExpiresAt = settings.expiresAt || null;
+    const resolvedPassword = settings.isPasswordProtected ? (settings.password || '') : '';
     const updates = {
       title: settings.title,
       clientName: settings.clientName,
-      password: settings.password,
+      password: resolvedPassword,
       isPasswordProtected: settings.isPasswordProtected,
       allowDownloads: settings.allowDownloads,
       expiresAt: resolvedExpiresAt,
       status: settings.status,
+      face_search_enabled: settings.face_search_enabled,
+      faceSearchEnabled: settings.face_search_enabled,
+      watermark_enabled: settings.watermark_enabled,
+      watermarkEnabled: settings.watermark_enabled,
     };
     updateGallery(gallery.id, updates);
 
@@ -499,10 +522,12 @@ export const GalleryDetailPage: React.FC = () => {
           title: settings.title,
           client_name: settings.clientName,
           is_password_protected: settings.isPasswordProtected,
-          password: settings.password,
+          password: resolvedPassword,
           allow_downloads: settings.allowDownloads,
           expires_at: resolvedExpiresAt,
           status: settings.status,
+          face_search_enabled: settings.face_search_enabled,
+          watermark_enabled: settings.watermark_enabled,
         } as any,
       });
       await refetchGallery();
@@ -754,23 +779,99 @@ export const GalleryDetailPage: React.FC = () => {
     }
   };
 
-  const handleMoveMedia = (index: number, direction: 'up' | 'down') => {
+  const handleMoveMedia = (index: number, direction: 'up' | 'down' | 'top' | 'bottom') => {
     if (!gallery) return;
-    const targetIndex = direction === 'up' ? index - 1 : index + 1;
-    if (targetIndex < 0 || targetIndex >= gallery.media.length) return;
+    let targetIndex = index;
+    if (direction === 'up') targetIndex = index - 1;
+    else if (direction === 'down') targetIndex = index + 1;
+    else if (direction === 'top') targetIndex = 0;
+    else if (direction === 'bottom') targetIndex = gallery.media.length - 1;
+
+    if (targetIndex < 0 || targetIndex >= gallery.media.length || targetIndex === index) return;
 
     const newMedia = [...gallery.media];
     const [movedItem] = newMedia.splice(index, 1);
     newMedia.splice(targetIndex, 0, movedItem);
 
     updateGallery(gallery.id, { media: newMedia });
-    showToast('Reordered', `Moved "${movedItem.title}" ${direction}.`, 'info');
+    const dirLabel =
+      direction === 'top'
+        ? 'to the very top (#1)'
+        : direction === 'bottom'
+        ? `to the very bottom (#${gallery.media.length})`
+        : direction;
+    showToast(
+      'Reordered',
+      `Moved "${movedItem.title || 'Photo'}" ${dirLabel}.`,
+      'info'
+    );
 
     reorderMediaMutation.mutateAsync({
       galleryId: gallery.id,
       mediaIds: newMedia.map((m) => m.id),
     }).catch(() => {
       // safe fallback
+    });
+  };
+
+  const handleMoveMediaToPosition = (fromIndex: number, targetPosition1Based: number) => {
+    if (!gallery) return;
+    const targetIndex = Math.max(0, Math.min(gallery.media.length - 1, targetPosition1Based - 1));
+    if (targetIndex === fromIndex) return;
+
+    const newMedia = [...gallery.media];
+    const [movedItem] = newMedia.splice(fromIndex, 1);
+    newMedia.splice(targetIndex, 0, movedItem);
+
+    updateGallery(gallery.id, { media: newMedia });
+    showToast(
+      'Reordered',
+      `Moved "${movedItem.title || 'Photo'}" to Position #${targetIndex + 1}.`,
+      'info'
+    );
+
+    reorderMediaMutation.mutateAsync({
+      galleryId: gallery.id,
+      mediaIds: newMedia.map((m) => m.id),
+    }).catch(() => {
+      // safe fallback
+    });
+  };
+
+  const handleMoveSelectedToExtreme = (direction: 'top' | 'bottom') => {
+    if (!gallery || selectedIds.length === 0) return;
+    const selectedSet = new Set(selectedIds);
+    const selectedItems = gallery.media.filter((m) => selectedSet.has(m.id));
+    const nonSelectedItems = gallery.media.filter((m) => !selectedSet.has(m.id));
+
+    const newMedia =
+      direction === 'top'
+        ? [...selectedItems, ...nonSelectedItems]
+        : [...nonSelectedItems, ...selectedItems];
+
+    updateGallery(gallery.id, { media: newMedia });
+    showToast(
+      'Reordered',
+      `Moved ${selectedItems.length} selected photos to the ${direction}.`,
+      'info'
+    );
+
+    reorderMediaMutation.mutateAsync({
+      galleryId: gallery.id,
+      mediaIds: newMedia.map((m) => m.id),
+    }).catch(() => {
+      // safe fallback
+    });
+  };
+
+  const handleApplyFullReorder = async (newMedia: MediaItem[]) => {
+    if (!gallery) return;
+    updateGallery(gallery.id, { media: newMedia });
+    showToast('Sequence Saved', `Arranged ${newMedia.length} photos in gallery sequence.`, 'success');
+
+    await reorderMediaMutation.mutateAsync({
+      galleryId: gallery.id,
+      mediaIds: newMedia.map((m) => m.id),
     });
   };
 
@@ -855,10 +956,12 @@ export const GalleryDetailPage: React.FC = () => {
     if (!gallery || selectedIds.length === 0 || bulkDeleteMutation.isPending) return;
     const count = selectedIds.length;
     const idsToDelete = [...selectedIds];
+    const isAllMatching = isAllCurrentSelected || count >= totalMatchingCount;
+
     idsToDelete.forEach((id) => removeMediaFromGallery(gallery.id, id));
     setSelectedIds([]);
     setIsBulkDeleteOpen(false);
-    showToast('Photos Deleted', `Successfully removed ${count} items.`, 'success');
+    showToast('Deleting Photos', `Removing ${count} items...`, 'info');
 
     const remainingPhotos = gallery.media.filter((m) => !idsToDelete.includes(m.id));
     if (remainingPhotos.length === 0) {
@@ -895,9 +998,17 @@ export const GalleryDetailPage: React.FC = () => {
     }
 
     try {
-      await bulkDeleteMutation.mutateAsync({ galleryId: gallery.id, mediaIds: idsToDelete });
-    } catch {
-      // safe fallback
+      await bulkDeleteMutation.mutateAsync({
+        galleryId: gallery.id,
+        mediaIds: idsToDelete,
+        deleteAll: isAllMatching,
+        section: dashboardSectionFilter,
+      });
+      await refetchGallery();
+      showToast('Photos Deleted', `Successfully removed ${count} items.`, 'success');
+    } catch (err: any) {
+      refetchGallery();
+      showToast('Delete Failed', err?.message || 'Could not delete media.', 'error');
     }
   };
 
@@ -941,19 +1052,203 @@ export const GalleryDetailPage: React.FC = () => {
     });
   }, [gallery?.media, dashboardSectionFilter, showFavoritesOnly]);
 
-  const isAllCurrentSelected =
-    currentFilteredMedia.length > 0 &&
-    currentFilteredMedia.every((m) => selectedIds.includes(m.id));
+  // True total matching media count in this section / filter (across entire server database, not just loaded 48)
+  const totalMatchingCount = useMemo(() => {
+    if (!gallery) return 0;
+    if (dashboardSectionFilter === 'all') {
+      if (showFavoritesOnly) {
+        return gallery.favoritesCount ?? gallery.media.filter((m) => m.isFavorite).length;
+      }
+      return gallery.totalMediaCount || gallery.media.length;
+    }
+    const secKey = dashboardSectionFilter.toLowerCase();
+    const countFromRecord =
+      gallery.sectionCounts?.[dashboardSectionFilter] ??
+      gallery.sectionCounts?.[dashboardSectionFilter.toUpperCase()] ??
+      gallery.sectionCounts?.[secKey];
+    if (countFromRecord !== undefined) {
+      return countFromRecord;
+    }
+    return currentFilteredMedia.length;
+  }, [gallery, dashboardSectionFilter, showFavoritesOnly, currentFilteredMedia.length]);
 
-  const selectAll = () => {
+  const isAllCurrentSelected =
+    totalMatchingCount > 0 && selectedIds.length >= totalMatchingCount;
+
+  const [isSelectingAll, setIsSelectingAll] = useState(false);
+
+  const selectAll = async () => {
     if (!gallery) return;
-    const currentItemIds = currentFilteredMedia.map((m) => m.id);
-    if (currentItemIds.length === 0) return;
 
     if (isAllCurrentSelected) {
-      setSelectedIds((prev) => prev.filter((id) => !currentItemIds.includes(id)));
-    } else {
-      setSelectedIds((prev) => Array.from(new Set([...prev, ...currentItemIds])));
+      setSelectedIds([]);
+      return;
+    }
+
+    const currentLoadedIds = currentFilteredMedia.map((m) => m.id);
+    if (totalMatchingCount <= currentLoadedIds.length) {
+      setSelectedIds(currentLoadedIds);
+      return;
+    }
+
+    // Select loaded immediately for instant feedback
+    setSelectedIds(currentLoadedIds);
+    setIsSelectingAll(true);
+    showToast(
+      'Selecting All Items',
+      `Loading all ${totalMatchingCount} items across the gallery...`,
+      'info'
+    );
+
+    try {
+      const fullGallery = await GetGalleryDetailApi(gallery.id, {
+        all_media: true,
+        section: dashboardSectionFilter,
+        is_favorite: showFavoritesOnly,
+      });
+
+      const normalizedFull = normalizeServerGallery(fullGallery);
+      const allItemIds = normalizedFull.media
+        .filter((m) => {
+          const matchesSec =
+            dashboardSectionFilter === 'all'
+              ? true
+              : (m.sectionTitle || '').toLowerCase() === dashboardSectionFilter.toLowerCase();
+          const matchesFav = !showFavoritesOnly || Boolean(m.isFavorite);
+          return matchesSec && matchesFav;
+        })
+        .map((m) => m.id);
+
+      if (allItemIds.length > 0) {
+        setSelectedIds(Array.from(new Set([...currentLoadedIds, ...allItemIds])));
+        showToast(
+          'All Items Selected',
+          `Selected all ${allItemIds.length} media items in this view.`,
+          'success'
+        );
+      }
+    } catch (err) {
+      console.warn('Failed to fetch full media list for select-all:', err);
+    } finally {
+      setIsSelectingAll(false);
+    }
+  };
+
+  // Download All & Selected Archive States
+  const [isDownloadingAllZip, setIsDownloadingAllZip] = useState(false);
+  const [allZipProgress, setAllZipProgress] = useState(0);
+  const [isDownloadingSelected, setIsDownloadingSelected] = useState(false);
+  const [selectedZipProgress, setSelectedZipProgress] = useState(0);
+
+  const handleDownloadAllZip = async () => {
+    if (!gallery || !gallery.media || gallery.media.length === 0) {
+      showToast('No Photographs', 'This gallery does not contain any photos to download.', 'warning');
+      return;
+    }
+
+    setIsDownloadingAllZip(true);
+    setAllZipProgress(5);
+    showToast(
+      'Packaging Master Archive',
+      `Packaging ${gallery.media.length} full-resolution photos into a ZIP archive...`,
+      'info'
+    );
+
+    try {
+      const items = gallery.media
+        .map((m, idx) => ({
+          url: (m.url || m.thumbnailUrl || '') as string,
+          filename: m.title || `${gallery.slug || 'gallery'}-photo-${String(idx + 1).padStart(3, '0')}.jpg`,
+        }))
+        .filter((item) => Boolean(item.url));
+
+      const zipFilename = `${gallery.slug || 'gallery'}-master-archive.zip`;
+      const watermarkOpts = getGalleryWatermarkOptions(gallery);
+
+      await downloadMultipleAsZip({
+        items,
+        zipFilename,
+        onProgress: (percent) => setAllZipProgress(percent),
+        watermarkOptions: watermarkOpts,
+      });
+
+      showToast(
+        'Master Archive Downloaded',
+        `Downloaded all ${items.length} full-resolution photographs.`,
+        'success'
+      );
+    } catch (err) {
+      console.error('Failed to create gallery ZIP archive:', err);
+      showToast('Download Error', 'Could not generate gallery ZIP archive. Please try again.', 'error');
+    } finally {
+      setIsDownloadingAllZip(false);
+      setAllZipProgress(0);
+    }
+  };
+
+  const handleDownloadSelectedZip = async () => {
+    if (!gallery || selectedIds.length === 0) return;
+
+    const selectedMediaList = gallery.media.filter((m) => selectedIds.includes(m.id));
+    if (selectedMediaList.length === 0) return;
+
+    setIsDownloadingSelected(true);
+    setSelectedZipProgress(5);
+
+    try {
+      const watermarkOpts = getGalleryWatermarkOptions(gallery);
+
+      // Direct single download if exactly 1 item selected
+      if (selectedMediaList.length === 1) {
+        const item = selectedMediaList[0];
+        const downloadUrl = item.url || item.thumbnailUrl;
+        if (!downloadUrl) {
+          showToast('Error', 'No image file URL found for this item.', 'error');
+          return;
+        }
+        const filename = item.title || `${gallery.slug || 'gallery'}-photo.jpg`;
+        showToast('Downloading Photo', `Saving "${filename}"...`, 'info');
+        const success = await downloadSingleImage(downloadUrl, filename, watermarkOpts);
+        if (success) {
+          showToast('Photo Saved', `"${filename}" saved to downloads.`, 'success');
+        }
+        return;
+      }
+
+      showToast(
+        'Packaging Selected',
+        `Bundling ${selectedMediaList.length} selected photographs into a ZIP file...`,
+        'info'
+      );
+
+      const items = selectedMediaList
+        .map((m, idx) => ({
+          url: (m.url || m.thumbnailUrl || '') as string,
+          filename: m.title || `${gallery.slug || 'gallery'}-selected-${String(idx + 1).padStart(3, '0')}.jpg`,
+          type: m.type,
+        }))
+        .filter((item) => Boolean(item.url));
+
+      const zipFilename = `${gallery.slug || 'gallery'}-selected-${selectedMediaList.length}-photos.zip`;
+
+      await downloadMultipleAsZip({
+        items,
+        zipFilename,
+        onProgress: (percent) => setSelectedZipProgress(percent),
+        watermarkOptions: watermarkOpts,
+      });
+
+      showToast(
+        'Selected Archive Ready',
+        `Downloaded ${selectedMediaList.length} selected photographs.`,
+        'success'
+      );
+    } catch (err) {
+      console.error('Failed to bundle selected ZIP:', err);
+      showToast('Download Failed', 'Could not generate ZIP archive for selected items.', 'error');
+    } finally {
+      setIsDownloadingSelected(false);
+      setSelectedZipProgress(0);
     }
   };
 
@@ -988,6 +1283,26 @@ export const GalleryDetailPage: React.FC = () => {
     );
   }
 
+  if (planQuota.isExpired) {
+    return (
+      <div className="dashboard-container p-4 sm:p-8 max-w-7xl mx-auto space-y-6">
+        <LockedPageScreen
+          resourceType="gallery"
+          resourceTitle={gallery?.title}
+          onRenew={() => setIsUpgradeModalOpen(true)}
+          onBack={() => navigate('/dashboard/gallery')}
+        />
+        <UpgradePlanModal
+          isOpen={isUpgradeModalOpen}
+          onClose={() => setIsUpgradeModalOpen(false)}
+          errorCode="PLAN_EXPIRED"
+          lockedFeature="Client Galleries"
+          errorMessage={`Your studio plan has expired. Renew your plan to unlock and manage ${gallery?.title || 'this gallery'}.`}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="dashboard-container p-4 sm:p-8 max-w-7xl mx-auto space-y-6 text-neutral-900 dark:text-neutral-100 transition-colors">
       {/* Archived Status Warning / Recovery Banner */}
@@ -1008,6 +1323,7 @@ export const GalleryDetailPage: React.FC = () => {
           </div>
           <div className="flex items-center gap-2">
             <button
+              disabled={updateGalleryMutation.isPending}
               onClick={async () => {
                 try {
                   await updateGalleryMutation.mutateAsync({ id: gallery.id, updates: { status: 'active' } });
@@ -1016,9 +1332,10 @@ export const GalleryDetailPage: React.FC = () => {
                   showToast('Error', e?.message || 'Failed to restore', 'error');
                 }
               }}
-              className="px-3.5 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 font-bold text-xs transition-all shadow-sm cursor-pointer"
+              className="px-3.5 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 disabled:opacity-50 disabled:cursor-not-allowed text-neutral-950 font-bold text-xs transition-all shadow-sm cursor-pointer flex items-center gap-1.5"
             >
-              Restore Gallery
+              {updateGalleryMutation.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+              <span>{updateGalleryMutation.isPending ? 'Restoring...' : 'Restore Gallery'}</span>
             </button>
             <button
               onClick={() => setIsDeleteGalleryOpen(true)}
@@ -1027,6 +1344,36 @@ export const GalleryDetailPage: React.FC = () => {
               Delete Forever
             </button>
           </div>
+        </div>
+      )}
+
+      {/* 0. Studio Plan Expired Notice Banner */}
+      {planQuota.isExpired && (
+        <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-rose-950/80 via-rose-900/50 to-neutral-900/80 border border-rose-500/40 text-rose-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xl backdrop-blur-xl animate-in fade-in duration-300">
+          <div className="flex items-start sm:items-center gap-3.5">
+            <div className="p-2.5 rounded-xl bg-rose-500/20 text-rose-400 border border-rose-500/30 shrink-0">
+              <Lock className="w-5 h-5 stroke-[2]" />
+            </div>
+            <div className="space-y-0.5 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                  Public Links Suspended
+                </span>
+                <span className="font-bold text-white text-sm">Studio Plan Expired</span>
+              </div>
+              <p className="text-neutral-300">
+                Public client viewing links, zip downloads, and sharing for this gallery are temporarily locked until your plan is renewed.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsUpgradeModalOpen(true)}
+            className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 hover:from-amber-300 hover:to-amber-300 text-neutral-950 font-bold text-xs uppercase tracking-wider transition-all hover:scale-[1.02] shadow-lg shadow-amber-500/20 shrink-0 flex items-center gap-1.5 cursor-pointer"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Renew Membership</span>
+          </button>
         </div>
       )}
 
@@ -1045,6 +1392,9 @@ export const GalleryDetailPage: React.FC = () => {
         }
         isUpdatingStatus={updateGalleryMutation.isPending}
         onSetStatus={handleSetGalleryStatus}
+        onDownloadZip={handleDownloadAllZip}
+        isDownloadingZip={isDownloadingAllZip}
+        downloadZipProgress={allZipProgress}
       />
 
       {/* 2. Tab: Photos & Videos Management */}
@@ -1056,13 +1406,14 @@ export const GalleryDetailPage: React.FC = () => {
             dashboardSectionFilter={dashboardSectionFilter}
             showFavoritesOnly={showFavoritesOnly}
             onToggleFavoritesOnly={() => setShowFavoritesOnly((prev) => !prev)}
-            filteredCount={currentFilteredMedia.length}
+            filteredCount={totalMatchingCount}
             isAllSelected={isAllCurrentSelected}
             onSelectSectionFilter={(sec) => setDashboardSectionFilter(sec)}
             onSelectAll={selectAll}
             onClearSelection={() => setSelectedIds([])}
             onOpenBulkMove={() => setIsMoveSectionOpen(true)}
             onOpenBulkDelete={() => setIsBulkDeleteOpen(true)}
+            onOpenReorderModal={() => setIsReorderModalOpen(true)}
             onCreateSection={handleCreateSection}
             onRenameSection={handleRenameSection}
             onDeleteSection={handleDeleteSection}
@@ -1088,6 +1439,7 @@ export const GalleryDetailPage: React.FC = () => {
             onOpenLightbox={(idx) => setLightboxIndex(idx)}
             onToggleSelect={toggleSelect}
             onMoveSequence={handleMoveMedia}
+            onMoveToPosition={handleMoveMediaToPosition}
             onToggleFavorite={handleToggleFavorite}
             onOpenMoveSingle={(item) => {
               setSingleItemToMove(item);
@@ -1129,6 +1481,115 @@ export const GalleryDetailPage: React.FC = () => {
         />
       )}
 
+      {/* Floating Bulk Selection Toolbar (Bottom) - Matching Event Section Navigation */}
+      {selectedIds.length > 0 && activeTab === 'media' && (
+        <aside
+          aria-label="Bulk Photo Selection Toolbar"
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-auto max-w-[95vw] transition-all duration-300 animate-in slide-in-from-bottom-5 duration-300"
+        >
+          <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 sm:gap-3.5 px-4 sm:px-5 py-2.5 sm:py-3 rounded-2xl bg-neutral-900/95 dark:bg-neutral-950/95 backdrop-blur-2xl border border-neutral-700/80 dark:border-neutral-800 shadow-[0_20px_50px_rgba(0,0,0,0.85)] text-white">
+            {/* Status indicator & Count */}
+            <div className="flex items-center gap-2 pr-2.5 sm:pr-3.5 border-r border-neutral-700/80 shrink-0">
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse shadow-[0_0_8px_rgba(251,191,36,0.8)]" />
+              <span className="font-mono text-xs font-bold text-amber-400 whitespace-nowrap">
+                {selectedIds.length} {selectedIds.length === 1 ? 'item' : 'items'} selected
+              </span>
+            </div>
+
+            {/* Select All / Deselect All */}
+            <button
+              type="button"
+              onClick={selectAll}
+              disabled={isSelectingAll}
+              className="text-xs font-mono font-medium text-neutral-300 hover:text-white px-2.5 py-1.5 rounded-lg hover:bg-neutral-800 transition-colors cursor-pointer shrink-0 whitespace-nowrap disabled:opacity-50"
+            >
+              {isSelectingAll ? (
+                <span className="flex items-center gap-1.5">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" /> Selecting all...
+                </span>
+              ) : isAllCurrentSelected ? (
+                'Deselect All'
+              ) : (
+                `Select All (${totalMatchingCount})`
+              )}
+            </button>
+
+            {/* Clear Selection */}
+            <button
+              type="button"
+              onClick={() => setSelectedIds([])}
+              className="text-xs font-mono font-medium text-neutral-400 hover:text-white px-2 py-1.5 rounded-lg hover:bg-neutral-800 transition-colors cursor-pointer shrink-0"
+            >
+              Clear
+            </button>
+
+            {/* Download Selected Photos / Archive */}
+            <button
+              type="button"
+              onClick={handleDownloadSelectedZip}
+              disabled={isDownloadingSelected}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 border border-amber-500/30 text-xs font-mono font-bold transition-all cursor-pointer active:scale-95 shrink-0 whitespace-nowrap disabled:opacity-50"
+              title="Download selected photos as ZIP archive"
+            >
+              {isDownloadingSelected ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" />
+                  <span>Packaging {selectedZipProgress}%...</span>
+                </>
+              ) : (
+                <>
+                  <Download className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Download ({selectedIds.length})</span>
+                </>
+              )}
+            </button>
+
+            {/* Move to Section */}
+            <button
+              type="button"
+              onClick={() => setIsMoveSectionOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 border border-neutral-700 text-xs font-mono font-medium transition-all cursor-pointer active:scale-95 shrink-0 whitespace-nowrap"
+              title="Move selected photos to another section"
+            >
+              <FolderInput className="w-3.5 h-3.5 text-neutral-400" />
+              <span>Move ({selectedIds.length})</span>
+            </button>
+
+            {/* Move Selected to Top */}
+            <button
+              type="button"
+              onClick={() => handleMoveSelectedToExtreme('top')}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-amber-400 border border-neutral-700 text-xs font-mono font-medium transition-all cursor-pointer active:scale-95 shrink-0 whitespace-nowrap"
+              title="Move all selected photos to the top of the gallery sequence"
+            >
+              <ChevronsUp className="w-3.5 h-3.5 text-amber-400" />
+              <span>To Top</span>
+            </button>
+
+            {/* Move Selected to Bottom */}
+            <button
+              type="button"
+              onClick={() => handleMoveSelectedToExtreme('bottom')}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-amber-400 border border-neutral-700 text-xs font-mono font-medium transition-all cursor-pointer active:scale-95 shrink-0 whitespace-nowrap"
+              title="Move all selected photos to the bottom of the gallery sequence"
+            >
+              <ChevronsDown className="w-3.5 h-3.5 text-amber-400" />
+              <span>To Bottom</span>
+            </button>
+
+            {/* Delete Selected */}
+            <button
+              type="button"
+              onClick={() => setIsBulkDeleteOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-mono font-bold transition-all shadow-md shadow-rose-600/30 cursor-pointer active:scale-95 shrink-0 whitespace-nowrap"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Delete Selected ({selectedIds.length})</span>
+            </button>
+          </div>
+        </aside>
+      )}
+
       {/* Share Modal */}
       <ShareModal
         isOpen={isShareModalOpen}
@@ -1153,9 +1614,14 @@ export const GalleryDetailPage: React.FC = () => {
           onDelete={(mId) => {
             removeMediaFromGallery(gallery.id, mId);
           }}
-          allowDownloads={gallery.allowDownloads}
+          allowDownloads={true}
           galleryTitle={gallery.title}
           gallerySlug={gallery.slug || gallery.id}
+          watermarkEnabled={Boolean(gallery.watermark_enabled ?? gallery.watermarkEnabled)}
+          watermarkText={gallery.watermark_text || gallery.photographerName || gallery.studioName}
+          watermarkOpacity={gallery.watermark_opacity}
+          watermarkPosition={gallery.watermark_position}
+          watermarkImage={gallery.watermark_image}
         />
       )}
 
@@ -1237,6 +1703,24 @@ export const GalleryDetailPage: React.FC = () => {
             setDashboardSectionFilter(targetSection);
           }
         }}
+      />
+
+      {/* Arrange / Reorder Gallery Photos Modal */}
+      {gallery && (
+        <ReorderGalleryPhotosModal
+          isOpen={isReorderModalOpen}
+          onClose={() => setIsReorderModalOpen(false)}
+          media={gallery.media}
+          galleryTitle={gallery.title}
+          onApplyReorder={handleApplyFullReorder}
+          isSaving={reorderMediaMutation.isPending}
+        />
+      )}
+
+      {/* Plan Upgrade / Renewal Modal */}
+      <UpgradePlanModal
+        isOpen={isUpgradeModalOpen}
+        onClose={() => setIsUpgradeModalOpen(false)}
       />
     </div>
   );

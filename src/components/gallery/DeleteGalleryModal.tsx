@@ -64,10 +64,88 @@ export const DeleteGalleryModal: React.FC<DeleteGalleryModalProps> = ({
     (gallery.media ? gallery.media.filter((m) => m.type === 'video').length : 0);
   const totalCount = photosCount + videosCount;
 
-  const sizeMB =
-    gallery.media && gallery.media.length > 0
-      ? Math.round(gallery.media.reduce((acc, m: any) => acc + (m.sizeMB || m.size || 5), 0))
-      : Math.round(photosCount * 4.5 + videosCount * 25);
+  // Resolve accurate gallery storage size directly from the API response
+  const formatBytes = (bytes: number): string => {
+    if (!bytes || isNaN(bytes) || bytes <= 0) return '0 MB';
+    if (bytes >= 1024 * 1024 * 1024) {
+      return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+    }
+    const mb = bytes / (1024 * 1024);
+    return `${Number(mb.toFixed(1))} MB`;
+  };
+
+  const resolveStorageDisplay = (): string => {
+    // 1. Direct formatted string from backend API or normalizer
+    const formatted =
+      gallery.totalSizeFormatted ||
+      (gallery as any).total_size_formatted ||
+      (gallery as any).totalSizeFormatted ||
+      (gallery as any).sizeFormatted;
+    if (typeof formatted === 'string' && formatted.trim()) {
+      return formatted.trim();
+    }
+
+    // 2. Direct megabytes float/int from API response (e.g. 3.5 MB)
+    const mbVal =
+      typeof gallery.totalSizeMB === 'number'
+        ? gallery.totalSizeMB
+        : typeof (gallery as any).total_size_mb === 'number'
+        ? (gallery as any).total_size_mb
+        : typeof (gallery as any).size_mb === 'number'
+        ? (gallery as any).size_mb
+        : typeof (gallery as any).totalSizeMB === 'number'
+        ? (gallery as any).totalSizeMB
+        : undefined;
+
+    if (mbVal !== undefined && !isNaN(mbVal) && mbVal > 0) {
+      return mbVal >= 1024
+        ? `${(mbVal / 1024).toFixed(2)} GB`
+        : `${Number(mbVal.toFixed(1))} MB`;
+    }
+
+    // 3. Direct raw bytes from backend API response (e.g. 3670016)
+    const bytesVal =
+      typeof gallery.totalSizeBytes === 'number'
+        ? gallery.totalSizeBytes
+        : typeof (gallery as any).total_size_bytes === 'number'
+        ? (gallery as any).total_size_bytes
+        : typeof (gallery as any).size_bytes === 'number'
+        ? (gallery as any).size_bytes
+        : typeof (gallery as any).sizeBytes === 'number'
+        ? (gallery as any).sizeBytes
+        : undefined;
+
+    if (bytesVal !== undefined && !isNaN(bytesVal) && bytesVal > 0) {
+      return formatBytes(bytesVal);
+    }
+
+    // 4. Calculate from loaded gallery media items if present
+    if (Array.isArray(gallery.media) && gallery.media.length > 0) {
+      const mediaBytes = gallery.media.reduce((acc, m: any) => {
+        const b =
+          typeof m.size_bytes === 'number'
+            ? m.size_bytes
+            : typeof m.file_size === 'number'
+            ? m.file_size
+            : typeof m.sizeBytes === 'number'
+            ? m.sizeBytes
+            : typeof m.size === 'number'
+            ? m.size
+            : typeof m.sizeMB === 'number'
+            ? m.sizeMB * 1024 * 1024
+            : 0;
+        return acc + b;
+      }, 0);
+
+      if (mediaBytes > 0) {
+        return formatBytes(mediaBytes);
+      }
+    }
+
+    return '0 MB';
+  };
+
+  const sizeFormatted = resolveStorageDisplay();
 
   const fallbackCover = getInitialGalleryCover(gallery.templateId);
   const coverUrl = gallery.coverImage || fallbackCover;
@@ -144,7 +222,7 @@ export const DeleteGalleryModal: React.FC<DeleteGalleryModalProps> = ({
             </>
           ) : (
             <>
-              Permanently delete <strong className="text-neutral-900 dark:text-white font-semibold">"{gallery.title}"</strong>? All {totalCount} assets ({photosCount} photos, {videosCount} videos) will be permanently purged from cloud storage.
+              Permanently delete <strong className="text-neutral-900 dark:text-white font-semibold">"{gallery.title}"</strong>? All {totalCount} assets ({photosCount} {photosCount === 1 ? 'photo' : 'photos'}{videosCount > 0 ? `, ${videosCount} ${videosCount === 1 ? 'video' : 'videos'}` : ''}) will be permanently purged from cloud storage.
             </>
           )}
         </p>
@@ -193,7 +271,7 @@ export const DeleteGalleryModal: React.FC<DeleteGalleryModalProps> = ({
                 )}
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-neutral-200/70 dark:bg-neutral-800 border border-neutral-300/60 dark:border-neutral-700/60">
                   <HardDrive className="w-3 h-3 text-neutral-400" />
-                  {sizeMB} MB
+                  {sizeFormatted}
                 </span>
               </div>
             </div>

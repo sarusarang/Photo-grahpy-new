@@ -13,6 +13,8 @@ export interface AuthUser {
   role?: 'photographer' | 'client' | 'admin' | string;
   is_email_verified?: boolean;
   avatar_url?: string;
+  is_onboarded?: boolean;
+  occupation?: string;
 }
 
 /**

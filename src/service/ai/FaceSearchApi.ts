@@ -1,10 +1,7 @@
 import { CommonApi } from '@/lib/CommonApi';
+import type { FaceSearchResult } from './type';
 
-export interface FaceSearchResult {
-  matched_media_ids: string[];
-  total_matches: number;
-  confidence?: number;
-}
+export * from './type';
 
 /**
  * 1. AI Biometric Face Search in Gallery

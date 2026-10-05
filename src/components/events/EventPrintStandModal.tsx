@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Printer, Sparkles, ShieldCheck } from 'lucide-react';
 import type { LiveEvent } from '../../types/event';
+import { getEventShareUrl } from '@/utils/domain';
 
 interface EventPrintStandModalProps {
   isOpen: boolean;
@@ -33,7 +34,7 @@ export const EventPrintStandModal: React.FC<EventPrintStandModalProps> = ({
 
   if (!isOpen) return null;
 
-  const guestUrl = `${window.location.origin}/events/${event.id}`;
+  const guestUrl = getEventShareUrl(event.slug || event.id);
   const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(
     guestUrl
   )}&margin=15`;

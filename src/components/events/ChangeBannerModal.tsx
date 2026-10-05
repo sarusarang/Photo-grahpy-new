@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Image as ImageIcon, Upload, Check, Eye } from 'lucide-react';
 import type { LiveEvent } from '../../types/event';
-import { CURATED_EVENT_BANNERS } from '../../data/eventData';
+import { CURATED_EVENT_BANNERS } from './eventConstants';
 import { useEvent } from '../../context/EventContext';
 import { useToast } from '../ui/Toast';
 
@@ -10,12 +10,14 @@ interface ChangeBannerModalProps {
   isOpen: boolean;
   onClose: () => void;
   event: LiveEvent;
+  onUpdated?: () => void;
 }
 
 export const ChangeBannerModal: React.FC<ChangeBannerModalProps> = ({
   isOpen,
   onClose,
   event,
+  onUpdated,
 }) => {
   const { updateEventBanner } = useEvent();
   const { showToast } = useToast();
@@ -23,6 +25,7 @@ export const ChangeBannerModal: React.FC<ChangeBannerModalProps> = ({
   const [activeTab, setActiveTab] = useState<'event-photos' | 'presets' | 'upload'>('event-photos');
   const [selectedBannerUrl, setSelectedBannerUrl] = useState<string>(event.bannerUrl);
   const [customUrlInput, setCustomUrlInput] = useState('');
+  const [isApplying, setIsApplying] = useState(false);
 
   // Lock background scroll & handle escape key
   useEffect(() => {
@@ -41,11 +44,20 @@ export const ChangeBannerModal: React.FC<ChangeBannerModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleApplyBanner = (url: string) => {
+  const handleApplyBanner = async (url: string) => {
+    if (isApplying) return;
+    setIsApplying(true);
     setSelectedBannerUrl(url);
-    updateEventBanner(event.id, url);
-    showToast('Banner Updated', 'Editorial template banner changed successfully.', 'success');
-    onClose();
+    try {
+      await updateEventBanner(event.id, url);
+      showToast('Banner Updated', 'Editorial template banner changed successfully.', 'success');
+      onUpdated?.();
+      onClose();
+    } catch (err: any) {
+      showToast('Banner Update Failed', err?.message || 'Failed to update banner on server.', 'error');
+    } finally {
+      setIsApplying(false);
+    }
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -53,12 +65,20 @@ export const ChangeBannerModal: React.FC<ChangeBannerModalProps> = ({
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       const dataUrl = reader.result as string;
       setSelectedBannerUrl(dataUrl);
-      updateEventBanner(event.id, dataUrl);
-      showToast('Custom Banner Uploaded', 'New banner image applied to event template.', 'success');
-      onClose();
+      setIsApplying(true);
+      try {
+        await updateEventBanner(event.id, dataUrl);
+        showToast('Custom Banner Uploaded', 'New banner image applied to event template.', 'success');
+        onUpdated?.();
+        onClose();
+      } catch (err: any) {
+        showToast('Banner Upload Failed', err?.message || 'Failed to update custom banner.', 'error');
+      } finally {
+        setIsApplying(false);
+      }
     };
     reader.readAsDataURL(file);
   };
@@ -266,14 +286,16 @@ export const ChangeBannerModal: React.FC<ChangeBannerModalProps> = ({
               </label>
 
               <div className="space-y-2">
-                <label className="text-xs font-mono text-neutral-700 dark:text-neutral-400">Or Paste Image URL</label>
+                <label className="atelier-label mb-1">
+                  <span>Or Paste High-Resolution Image URL</span>
+                </label>
                 <div className="flex gap-2">
                   <input
                     type="url"
                     placeholder="https://images.unsplash.com/..."
                     value={customUrlInput}
                     onChange={(e) => setCustomUrlInput(e.target.value)}
-                    className="flex-1 px-4 py-2.5 rounded-xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-xs font-mono text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:border-amber-400"
+                    className="flex-1 atelier-input font-mono text-xs"
                   />
                   <button
                     type="button"
@@ -282,7 +304,7 @@ export const ChangeBannerModal: React.FC<ChangeBannerModalProps> = ({
                         handleApplyBanner(customUrlInput.trim());
                       }
                     }}
-                    className="px-5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 text-xs font-mono font-bold transition-all cursor-pointer"
+                    className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-neutral-950 text-xs font-mono font-bold transition-all active:scale-[0.98] shadow-md shadow-amber-500/20 cursor-pointer"
                   >
                     Apply
                   </button>

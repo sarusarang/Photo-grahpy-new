@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import type { PortfolioConfig } from '../../../types/portfolio';
-import { getPortfolioTemplate } from '../templates/PortfolioTemplateRegistry';
+import { EditorialVogueTemplate } from '../templates/EditorialVogueTemplate';
+import { DarkroomAtelierTemplate } from '../templates/DarkroomAtelierTemplate';
 import {
   Monitor,
   Tablet,
@@ -14,14 +15,19 @@ interface PortfolioDevicePreviewProps {
   portfolioId: string;
 }
 
+const RenderTemplate: React.FC<{ config: PortfolioConfig }> = ({ config }) => {
+  if (config.templateId === 'darkroom-atelier') {
+    return <DarkroomAtelierTemplate config={config} isPreview />;
+  }
+  return <EditorialVogueTemplate config={config} isPreview />;
+};
+
 export const PortfolioDevicePreview: React.FC<PortfolioDevicePreviewProps> = ({
   config,
   portfolioId,
 }) => {
   const [deviceMode, setDeviceMode] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
   const [key, setKey] = useState(0);
-
-  const TemplateComponent = getPortfolioTemplate(config.templateId);
 
   const handleRefresh = () => {
     setKey((prev) => prev + 1);
@@ -104,7 +110,7 @@ export const PortfolioDevicePreview: React.FC<PortfolioDevicePreviewProps> = ({
       <div className="flex-1 overflow-y-auto p-4 sm:p-6 flex items-start justify-center custom-scrollbar bg-neutral-200/50 dark:bg-[#07080b]">
         {deviceMode === 'desktop' && (
           <div key={key} className="w-full bg-white dark:bg-[#0c0d12] rounded-2xl shadow-xl overflow-hidden border border-neutral-200 dark:border-neutral-800">
-            <TemplateComponent config={config} isPreview />
+            <RenderTemplate config={config} />
           </div>
         )}
 
@@ -118,7 +124,7 @@ export const PortfolioDevicePreview: React.FC<PortfolioDevicePreviewProps> = ({
               <div className="w-2.5 h-2.5 rounded-full bg-neutral-800 dark:bg-neutral-900" />
             </div>
             <div className="max-h-[85vh] overflow-y-auto custom-scrollbar">
-              <TemplateComponent config={config} isPreview />
+              <RenderTemplate config={config} />
             </div>
           </div>
         )}
@@ -135,7 +141,7 @@ export const PortfolioDevicePreview: React.FC<PortfolioDevicePreviewProps> = ({
               </div>
             </div>
             <div className="max-h-[80vh] overflow-y-auto custom-scrollbar">
-              <TemplateComponent config={config} isPreview />
+              <RenderTemplate config={config} />
             </div>
             <div className="h-4 bg-neutral-900 dark:bg-neutral-800/90 flex items-center justify-center">
               <div className="w-32 h-1 rounded-full bg-neutral-700" />

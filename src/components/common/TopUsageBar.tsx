@@ -1,30 +1,52 @@
 import React, { useState } from 'react';
 import { usePlanQuota } from '@/hooks/usePlanQuota';
 import { UpgradePlanModal } from './UpgradePlanModal';
-import { HardDrive, Calendar, Zap, ShieldCheck } from 'lucide-react';
+import { HardDrive, Calendar, Zap, ShieldCheck, AlertOctagon, AlertCircle } from 'lucide-react';
 
 export const TopUsageBar: React.FC = () => {
   const planQuota = usePlanQuota();
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
 
   const percentageUsed = planQuota.storageUsedPercent;
+  const isExpired = planQuota.isExpired;
 
   return (
     <>
-      <div className="w-full bg-gradient-to-r from-neutral-900 via-neutral-900 to-neutral-950 border-b border-neutral-800/80 px-4 sm:px-8 py-3.5 shadow-sm">
+      <div className={`w-full border-b px-4 sm:px-8 py-3.5 shadow-sm transition-colors ${
+        isExpired
+          ? 'bg-gradient-to-r from-[#201013] via-[#1a0e11] to-neutral-950 border-rose-900/60'
+          : 'bg-gradient-to-r from-neutral-900 via-neutral-900 to-neutral-950 border-neutral-800/80'
+      }`}>
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4">
           {/* Left: Plan badge & Storage meter */}
           <div className="flex flex-wrap items-center gap-4 sm:gap-6">
             <div className="flex items-center gap-2.5">
               <span className="flex h-2 w-2 relative">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
+                  isExpired ? 'bg-rose-400' : 'bg-emerald-400'
+                }`}></span>
+                <span className={`relative inline-flex rounded-full h-2 w-2 ${
+                  isExpired ? 'bg-rose-500' : 'bg-emerald-500'
+                }`}></span>
               </span>
-              <div className="flex items-center gap-1.5 bg-neutral-800/90 px-2.5 py-1 rounded-md border border-neutral-700/60">
-                <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
-                <span className="text-xs font-semibold text-neutral-100 tracking-wide">
+              <div className={`flex items-center gap-2 px-2.5 py-1 rounded-md border ${
+                isExpired
+                  ? 'bg-rose-500/15 border-rose-500/40 text-rose-200'
+                  : 'bg-neutral-800/90 border-neutral-700/60 text-neutral-100'
+              }`}>
+                {isExpired ? (
+                  <AlertOctagon className="w-3.5 h-3.5 text-rose-400" />
+                ) : (
+                  <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+                )}
+                <span className="text-xs font-semibold tracking-wide">
                   {planQuota.planName}
                 </span>
+                {isExpired && (
+                  <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-rose-500/30 text-rose-300">
+                    EXPIRED
+                  </span>
+                )}
               </div>
             </div>
 
@@ -36,11 +58,17 @@ export const TopUsageBar: React.FC = () => {
                   <span className="text-neutral-300">
                     <strong className="text-white font-semibold">{planQuota.storageUsedGB} GB</strong> of {planQuota.storageLimitGB} GB
                   </span>
-                  <span className="text-amber-400 font-mono font-medium">{percentageUsed}%</span>
+                  <span className={`font-mono font-medium ${isExpired ? 'text-rose-400' : 'text-amber-400'}`}>
+                    {percentageUsed}%
+                  </span>
                 </div>
                 <div className="h-1.5 w-full bg-neutral-800 rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-gradient-to-r from-amber-500 to-amber-300 rounded-full transition-all duration-500"
+                    className={`h-full rounded-full transition-all duration-500 ${
+                      isExpired
+                        ? 'bg-rose-500'
+                        : 'bg-gradient-to-r from-amber-500 to-amber-300'
+                    }`}
                     style={{ width: `${percentageUsed}%` }}
                   />
                 </div>
@@ -54,19 +82,32 @@ export const TopUsageBar: React.FC = () => {
               <Calendar className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
               <span className="hidden sm:inline">Billing Cycle:</span>
               <span className="text-neutral-200 font-medium">
-                <span className="text-amber-400 font-semibold">{planQuota.daysRemaining} days remaining</span>
-                {planQuota.expiryDate && (
-                  <span className="text-neutral-400 text-[11px] ml-1.5">(Expires {planQuota.expiryDate.split('T')[0]})</span>
+                {isExpired ? (
+                  <span className="text-rose-400 font-semibold flex items-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5" />
+                    <span>Plan Expired ({planQuota.expiryDate?.split('T')[0] || 'Lapsed'})</span>
+                  </span>
+                ) : (
+                  <>
+                    <span className="text-amber-400 font-semibold">{planQuota.daysRemaining} days remaining</span>
+                    {planQuota.expiryDate && (
+                      <span className="text-neutral-400 text-[11px] ml-1.5">(Expires {planQuota.expiryDate.split('T')[0]})</span>
+                    )}
+                  </>
                 )}
               </span>
             </div>
 
             <button
               onClick={() => setIsUpgradeModalOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-400/10 hover:bg-amber-400/20 text-amber-300 border border-amber-400/30 text-xs font-semibold tracking-wide transition-all shadow-sm hover:shadow-amber-500/10"
+              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold tracking-wide transition-all shadow-sm cursor-pointer ${
+                isExpired
+                  ? 'bg-gradient-to-r from-rose-500 to-amber-500 hover:from-rose-400 hover:to-amber-400 text-white font-bold shadow-rose-500/20'
+                  : 'bg-amber-400/10 hover:bg-amber-400/20 text-amber-300 border border-amber-400/30 shadow-amber-500/10'
+              }`}
             >
-              <Zap className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-              <span>Upgrade Plan</span>
+              <Zap className="w-3.5 h-3.5 fill-current" />
+              <span>{isExpired ? 'Renew Membership' : 'Upgrade Plan'}</span>
             </button>
           </div>
         </div>

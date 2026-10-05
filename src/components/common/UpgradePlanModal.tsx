@@ -22,8 +22,15 @@ import {
   AlertCircle,
   PackageOpen,
   ShieldAlert,
+  Lock,
 } from 'lucide-react';
 import { renderPlanFeature } from '../../data/plansData';
+import {
+  renderPlanBillingText,
+  getAutopayBadgeText,
+  formatPlanCtaText,
+  formatPlanSubtitle,
+} from '@/components/billing/planUtils';
 import { useStudioPlans, useCurrentSubscription, usePlanUpgradeFlow } from '@/service/plans/usePlans';
 import { usePlanQuota } from '@/hooks/usePlanQuota';
 import type { StudioPlan } from '@/service/plans/type';
@@ -40,6 +47,51 @@ const getPlanIcon = (plan: StudioPlan) => {
   if (plan.tier === 'premium' || plan.tag_type === 'popular') return Gem;
   if (plan.billing_cycle === 'annual') return Crown;
   return Sprout;
+};
+
+/**
+ * Computes an ordinal rank score for a studio plan to enforce strictly upward upgrades.
+ * Rank evaluation order:
+ * 1. Explicit sort_order if available (> 0)
+ * 2. Tier hierarchy (master/elite/premium > pro/standard > starter)
+ * 3. Monthly price and total price
+ * 4. Duration and storage quota
+ */
+export const getPlanRank = (plan: {
+  id?: string;
+  sort_order?: number;
+  monthly_price?: string | number;
+  price?: number;
+  storage_limit_bytes?: number;
+  tier?: string;
+  duration_months?: number;
+  billing_cycle?: string;
+}): number => {
+  if (typeof plan.sort_order === 'number' && plan.sort_order > 0) {
+    return plan.sort_order * 1000;
+  }
+  const monthly =
+    typeof plan.price === 'number'
+      ? plan.price
+      : typeof plan.monthly_price === 'number'
+      ? plan.monthly_price
+      : parseFloat(String(plan.monthly_price || 0)) || 0;
+
+  const storageGB =
+    typeof plan.storage_limit_bytes === 'number' ? plan.storage_limit_bytes / (1024 ** 3) : 0;
+  const duration =
+    plan.duration_months ||
+    (plan.billing_cycle === 'annual' ? 12 : plan.billing_cycle === 'quarterly' ? 3 : 1);
+
+  let tierWeight = 1000;
+  const tierLower = (plan.tier || '').toLowerCase();
+  if (tierLower.includes('master') || tierLower.includes('elite') || tierLower.includes('premium')) {
+    tierWeight = 5000;
+  } else if (tierLower.includes('pro') || tierLower.includes('standard')) {
+    tierWeight = 2000;
+  }
+
+  return tierWeight + monthly * 5 + duration * 10 + storageGB;
 };
 
 export const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({
@@ -63,9 +115,6 @@ export const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({
   } = useStudioPlans();
 
   const { data: activeApiSub } = useCurrentSubscription(isOpen);
-
-  // Preferred gateway: 'direct' (instant 1-click upgrade for demo/testing) or 'razorpay'
-  const [preferredGateway, setPreferredGateway] = useState<'direct' | 'razorpay'>('direct');
 
   // Smooth enter / exit state management
   const [isRendered, setIsRendered] = useState(isOpen);
@@ -91,7 +140,7 @@ export const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({
 
   const { handleUpgrade, upgradingPlanId, isUpgrading } = usePlanUpgradeFlow((plan) => {
     upgradeSubscription(plan.id);
-    showToast('Subscription Activated', `Successfully upgraded to ${plan.name}!`, 'success');
+    showToast('Subscription Activated', `Successfully upgraded to ${plan.name} with Razorpay Autopay!`, 'success');
     handleClose();
   });
 
@@ -101,14 +150,23 @@ export const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({
   const plans = (apiPlans || []).map((p: StudioPlan) => {
     const price = typeof p.monthly_price === 'string' ? parseFloat(p.monthly_price) : (Number(p.monthly_price) || 0);
     const originalPrice = p.original_monthly_price != null ? (typeof p.original_monthly_price === 'string' ? parseFloat(p.original_monthly_price) : Number(p.original_monthly_price)) : undefined;
+    const durationMonths = p.duration_months || (p.billing_cycle === 'annual' ? 12 : p.billing_cycle === 'quarterly' ? 3 : 1);
+    const isPremium = p.id.includes('premium') || p.tier === 'premium';
+    const tag = isPremium && p.tag === 'MOST POPULAR' ? '2XSTANDARD PLAN' : (p.tag || (isPremium ? '2XSTANDARD PLAN' : ''));
+    const tagType = isPremium ? 'default' : (p.tag_type || (p.id === 'plan-standard-1y' ? 'popular' : 'default'));
+    const ctaText = formatPlanCtaText({ ...p, duration_months: durationMonths });
+    const subtitle = formatPlanSubtitle({ ...p, duration_months: durationMonths });
     return {
       ...p,
       price,
       originalPrice,
+      duration_months: durationMonths,
       billing: p.billing_text || '',
       icon: getPlanIcon(p),
-      tagType: p.tag_type || 'default',
-      ctaText: p.cta_text,
+      tag,
+      tagType,
+      ctaText,
+      subtitle,
       features: Array.isArray(p.features) ? p.features : [],
     };
   });
@@ -120,9 +178,29 @@ export const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({
   const storageUsed = planQuota.storageUsedGB || (activeApiSub?.storage?.used_gb ?? 0);
   const usedPercentage = planQuota.storageUsedPercent || (activeApiSub?.storage?.used_percentage ?? 0);
 
+  const hasActivePlan = Boolean(activePlanId) && (activeApiSub?.status === 'active' || planQuota.isActive);
+  const isExpired = Boolean(
+    activeApiSub?.status === 'expired' ||
+    planQuota.isExpired ||
+    (typeof planQuota.daysRemaining === 'number' && planQuota.daysRemaining <= 0 && Boolean(activeApiSub?.expiry_date))
+  );
+
+  // When user has an active, unexpired plan: only upward upgrades are permitted.
+  // When expired or no active plan: user can select any plan.
+  const isRestrictedToUpgrades = hasActivePlan && !isExpired;
+
+  const currentPlanRank = activeApiSub?.plan
+    ? getPlanRank(activeApiSub.plan)
+    : (plans.find((p) => p.id === activePlanId) ? getPlanRank(plans.find((p) => p.id === activePlanId)!) : 0);
+
   const handleSelectPlan = async (plan: StudioPlan) => {
-    if (plan.id === activePlanId || isUpgrading) return;
-    await handleUpgrade(plan, preferredGateway);
+    if ((plan.id === activePlanId && !isExpired) || isUpgrading || Boolean(upgradingPlanId)) return;
+    const thisRank = getPlanRank(plan);
+    if (isRestrictedToUpgrades && thisRank <= currentPlanRank) {
+      showToast('Downgrade Unavailable', 'You cannot downgrade during an active billing cycle. Upgrades are only permitted upwards.', 'error');
+      return;
+    }
+    await handleUpgrade(plan);
   };
 
   const handleManageStorage = () => {
@@ -235,11 +313,18 @@ export const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({
               <Cloud className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-[11px] text-neutral-400 font-semibold uppercase tracking-wider">
-                Currently Active
+              <p className={`text-[11px] font-semibold uppercase tracking-wider ${
+                isExpired ? 'text-rose-400' : 'text-neutral-400'
+              }`}>
+                {isExpired ? 'Membership Expired' : 'Currently Active'}
               </p>
-              <p className="text-sm sm:text-base font-bold text-white tracking-tight">
-                {activePlanName} • {storageLimit} GB Limit
+              <p className="text-sm sm:text-base font-bold text-white tracking-tight flex items-center gap-2">
+                <span>{activePlanName} • {storageLimit} GB Limit</span>
+                {isExpired && (
+                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40">
+                    EXPIRED
+                  </span>
+                )}
               </p>
             </div>
           </div>
@@ -272,35 +357,22 @@ export const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({
           </button>
         </div>
 
-        {/* 2.5 Gateway Selector & Online Sync Status */}
+        {/* 2.5 Razorpay Autopay Info & Online Sync Status */}
         <div className="flex flex-wrap items-center justify-between gap-3 px-1">
-          <div className="flex items-center gap-2 text-xs text-neutral-400">
-            <span className="font-mono text-[10px] uppercase tracking-wider text-amber-500">Checkout Mode:</span>
-            <div className="flex items-center gap-1 p-0.5 rounded-xl bg-neutral-900 border border-neutral-800">
-              <button
-                type="button"
-                onClick={() => setPreferredGateway('direct')}
-                className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
-                  preferredGateway === 'direct'
-                    ? 'bg-amber-400 text-neutral-950 font-bold shadow-xs'
-                    : 'text-neutral-400 hover:text-white'
-                }`}
-              >
-                <Zap className="w-3 h-3 fill-current" />
-                <span>Instant Dev / Demo</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setPreferredGateway('razorpay')}
-                className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
-                  preferredGateway === 'razorpay'
-                    ? 'bg-amber-400 text-neutral-950 font-bold shadow-xs'
-                    : 'text-neutral-400 hover:text-white'
-                }`}
-              >
-                <CreditCard className="w-3 h-3" />
-                <span>Razorpay Gateway</span>
-              </button>
+          <div className="flex items-center gap-2.5 text-xs text-neutral-300">
+            <div className="w-8 h-8 rounded-xl bg-amber-400/15 border border-amber-400/30 flex items-center justify-center text-amber-400 shadow-inner">
+              <CreditCard className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-white tracking-wide">Razorpay Recurring Autopay</span>
+                <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 font-mono text-[9px] uppercase font-bold">
+                  Automated
+                </span>
+              </div>
+              <p className="text-[11px] text-neutral-400">
+                Debits automatically according to plan duration • Upward upgrades take effect immediately
+              </p>
             </div>
           </div>
 
@@ -322,7 +394,7 @@ export const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({
             ) : (
               <span className="flex items-center gap-1.5 text-emerald-400/90">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                Live Cloud Pricing Active
+                Razorpay Live Gateway Active
               </span>
             )}
           </div>
@@ -412,6 +484,16 @@ export const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({
               const isCurrent = plan.id === activePlanId;
               const Icon = plan.icon;
               const isCardUpgrading = upgradingPlanId === plan.id;
+              const isOtherPlanUpgrading = (Boolean(upgradingPlanId) || isUpgrading) && !isCardUpgrading;
+              const thisPlanRank = getPlanRank(plan);
+              const isDownward = isRestrictedToUpgrades && !isCurrent && thisPlanRank <= currentPlanRank;
+              const isButtonDisabled = (!isExpired && isCurrent) || isDownward || isCardUpgrading || isOtherPlanUpgrading;
+
+              const durationMonths =
+                plan.duration_months ||
+                (plan.billing_cycle === 'annual' ? 12 : plan.billing_cycle === 'quarterly' ? 3 : 1);
+
+              const autopayBadge = getAutopayBadgeText(durationMonths);
 
               return (
                 <div
@@ -419,8 +501,10 @@ export const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({
                   className={`rounded-2xl p-6 flex flex-col justify-between transition-all duration-300 relative ${
                     isCurrent
                       ? 'bg-[#151419] border-2 border-amber-400/90 shadow-2xl shadow-amber-500/10 ring-1 ring-amber-400/30 scale-[1.01]'
+                      : isDownward
+                      ? 'bg-[#101015]/60 border border-neutral-800/60 opacity-60 hover:opacity-75'
                       : 'bg-[#121319]/90 border border-neutral-800 hover:border-neutral-700 hover:bg-[#151620]'
-                  }`}
+                  } ${isOtherPlanUpgrading ? 'opacity-50' : ''}`}
                 >
                   <div>
                     {/* Card Header: Icon & Badge */}
@@ -429,6 +513,8 @@ export const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({
                         className={`w-10 h-10 rounded-xl flex items-center justify-center ${
                           isCurrent
                             ? 'bg-amber-500/15 border border-amber-500/30 text-amber-400'
+                            : isDownward
+                            ? 'bg-neutral-900/60 border border-neutral-800 text-neutral-500'
                             : plan.tagType === 'popular'
                             ? 'bg-neutral-900 border border-neutral-800 text-amber-400'
                             : 'bg-neutral-900 border border-neutral-800 text-neutral-300'
@@ -437,9 +523,18 @@ export const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({
                         <Icon className="w-5 h-5" />
                       </div>
 
-                      {isCurrent ? (
+                      {isCurrent && isExpired ? (
+                        <span className="px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/40 font-bold text-[10px] uppercase tracking-wider shadow-sm">
+                          EXPIRED PLAN
+                        </span>
+                      ) : isCurrent ? (
                         <span className="px-3 py-1 rounded-full bg-amber-400 text-neutral-950 font-bold text-[10px] uppercase tracking-wider shadow-sm">
                           YOUR PLAN
+                        </span>
+                      ) : isDownward ? (
+                        <span className="px-2.5 py-0.5 rounded-full bg-neutral-800/80 border border-neutral-700/60 text-[10px] uppercase font-bold text-neutral-500 tracking-wider flex items-center gap-1">
+                          <Lock className="w-3 h-3" />
+                          LOWER TIER
                         </span>
                       ) : plan.tagType === 'popular' ? (
                         <span className="px-3 py-1 rounded-full bg-amber-400 text-neutral-950 font-bold text-[10px] uppercase tracking-wider shadow-sm">
@@ -452,35 +547,52 @@ export const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({
                       ) : null}
                     </div>
 
-                    {/* Title & Subtitle */}
-                    <h3 className="text-base font-bold text-white mt-4">{plan.name}</h3>
-                    <p className="text-xs text-neutral-400 mt-1 min-h-[32px]">
-                      {plan.subtitle}
-                    </p>
+                    {/* Title & Subtitle with guaranteed identical height across all cards */}
+                    <div className="h-16 shrink-0 flex flex-col justify-start mt-4">
+                      <h3 className="text-base font-bold text-white leading-tight">{plan.name}</h3>
+                      <p className="text-xs text-neutral-400 mt-1 leading-snug line-clamp-2">
+                        {plan.subtitle}
+                      </p>
+                    </div>
 
-                    {/* Price Block */}
-                    <div className="mt-3 pb-4 border-b border-neutral-800/80">
-                      <div className="flex items-center gap-2.5 flex-wrap">
-                        {plan.originalPrice && (
-                          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-500/20 border border-rose-500/40 text-rose-200 shadow-sm">
-                            <span className="text-sm font-semibold line-through decoration-rose-400 decoration-[2.5px]">
+                    {/* Price Block with Fixed Heights for Perfect Alignment */}
+                    <div className="mt-2 pb-4 border-b border-neutral-800/80 flex flex-col shrink-0">
+                      {/* Row 1: Original Strikethrough Discount Pill (exact same height on all cards) */}
+                      <div className="h-6 shrink-0 flex items-center">
+                        {plan.originalPrice && plan.originalPrice > plan.price ? (
+                          <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-rose-500/20 border border-rose-500/40 text-rose-200 shadow-xs">
+                            <span className="text-xs font-semibold line-through decoration-rose-400 decoration-[1.5px]">
                               ₹{plan.originalPrice.toLocaleString('en-IN')}/-
                             </span>
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-rose-300 bg-rose-500/30 px-1.5 py-0.5 rounded">
+                            <span className="text-[9px] font-bold uppercase tracking-wider text-rose-300 bg-rose-500/30 px-1 py-0.5 rounded">
                               {Math.round(((plan.originalPrice - plan.price) / plan.originalPrice) * 100)}% OFF
                             </span>
                           </div>
+                        ) : (
+                          <div className="h-6 shrink-0" />
                         )}
-                        <div className="flex items-baseline gap-1">
-                          <span className="text-3xl sm:text-4xl font-bold text-amber-400 tracking-tight">
+                      </div>
+
+                      {/* Row 2: Monthly Price and Billed Section in a single row */}
+                      <div className="flex items-center justify-between gap-2 mt-1 shrink-0 h-10">
+                        <div className="flex items-baseline gap-1 shrink-0">
+                          <span className="text-2xl sm:text-3xl lg:text-4xl font-bold text-amber-400 tracking-tight font-mono">
                             ₹{plan.price.toLocaleString('en-IN')}
                           </span>
                           <span className="text-xs font-medium text-neutral-400">/ Month</span>
                         </div>
+                        <div className="shrink-0">
+                          {renderPlanBillingText(plan.billing)}
+                        </div>
                       </div>
-                      <p className="text-xs text-neutral-400 mt-1.5">
-                        {plan.billing}
-                      </p>
+
+                      {/* Row 3: Autopay Badge */}
+                      <div className="mt-2.5 flex items-center shrink-0">
+                        <span className="text-[10px] sm:text-[11px] font-mono px-2.5 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-semibold inline-flex items-center gap-1.5 shadow-xs">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                          {autopayBadge}
+                        </span>
+                      </div>
                     </div>
 
                     {/* Features List with Amber Checkmarks */}
@@ -495,34 +607,58 @@ export const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({
                   </div>
 
                   {/* Bottom Action CTA Button */}
-                  <button
-                    onClick={() => handleSelectPlan(plan)}
-                    disabled={isCurrent || isUpgrading}
-                    className={`w-full py-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                      isCurrent
-                        ? 'bg-amber-400 hover:bg-amber-300 text-neutral-950 shadow-lg shadow-amber-500/20 active:scale-98 cursor-default'
-                        : isCardUpgrading
-                        ? 'bg-neutral-800 text-amber-400 cursor-wait'
-                        : 'bg-neutral-900/90 hover:bg-neutral-800 border border-neutral-800 hover:border-neutral-700 text-white hover:text-white active:scale-98'
-                    }`}
-                  >
-                    {isCardUpgrading ? (
-                      <>
-                        <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" />
-                        <span>Activating...</span>
-                      </>
-                    ) : isCurrent ? (
-                      <>
-                        <Check className="w-3.5 h-3.5 stroke-[2.5]" />
-                        <span>Current Plan</span>
-                      </>
-                    ) : (
-                      <>
-                        <span>{plan.ctaText || `Choose ${plan.name}`}</span>
-                        <ArrowRight className="w-3.5 h-3.5" />
-                      </>
+                  <div>
+                    <button
+                      onClick={() => handleSelectPlan(plan)}
+                      disabled={isButtonDisabled}
+                      className={`w-full py-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                        isCardUpgrading
+                          ? 'bg-neutral-800 text-amber-400 cursor-wait'
+                          : isOtherPlanUpgrading
+                          ? 'bg-neutral-900/60 border border-neutral-800/80 text-neutral-500 opacity-40 cursor-not-allowed pointer-events-none shadow-none'
+                          : isCurrent && !isExpired
+                          ? 'bg-amber-400 hover:bg-amber-300 text-neutral-950 shadow-lg shadow-amber-500/20 active:scale-98 cursor-default'
+                          : isCurrent && isExpired
+                          ? 'bg-gradient-to-r from-rose-500 to-amber-500 hover:from-rose-400 hover:to-amber-400 text-white shadow-lg shadow-rose-500/20 active:scale-98 cursor-pointer'
+                          : isDownward
+                          ? 'bg-neutral-900/50 border border-neutral-800/80 text-neutral-500 cursor-not-allowed'
+                          : 'bg-amber-400 hover:bg-amber-300 text-neutral-950 font-bold shadow-md shadow-amber-500/20 hover:shadow-amber-500/30 active:scale-98 cursor-pointer'
+                      }`}
+                    >
+                      {isCardUpgrading ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" />
+                          <span>Initiating Razorpay...</span>
+                        </>
+                      ) : isCurrent && !isExpired ? (
+                        <>
+                          <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                          <span>Current Plan</span>
+                        </>
+                      ) : isCurrent && isExpired ? (
+                        <>
+                          <Zap className="w-3.5 h-3.5 fill-current" />
+                          <span>Renew {plan.name}</span>
+                        </>
+                      ) : isDownward ? (
+                        <>
+                          <Lock className="w-3.5 h-3.5" />
+                          <span>Downgrade Unavailable</span>
+                        </>
+                      ) : (
+                        <>
+                          <CreditCard className="w-3.5 h-3.5" />
+                          <span>{isExpired ? `Select ${plan.name}` : `Upgrade to ${plan.name}`}</span>
+                          <ArrowRight className="w-3.5 h-3.5 ml-0.5" />
+                        </>
+                      )}
+                    </button>
+                    {isDownward && (
+                      <p className="text-[10px] text-neutral-500 mt-2 text-center leading-tight">
+                        Active plans cannot be downgraded during active billing period
+                      </p>
                     )}
-                  </button>
+                  </div>
                 </div>
               );
             })}

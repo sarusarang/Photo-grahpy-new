@@ -23,6 +23,7 @@ export const createGallerySchema = z.object({
   allow_downloads: z.boolean().default(true),
   allow_favorites: z.boolean().default(true),
   face_search_enabled: z.boolean().default(false),
+  watermark_enabled: z.boolean().default(false),
 });
 
 export type CreateGalleryFormData = z.infer<typeof createGallerySchema>;
@@ -38,6 +39,8 @@ export const gallerySettingsSchema = z.object({
   password: z.string().optional().default(''),
   allow_downloads: z.boolean().default(true),
   expires_at: z.string().optional().nullable(),
+  face_search_enabled: z.boolean().default(false),
+  watermark_enabled: z.boolean().default(false),
 }).refine(
   (data) => {
     if (data.is_password_protected && (!data.password || data.password.trim().length < 3)) {

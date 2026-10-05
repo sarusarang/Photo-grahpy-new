@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import type { Gallery, MediaItem, SubscriptionPlan, GalleryTemplateId } from '../types';
-import { INITIAL_GALLERIES, INITIAL_SUBSCRIPTION, AVAILABLE_PLANS } from '../data/demoData';
 import { getInitialGalleryCover } from '../utils/coverImageUtils';
 
 interface GalleryContextType {
@@ -417,16 +416,12 @@ export const GalleryProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const upgradeSubscription = (planId: string) => {
-    const selected = AVAILABLE_PLANS.find((p) => p.id === planId);
-    if (selected) {
-      setSubscription({
-        ...selected,
-        storageUsedGB: subscription.storageUsedGB,
-        status: 'active',
-        daysRemaining: selected.billingCycle === 'annual' ? 365 : 30,
-        expiryDate: '2027-09-10',
-      });
-    }
+    setSubscription((prev) => ({
+      ...prev,
+      id: planId,
+      status: 'active',
+      daysRemaining: 365,
+    }));
   };
 
   const getGalleryByIdOrSlug = (idOrSlug: string): Gallery | undefined => {
@@ -434,8 +429,7 @@ export const GalleryProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const resetAllDemoData = () => {
-    setGalleries(INITIAL_GALLERIES);
-    setSubscription(INITIAL_SUBSCRIPTION);
+    setGalleries([]);
     localStorage.removeItem(GALLERIES_STORAGE_KEY);
     localStorage.removeItem(SUBSCRIPTION_STORAGE_KEY);
   };
@@ -445,7 +439,7 @@ export const GalleryProvider: React.FC<{ children: React.ReactNode }> = ({ child
       value={{
         galleries,
         subscription,
-        availablePlans: AVAILABLE_PLANS,
+        availablePlans: [],
         searchQuery,
         setSearchQuery,
         statusFilter,

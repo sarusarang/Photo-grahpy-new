@@ -1,25 +1,14 @@
 import { CommonApi } from '@/lib/CommonApi';
 import type { PortfolioInquiry, InquiryStatus } from '@/types/atelier';
+import type {
+  InquiriesListResponse,
+  SubmitInquiryPayload,
+  SubmitInquiryResponse,
+  DeleteInquiryResponse,
+  InquiriesAnalyticsResponse,
+} from './type';
 
-export interface InquiriesListResponse {
-  total_inquiries: number;
-  accessible_inquiries: number;
-  has_full_inquiry_access: boolean;
-  upgrade_prompt?: string;
-  inquiries: PortfolioInquiry[];
-}
-
-export interface SubmitInquiryPayload {
-  photographer_id?: string | number;
-  client_name: string;
-  client_email: string;
-  client_phone: string;
-  event_type: string;
-  event_date: string;
-  location: string;
-  budget: string;
-  message: string;
-}
+export * from './type';
 
 /**
  * 1. Retrieve Inquiries List (with automatic tier-gated masking)
@@ -54,7 +43,7 @@ export const UpdateInquiryStatusApi = async (
  * 3. Delete Inquiry
  * Endpoint: DELETE /api/inquiries/{id}/
  */
-export const DeleteInquiryApi = async (inquiryId: string): Promise<{ success: boolean; message?: string }> => {
+export const DeleteInquiryApi = async (inquiryId: string): Promise<DeleteInquiryResponse> => {
   return CommonApi('DELETE', `/api/inquiries/${inquiryId}/`);
 };
 
@@ -64,7 +53,7 @@ export const DeleteInquiryApi = async (inquiryId: string): Promise<{ success: bo
  */
 export const SubmitPublicInquiryApi = async (
   payload: SubmitInquiryPayload
-): Promise<{ success: boolean; message: string; inquiry_id?: string }> => {
+): Promise<SubmitInquiryResponse> => {
   return CommonApi('POST', '/api/public/inquiries/', payload);
 };
 
@@ -72,10 +61,6 @@ export const SubmitPublicInquiryApi = async (
  * 5. Retrieve Inquiries Pipeline Analytics
  * Endpoint: GET /api/inquiries/analytics/
  */
-export const GetInquiriesAnalyticsApi = async (): Promise<{
-  total_pipeline_value: string;
-  conversion_rate: number;
-  status_counts: Record<InquiryStatus, number>;
-}> => {
+export const GetInquiriesAnalyticsApi = async (): Promise<InquiriesAnalyticsResponse> => {
   return CommonApi('GET', '/api/inquiries/analytics/');
 };

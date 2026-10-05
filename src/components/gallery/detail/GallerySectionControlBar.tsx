@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  FolderInput,
   Trash2,
   X,
   Check,
@@ -10,6 +9,7 @@ import {
   CheckSquare,
   Square,
   Heart,
+  ArrowUpDown,
 } from 'lucide-react';
 import type { Gallery } from '@/types';
 import { createSectionSchema } from '@/schemas/atelierSchemas';
@@ -25,8 +25,9 @@ interface GallerySectionControlBarProps {
   onSelectSectionFilter: (sec: string) => void;
   onSelectAll: () => void;
   onClearSelection: () => void;
-  onOpenBulkMove: () => void;
-  onOpenBulkDelete: () => void;
+  onOpenBulkMove?: () => void;
+  onOpenBulkDelete?: () => void;
+  onOpenReorderModal?: () => void;
   onCreateSection: (title: string) => Promise<void> | void;
   onRenameSection: (oldTitle: string, newTitle: string) => Promise<void> | void;
   onDeleteSection: (title: string) => Promise<void> | void;
@@ -41,6 +42,7 @@ export const GallerySectionControlBar: React.FC<GallerySectionControlBarProps> =
   dashboardSectionFilter,
   showFavoritesOnly = false,
   onToggleFavoritesOnly,
+  onOpenReorderModal,
   filteredCount,
   isAllSelected: isAllSelectedProp,
   onSelectSectionFilter,
@@ -62,7 +64,7 @@ export const GallerySectionControlBar: React.FC<GallerySectionControlBarProps> =
   const [renameInput, setRenameInput] = useState('');
 
   const totalFavoritesCount = gallery.media.filter((m) => m.isFavorite).length;
-  const countToDisplay = filteredCount ?? gallery.media.length;
+  const countToDisplay = filteredCount ?? (gallery.totalMediaCount || gallery.media.length);
   const isAllSelected =
     isAllSelectedProp ?? (countToDisplay > 0 && selectedIds.length >= countToDisplay);
 
@@ -138,74 +140,6 @@ export const GallerySectionControlBar: React.FC<GallerySectionControlBarProps> =
 
   return (
     <div className="sticky top-0 z-30 -mx-4 sm:-mx-8 px-4 sm:px-8 pt-1.5 pb-2 sm:pt-2 sm:pb-2.5 bg-[#f8f9fa]/95 dark:bg-[#0c0d12]/95 backdrop-blur-xl border-b border-neutral-200/80 dark:border-neutral-800/80 shadow-md dark:shadow-black/50 transition-all space-y-2">
-      {/* Floating Bulk Selection Action Bar: ONLY visible when images are selected */}
-      {selectedIds.length > 0 && (
-        <div className="relative rounded-2xl bg-white dark:bg-[#13141c] border border-amber-500/30 shadow-lg shadow-amber-500/5 dark:shadow-black/60 p-2.5 sm:px-4 sm:py-3 flex flex-col sm:flex-row items-center justify-between gap-2.5 animate-in fade-in slide-in-from-top-2 duration-200">
-            {/* Glowing amber accent highlight line */}
-            <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-amber-400 to-transparent rounded-t-2xl" />
-
-            {/* Left: Count & Meta */}
-            <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
-              <div className="flex items-center gap-2.5">
-                <div className="min-w-[28px] h-7 px-2 rounded-full bg-gradient-to-r from-amber-400 to-amber-500 text-neutral-950 font-mono font-bold text-xs flex items-center justify-center shadow-md shadow-amber-500/20">
-                  {selectedIds.length}
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold text-xs sm:text-sm text-neutral-900 dark:text-neutral-100">
-                      {selectedIds.length === 1 ? '1 Photo' : `${selectedIds.length} Photos`} Selected
-                    </span>
-                    <span className="text-[11px] text-neutral-400 dark:text-neutral-500 font-mono hidden md:inline">
-                      ({selectedIds.length} of {gallery.media.length})
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Mobile Clear Button */}
-              <button
-                type="button"
-                onClick={onClearSelection}
-                className="sm:hidden p-1.5 rounded-lg text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
-                title="Deselect all"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Right: Actions */}
-            <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-              <button
-                type="button"
-                onClick={onOpenBulkMove}
-                className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30 text-xs font-semibold transition-all cursor-pointer active:scale-95"
-                title="Move selected photos to another section"
-              >
-                <FolderInput className="w-3.5 h-3.5 text-amber-500" />
-                <span>Move<span className="hidden sm:inline"> to Section</span> ({selectedIds.length})</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={onOpenBulkDelete}
-                className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/30 text-xs font-semibold transition-all cursor-pointer active:scale-95"
-                title="Delete selected photos"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>Delete</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={onClearSelection}
-                className="hidden sm:inline-flex items-center justify-center p-1.5 rounded-xl text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
-                title="Deselect all"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        )}
 
         {/* Section Filter Pills */}
         <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 py-0.5">
@@ -221,13 +155,17 @@ export const GallerySectionControlBar: React.FC<GallerySectionControlBarProps> =
                 : 'bg-white dark:bg-neutral-900 border border-neutral-200/90 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 hover:text-neutral-950 dark:hover:text-white hover:border-neutral-300 dark:hover:border-neutral-700'
             }`}
           >
-            All ({gallery.media.length})
+            All ({gallery.totalMediaCount || gallery.media.length})
           </button>
 
           {allSections.map((sec) => {
-            const count = gallery.media.filter(
-              (m) => (m.sectionTitle || '').toLowerCase() === sec.toLowerCase()
-            ).length;
+            const count =
+              gallery.sectionCounts?.[sec] ??
+              gallery.sectionCounts?.[sec.toUpperCase()] ??
+              gallery.sectionCounts?.[sec.toLowerCase()] ??
+              gallery.media.filter(
+                (m) => (m.sectionTitle || '').toLowerCase() === sec.toLowerCase()
+              ).length;
             const isSelected = dashboardSectionFilter.toLowerCase() === sec.toLowerCase();
             const isEditing = editingSectionName === sec;
 
@@ -438,41 +376,56 @@ export const GallerySectionControlBar: React.FC<GallerySectionControlBarProps> =
             <span>Select All ({countToDisplay})</span>
           </button>
 
-          {/* Liked / Favorites Filter */}
-          {onToggleFavoritesOnly && (
-            <button
-              type="button"
-              onClick={onToggleFavoritesOnly}
-              className={`group inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-mono transition-all duration-200 cursor-pointer select-none active:scale-[0.97] ${
-                showFavoritesOnly
-                  ? 'bg-rose-500 text-white font-bold shadow-md shadow-rose-500/25 ring-2 ring-rose-500/30'
-                  : 'bg-white dark:bg-neutral-900 border border-neutral-200/90 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 hover:text-neutral-950 dark:hover:text-white hover:border-rose-400/50 dark:hover:border-rose-500/40 shadow-xs'
-              }`}
-              title={showFavoritesOnly ? 'Show all photos' : 'Filter by liked photos only'}
-            >
-              <Heart
-                className={`w-3.5 h-3.5 transition-transform duration-200 ${
-                  showFavoritesOnly
-                    ? 'fill-white text-white scale-110'
-                    : totalFavoritesCount > 0
-                    ? 'text-rose-500 fill-rose-500/20 group-hover:scale-110'
-                    : 'text-neutral-400 group-hover:text-rose-400 group-hover:scale-110'
-                }`}
-              />
-              <span>Liked</span>
-              <span
-                className={`text-[11px] font-bold px-1.5 py-0.5 rounded-md leading-none transition-colors ${
-                  showFavoritesOnly
-                    ? 'bg-white/25 text-white'
-                    : totalFavoritesCount > 0
-                    ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
-                    : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-500'
-                }`}
+          <div className="flex items-center gap-2">
+            {/* Reorder / Sequence Arrange Button */}
+            {onOpenReorderModal && (
+              <button
+                type="button"
+                onClick={onOpenReorderModal}
+                className="group inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-mono transition-all duration-200 cursor-pointer select-none active:scale-[0.97] bg-white dark:bg-neutral-900 border border-neutral-200/90 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 hover:text-amber-500 hover:border-amber-400/50 dark:hover:border-amber-500/40 shadow-xs"
+                title="Open photo sequence organizer to drag or jump photos to top/bottom/position"
               >
-                {totalFavoritesCount}
-              </span>
-            </button>
-          )}
+                <ArrowUpDown className="w-3.5 h-3.5 text-amber-500" />
+                <span>Reorder Photos</span>
+              </button>
+            )}
+
+            {/* Liked / Favorites Filter */}
+            {onToggleFavoritesOnly && (
+              <button
+                type="button"
+                onClick={onToggleFavoritesOnly}
+                className={`group inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-mono transition-all duration-200 cursor-pointer select-none active:scale-[0.97] ${
+                  showFavoritesOnly
+                    ? 'bg-rose-500 text-white font-bold shadow-md shadow-rose-500/25 ring-2 ring-rose-500/30'
+                    : 'bg-white dark:bg-neutral-900 border border-neutral-200/90 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 hover:text-neutral-950 dark:hover:text-white hover:border-rose-400/50 dark:hover:border-rose-500/40 shadow-xs'
+                }`}
+                title={showFavoritesOnly ? 'Show all photos' : 'Filter by liked photos only'}
+              >
+                <Heart
+                  className={`w-3.5 h-3.5 transition-transform duration-200 ${
+                    showFavoritesOnly
+                      ? 'fill-white text-white scale-110'
+                      : totalFavoritesCount > 0
+                      ? 'text-rose-500 fill-rose-500/20 group-hover:scale-110'
+                      : 'text-neutral-400 group-hover:text-rose-400 group-hover:scale-110'
+                  }`}
+                />
+                <span>Liked</span>
+                <span
+                  className={`text-[11px] font-bold px-1.5 py-0.5 rounded-md leading-none transition-colors ${
+                    showFavoritesOnly
+                      ? 'bg-white/25 text-white'
+                      : totalFavoritesCount > 0
+                      ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
+                      : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-500'
+                  }`}
+                >
+                  {totalFavoritesCount}
+                </span>
+              </button>
+            )}
+          </div>
         </div>
     </div>
   );

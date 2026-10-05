@@ -1,29 +1,33 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { motion } from 'framer-motion';
 import type { PortfolioTemplateProps } from './PortfolioTemplateRegistry';
 import type { PortfolioProject } from '../../../types/portfolio';
-import { CURATED_HERO_PRESETS } from '../../../services/portfolioService';
+import { EditableText, EditableImage, ProjectEditModal } from '../inline';
 import {
   Sparkles,
   MapPin,
   Mail,
+  Phone,
   ArrowRight,
+  ArrowUpRight,
   CheckCircle2,
   Send,
-  Film,
-  Edit2,
-  Edit3,
   Plus,
   Trash2,
   X,
+  Loader2,
+  Edit3,
+  ChevronDown,
 } from 'lucide-react';
 
-const InstagramIcon: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
-    <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
-    <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
-  </svg>
-);
+const CATEGORIES = [
+  { id: 'all', label: 'All Collections' },
+  { id: 'weddings', label: 'Weddings' },
+  { id: 'editorial', label: 'Editorial' },
+  { id: 'pre-wedding', label: 'Pre-Wedding' },
+  { id: 'commercial', label: 'Commercial' },
+  { id: 'portrait', label: 'Portraits' },
+];
 
 export const EditorialVogueTemplate: React.FC<PortfolioTemplateProps> = ({
   config,
@@ -33,72 +37,11 @@ export const EditorialVogueTemplate: React.FC<PortfolioTemplateProps> = ({
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [activeProjectModal, setActiveProjectModal] = useState<PortfolioProject | null>(null);
-
-  // Scroll detection for transparent -> frosted glass navbar
   const [isScrolled, setIsScrolled] = useState(false);
-  useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 30);
-    };
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
 
-  // Modals for editing sections
-  const [editingModal, setEditingModal] = useState<
-    'hero' | 'philosophy' | 'contact' | 'project' | null
-  >(null);
+  // In-place project editing state
   const [editingProject, setEditingProject] = useState<PortfolioProject | null>(null);
-
-  // Local form drafts for modals
-  const [heroDraft, setHeroDraft] = useState({
-    studioName: config.studioName,
-    artistName: config.artistName,
-    tagline: config.tagline,
-    location: config.location,
-    bannerUrl: config.bannerUrl,
-  });
-
-  const [philDraft, setPhilDraft] = useState({
-    philosophyQuote: config.philosophyQuote,
-    philosophyAuthor: config.philosophyAuthor,
-    bio: config.bio,
-    aboutStory: config.aboutStory,
-    avatarUrl: config.avatarUrl,
-  });
-
-  const [contactDraft, setContactDraft] = useState({
-    pricingStartingAt: config.pricingStartingAt,
-    contactEmail: config.contactEmail,
-    contactPhone: config.contactPhone,
-    instagramHandle: config.instagramHandle,
-    isBookingOpen: config.isBookingOpen,
-  });
-
-  // Keep draft states aligned when config updates
-  useEffect(() => {
-    setHeroDraft({
-      studioName: config.studioName,
-      artistName: config.artistName,
-      tagline: config.tagline,
-      location: config.location,
-      bannerUrl: config.bannerUrl,
-    });
-    setPhilDraft({
-      philosophyQuote: config.philosophyQuote,
-      philosophyAuthor: config.philosophyAuthor,
-      bio: config.bio,
-      aboutStory: config.aboutStory,
-      avatarUrl: config.avatarUrl,
-    });
-    setContactDraft({
-      pricingStartingAt: config.pricingStartingAt,
-      contactEmail: config.contactEmail,
-      contactPhone: config.contactPhone,
-      instagramHandle: config.instagramHandle,
-      isBookingOpen: config.isBookingOpen,
-    });
-  }, [config]);
+  const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
 
   // Inquiry form state
   const [formData, setFormData] = useState({
@@ -113,6 +56,14 @@ export const EditorialVogueTemplate: React.FC<PortfolioTemplateProps> = ({
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 40);
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const filteredProjects = useMemo(() => {
     if (selectedCategory === 'all') return config.featuredWorks;
@@ -134,599 +85,785 @@ export const EditorialVogueTemplate: React.FC<PortfolioTemplateProps> = ({
     }
   };
 
-  // Save section helpers
-  const handleSaveHero = () => {
+  // In-place update helper
+  const handleUpdate = <K extends keyof typeof config>(field: K, value: (typeof config)[K]) => {
     if (onUpdateConfig) {
-      onUpdateConfig(heroDraft);
+      onUpdateConfig({ [field]: value });
     }
-    setEditingModal(null);
   };
 
-  const handleSavePhilosophy = () => {
-    if (onUpdateConfig) {
-      onUpdateConfig(philDraft);
-    }
-    setEditingModal(null);
-  };
+  // In-place project saving
+  const handleSaveProject = (savedProject: PortfolioProject) => {
+    const existingIndex = config.featuredWorks.findIndex((p) => p.id === savedProject.id);
+    let nextWorks: PortfolioProject[];
 
-  const handleSaveContact = () => {
-    if (onUpdateConfig) {
-      onUpdateConfig(contactDraft);
-    }
-    setEditingModal(null);
-  };
-
-  const handleSaveProject = () => {
-    if (!editingProject || !onUpdateConfig) return;
-    const exists = config.featuredWorks.some((p) => p.id === editingProject.id);
-    let updated: PortfolioProject[];
-    if (exists) {
-      updated = config.featuredWorks.map((p) => (p.id === editingProject.id ? editingProject : p));
+    if (existingIndex !== -1) {
+      nextWorks = [...config.featuredWorks];
+      nextWorks[existingIndex] = savedProject;
     } else {
-      updated = [editingProject, ...config.featuredWorks];
+      nextWorks = [savedProject, ...config.featuredWorks];
     }
-    onUpdateConfig({ featuredWorks: updated });
-    setEditingModal(null);
-    setEditingProject(null);
+
+    handleUpdate('featuredWorks', nextWorks);
   };
 
-  const handleDeleteProject = (projectId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (window.confirm('Remove this project from your portfolio?') && onUpdateConfig) {
-      const updated = config.featuredWorks.filter((p) => p.id !== projectId);
-      onUpdateConfig({ featuredWorks: updated });
-    }
-  };
-
-  const handleCreateNewProject = () => {
-    const newProj: PortfolioProject = {
-      id: `proj-${Date.now()}`,
-      title: 'New Editorial Story',
-      category: 'weddings',
-      coverUrl: 'https://images.unsplash.com/photo-1519741497674-611481863552?w=1200&auto=format&fit=crop&q=85',
-      year: new Date().getFullYear().toString(),
-      location: 'Udaipur, Rajasthan',
-      description: 'A curated visual documentation capturing timeless elegance, raw emotion, and exquisite daylight moments.',
-      mediaCount: 45,
-      highlightMedia: [
-        'https://images.unsplash.com/photo-1519741497674-611481863552?w=1000&auto=format&fit=crop&q=80',
-        'https://images.unsplash.com/photo-1583939003579-730e3918a45a?w=1000&auto=format&fit=crop&q=80',
-      ],
-    };
-    setEditingProject(newProj);
-    setEditingModal('project');
+  // In-place project delete
+  const handleDeleteProject = (projectId: string) => {
+    const nextWorks = config.featuredWorks.filter((p) => p.id !== projectId);
+    handleUpdate('featuredWorks', nextWorks);
   };
 
   return (
-    <div className="min-h-screen bg-[#faf8f5] dark:bg-[#0a0b10] text-neutral-900 dark:text-neutral-100 font-sans transition-colors duration-300 selection:bg-amber-400 selection:text-neutral-950">
-      
-      {/* ─── 1. LUXURY TOP NAVIGATION (TRANSPARENT ON TOP OVER HERO) ─── */}
+    <div className="relative min-h-screen bg-[#faf9f5] dark:bg-[#0b0c0e] text-[#1c1a17] dark:text-[#f4f3ef] font-sans selection:bg-amber-400 selection:text-neutral-950 transition-colors duration-500 overflow-x-hidden">
+      {/* ─── LIVE EDIT MODE FLOATING BANNER ─── */}
+      {isEditable && (
+        <aside
+          aria-label="Editor controls"
+          className="fixed bottom-6 right-6 z-40 bg-neutral-950/95 text-white backdrop-blur-xl border border-amber-400/50 px-4 py-2.5 rounded-2xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-bottom duration-300"
+        >
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping" />
+            <span className="text-xs font-mono font-bold uppercase tracking-wider text-amber-400">
+              Live In-Place Edit Mode
+            </span>
+          </div>
+          <span className="text-neutral-400 text-xs hidden sm:inline">• Click any title, story, or photo to edit</span>
+        </aside>
+      )}
+
+      {/* ─── EDITORIAL MASTHEAD NAVIGATION ─── */}
       <header
-        className={`fixed top-0 left-0 right-0 z-40 transition-all duration-300 ${
+        className={`fixed top-0 left-0 right-0 z-30 transition-all duration-500 ${
           isScrolled
-            ? 'bg-neutral-950/85 backdrop-blur-xl border-b border-white/10 shadow-2xl py-3.5'
-            : 'bg-transparent border-b border-transparent py-5 sm:py-6'
+            ? 'bg-[#faf9f5]/90 dark:bg-[#0b0c0e]/90 backdrop-blur-xl border-b border-neutral-200/80 dark:border-neutral-800/80 py-3.5 shadow-sm'
+            : 'bg-gradient-to-b from-black/60 via-black/20 to-transparent py-5 text-white'
         }`}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
-          {/* Clean Brand Typography (No profile pic / avatar circle) */}
+          {/* Masthead Monogram & Issue Tag */}
           <div className="flex items-center gap-3">
-            <div className="group cursor-pointer">
-              <span className="text-base sm:text-xl font-serif font-bold tracking-tight block text-white drop-shadow-sm">
-                {config.studioName}
-              </span>
-              <span className="text-[10px] uppercase font-mono tracking-widest text-amber-400 font-semibold flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                <span>Editorial & Fine-Art</span>
-              </span>
-            </div>
+            <a
+              href="#hero"
+              className="group flex items-baseline gap-2 font-serif text-lg sm:text-xl font-bold tracking-tight"
+            >
+              <EditableText
+                value={config.studioName}
+                onSave={(val) => handleUpdate('studioName', val)}
+                isEditable={isEditable}
+                label="Studio Name"
+                className="font-serif tracking-tight"
+              />
+            </a>
+            <span
+              className={`text-[9px] font-mono uppercase tracking-[0.25em] px-2 py-0.5 rounded-full border ${
+                isScrolled
+                  ? 'border-neutral-300 dark:border-neutral-800 text-neutral-500'
+                  : 'border-white/30 text-white/80'
+              } hidden sm:inline-block`}
+            >
+              VOL. 26 • L'ÉDITION
+            </span>
           </div>
 
           {/* Navigation Links */}
-          <nav className="hidden md:flex items-center gap-8 text-xs font-semibold uppercase tracking-widest text-neutral-200">
-            <a href="#works" className="hover:text-amber-400 transition-colors">Works</a>
-            <a href="#philosophy" className="hover:text-amber-400 transition-colors">Philosophy</a>
-            <a href="#about" className="hover:text-amber-400 transition-colors">About</a>
-            <a href="#contact" className="hover:text-amber-400 transition-colors">Inquire</a>
-          </nav>
-
-          {/* Booking Button & Commissions Badge */}
-          <div className="flex items-center gap-3">
-            {config.isBookingOpen && (
-              <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/40 backdrop-blur-md border border-emerald-400/30 text-emerald-300 text-[11px] font-mono font-medium shadow-sm">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span>Commissions Open</span>
-              </span>
-            )}
+          <nav className="flex items-center gap-6 text-xs uppercase tracking-[0.2em] font-mono">
             <a
-              href="#contact"
-              className="px-5 py-2 rounded-full bg-amber-400 hover:bg-amber-300 text-neutral-950 font-bold text-xs uppercase tracking-wider transition-all hover:scale-105 active:scale-95 shadow-lg shadow-amber-500/20 cursor-pointer"
+              href="#works"
+              className={`transition-colors hover:text-amber-500 ${
+                isScrolled ? 'text-neutral-600 dark:text-neutral-300' : 'text-white/80 hover:text-white'
+              }`}
             >
-              Book Date
+              Collections
             </a>
-          </div>
+            <a
+              href="#philosophy"
+              className={`transition-colors hover:text-amber-500 ${
+                isScrolled ? 'text-neutral-600 dark:text-neutral-300' : 'text-white/80 hover:text-white'
+              }`}
+            >
+              Atelier
+            </a>
+            <a
+              href="#inquire"
+              className="px-3.5 py-1.5 rounded-full bg-amber-400 hover:bg-amber-300 text-neutral-950 font-bold transition-transform hover:scale-105 active:scale-95 shadow-sm"
+            >
+              Inquire
+            </a>
+          </nav>
         </div>
       </header>
 
-      {/* ─── 2. EDITORIAL MAGAZINE HERO BANNER ─── */}
-      <section className="relative min-h-[85vh] sm:min-h-[92vh] flex items-end justify-start overflow-hidden border-b border-neutral-200/80 dark:border-neutral-800/80">
-        {/* Full-bleed banner visual */}
+      {/* ─── HERO: HIGH-FASHION COVER SPREAD ─── */}
+      <section id="hero" className="relative min-h-[92vh] sm:min-h-screen flex items-end justify-start overflow-hidden pt-24 pb-12 sm:pb-20">
+        {/* Parallax Hero Background Image */}
         <div className="absolute inset-0 z-0">
-          <img
+          <EditableImage
             src={config.bannerUrl}
             alt={config.studioName}
-            className="w-full h-full object-cover object-center scale-100 transition-transform duration-1000 ease-out"
+            onSave={(url) => handleUpdate('bannerUrl', url)}
+            isEditable={isEditable}
+            label="Hero Cover Photo"
+            className="w-full h-full object-cover object-center filter brightness-[0.82] contrast-[1.05]"
+            containerClassName="w-full h-full"
           />
-          {/* Luxury Gradient Scrim: ensures transparent header text & hero content pop */}
-          <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/30 to-black/90 dark:from-black/80 dark:via-black/40 dark:to-[#0a0b10]" />
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-amber-500/10 via-transparent to-transparent pointer-events-none" />
+          {/* Subtle Editorial Vignette & Gradient */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-black/20 pointer-events-none" />
+          <div className="absolute inset-0 bg-radial-gradient from-transparent via-black/10 to-black/60 pointer-events-none" />
         </div>
 
-        {/* In-Place Hero Edit Trigger */}
-        {isEditable && (
-          <div className="absolute top-24 right-6 z-30 animate-in fade-in">
-            <button
-              onClick={() => setEditingModal('hero')}
-              className="px-4 py-2 rounded-full bg-amber-400 hover:bg-amber-300 text-neutral-950 text-xs font-mono font-bold shadow-2xl flex items-center gap-2 hover:scale-105 transition-all cursor-pointer"
-            >
-              <Edit3 className="w-3.5 h-3.5 stroke-[2.5]" />
-              <span>Edit Hero & Cover</span>
-            </button>
-          </div>
-        )}
-
-        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24 w-full text-white">
-          <div className="max-w-3xl space-y-4">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-amber-300 font-mono text-xs uppercase tracking-wider">
-              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-              <span>{config.location}</span>
+        {/* Hero Content Container */}
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full text-white">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
+            className="max-w-4xl space-y-4"
+          >
+            {/* Dateline & Issue Meta */}
+            <div className="flex flex-wrap items-center gap-2.5 text-[11px] sm:text-xs font-mono uppercase tracking-[0.25em] text-amber-400 font-semibold">
+              <span className="flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5" />
+                <EditableText
+                  value={config.location}
+                  onSave={(val) => handleUpdate('location', val)}
+                  isEditable={isEditable}
+                  label="Location"
+                />
+              </span>
+              <span>•</span>
+              <span>SPECIAL ISSUE 2026/27</span>
+              {config.isBookingOpen && (
+                <>
+                  <span>•</span>
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold">
+                    RESERVING DATES
+                  </span>
+                </>
+              )}
             </div>
 
-            <h1 className="text-4xl sm:text-6xl lg:text-8xl font-serif font-normal tracking-tight text-white leading-[1.05] drop-shadow-md">
-              {config.artistName}
+            {/* Huge Vogue-Style Editorial Headline */}
+            <h1 className="font-serif text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-bold tracking-tight leading-[0.92] text-white">
+              <EditableText
+                value={config.studioName}
+                onSave={(val) => handleUpdate('studioName', val)}
+                isEditable={isEditable}
+                label="Headline / Studio Name"
+                className="font-serif italic font-normal"
+              />
             </h1>
 
-            <p className="text-base sm:text-xl text-neutral-200 font-light max-w-2xl leading-relaxed">
-              {config.tagline}
-            </p>
-
-            <div className="pt-4 flex flex-wrap items-center gap-4">
-              <a
-                href="#works"
-                className="px-7 py-3.5 rounded-full bg-amber-400 hover:bg-amber-300 text-neutral-950 font-bold text-xs uppercase tracking-widest flex items-center gap-2 transition-all hover:scale-105 active:scale-95 shadow-xl shadow-amber-500/20"
-              >
-                <span>Explore Works</span>
-                <ArrowRight className="w-4 h-4" />
-              </a>
-
-              <a
-                href="#contact"
-                className="px-7 py-3.5 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/25 text-white font-semibold text-xs uppercase tracking-widest transition-all"
-              >
-                Inquire Commission
-              </a>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ─── 3. EDITORIAL PHILOSOPHY & STATEMENT ─── */}
-      <section id="philosophy" className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 border-b border-neutral-200/80 dark:border-neutral-800/80 relative">
-        {isEditable && (
-          <div className="max-w-6xl mx-auto flex justify-end mb-4">
-            <button
-              onClick={() => setEditingModal('philosophy')}
-              className="px-3.5 py-1.5 rounded-full bg-neutral-900 dark:bg-neutral-800 text-amber-400 border border-amber-400/30 text-xs font-mono font-bold flex items-center gap-2 hover:bg-neutral-800 transition-all cursor-pointer"
-            >
-              <Edit3 className="w-3.5 h-3.5" />
-              <span>Edit Philosophy & Story</span>
-            </button>
-          </div>
-        )}
-
-        <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center">
-          <div className="lg:col-span-5 relative">
-            <div className="aspect-[4/5] rounded-3xl overflow-hidden shadow-2xl border border-neutral-200/80 dark:border-neutral-800 relative group">
-              <img
-                src={config.avatarUrl}
-                alt={config.artistName}
-                className="w-full h-full object-cover object-top transition-transform duration-700 group-hover:scale-105"
+            {/* Tagline / Subtitle */}
+            <p className="text-sm sm:text-lg md:text-xl text-neutral-200/90 font-serif italic max-w-2xl leading-relaxed">
+              "
+              <EditableText
+                value={config.tagline}
+                onSave={(val) => handleUpdate('tagline', val)}
+                isEditable={isEditable}
+                label="Tagline"
+                className="font-serif italic"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
-              <div className="absolute bottom-5 left-5 right-5 text-white">
-                <span className="text-[10px] font-mono uppercase tracking-widest text-amber-400 block mb-1">
-                  Creative Director
-                </span>
-                <span className="text-lg font-serif font-bold block">{config.artistName}</span>
-                <span className="text-xs text-neutral-300 font-light">{config.location}</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="lg:col-span-7 space-y-6">
-            <div className="inline-flex items-center gap-2 text-amber-600 dark:text-amber-400 font-mono text-xs uppercase tracking-widest font-bold">
-              <span className="w-6 h-[1px] bg-amber-500" />
-              <span>Artistic Philosophy</span>
-            </div>
-
-            <blockquote className="text-2xl sm:text-3xl lg:text-4xl font-serif font-normal italic text-neutral-900 dark:text-white leading-snug">
-              {config.philosophyQuote}
-            </blockquote>
-
-            <p className="text-sm sm:text-base text-neutral-600 dark:text-neutral-400 leading-relaxed font-normal">
-              {config.bio}
+              "
             </p>
 
-            <p className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 leading-relaxed font-light">
-              {config.aboutStory}
-            </p>
-
-            <div className="pt-4 grid grid-cols-3 gap-4 border-t border-neutral-200 dark:border-neutral-800 text-center sm:text-left">
-              <div>
-                <span className="text-2xl sm:text-3xl font-serif font-bold text-neutral-900 dark:text-white block font-mono">
-                  8+
-                </span>
-                <span className="text-xs text-neutral-500 font-medium">Years Curating</span>
-              </div>
-              <div>
-                <span className="text-2xl sm:text-3xl font-serif font-bold text-neutral-900 dark:text-white block font-mono">
-                  180+
-                </span>
-                <span className="text-xs text-neutral-500 font-medium">Couples Documented</span>
-              </div>
-              <div>
-                <span className="text-2xl sm:text-3xl font-serif font-bold text-amber-500 block font-mono">
-                  14
-                </span>
-                <span className="text-xs text-neutral-500 font-medium">Countries Traveled</span>
-              </div>
+            {/* Photographer Moniker */}
+            <div className="pt-2 flex items-center gap-3 text-xs sm:text-sm font-mono tracking-wider text-neutral-300">
+              <span className="uppercase text-neutral-400">Captured by</span>
+              <EditableText
+                value={config.artistName}
+                onSave={(val) => handleUpdate('artistName', val)}
+                isEditable={isEditable}
+                label="Photographer Name"
+                className="font-bold text-white uppercase tracking-widest border-b border-amber-400 pb-0.5"
+              />
             </div>
+          </motion.div>
+
+          {/* Bottom Floating Scroll Indicator */}
+          <div className="pt-10 flex items-center justify-between border-t border-white/20 mt-8 text-neutral-400 text-xs font-mono">
+            <span className="uppercase tracking-[0.2em] text-[10px]">L'ÉDITION PHOTOGRAPHIQUE</span>
+            <a
+              href="#works"
+              className="flex items-center gap-2 hover:text-amber-400 transition-colors cursor-pointer group"
+            >
+              <span>EXPLORE COLLECTIONS</span>
+              <ChevronDown className="w-4 h-4 animate-bounce group-hover:text-amber-400" />
+            </a>
           </div>
         </div>
       </section>
 
-      {/* ─── 4. CURATED WORKS SHOWCASE (MASONRY GRID) ─── */}
-      <section id="works" className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 border-b border-neutral-200/80 dark:border-neutral-800/80">
-        <div className="max-w-7xl mx-auto space-y-10">
-          {/* Header & Category Filter Bar */}
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-            <div>
-              <span className="text-xs uppercase font-mono tracking-widest text-amber-600 dark:text-amber-400 font-bold block mb-2">
-                Selected Portfolio
-              </span>
-              <h2 className="text-3xl sm:text-4xl font-serif font-bold tracking-tight text-neutral-900 dark:text-white">
-                Curated Works & Stories
-              </h2>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-3">
-              {/* Add Project Button (Editable Mode) */}
-              {isEditable && (
-                <button
-                  onClick={handleCreateNewProject}
-                  className="px-4 py-2 rounded-full bg-amber-400 hover:bg-amber-300 text-neutral-950 text-xs font-mono font-bold flex items-center gap-1.5 transition-all shadow-md cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5 stroke-[3]" />
-                  <span>Add Project</span>
-                </button>
-              )}
-
-              {/* Filter Pills */}
-              <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-                {[
-                  { id: 'all', label: 'All Works' },
-                  { id: 'weddings', label: 'Weddings' },
-                  { id: 'editorial', label: 'Editorial' },
-                  { id: 'pre-wedding', label: 'Pre-Wedding' },
-                  { id: 'commercial', label: 'Commercial' },
-                ].map((tab) => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setSelectedCategory(tab.id)}
-                    className={`px-4 py-2 rounded-full text-xs font-semibold uppercase tracking-wider whitespace-nowrap transition-all cursor-pointer ${
-                      selectedCategory === tab.id
-                        ? 'bg-neutral-950 dark:bg-amber-400 text-white dark:text-neutral-950 shadow-md font-bold'
-                        : 'bg-white dark:bg-neutral-900 text-neutral-600 dark:text-neutral-400 hover:text-neutral-950 dark:hover:text-white border border-neutral-200 dark:border-neutral-800'
-                    }`}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
-            </div>
+      {/* ─── SECTION 2: CURATED COLLECTIONS & WORKS ─── */}
+      <section id="works" className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+        {/* Section Header */}
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-10 border-b border-neutral-200 dark:border-neutral-800">
+          <div className="space-y-2">
+            <span className="text-[10px] font-mono uppercase tracking-[0.3em] text-amber-600 dark:text-amber-400 font-bold block">
+              PORTFOLIO ARCHIVE • INDEX 01
+            </span>
+            <h2 className="font-serif text-3xl sm:text-5xl font-bold tracking-tight">
+              Selected <span className="italic font-normal">Works</span>
+            </h2>
+            <p className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 font-serif max-w-md">
+              A curated anthology of timeless celebrations, high-fashion editorials, and intimate storytelling.
+            </p>
           </div>
 
-          {/* Masonry / Grid of Projects */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
-            {filteredProjects.map((project: PortfolioProject) => (
-              <div
-                key={project.id}
-                onClick={() => setActiveProjectModal(project)}
-                className="group cursor-pointer rounded-3xl overflow-hidden bg-white dark:bg-[#13141b] border border-neutral-200/80 dark:border-neutral-800 shadow-sm hover:shadow-2xl transition-all duration-300 hover:-translate-y-1.5 flex flex-col justify-between relative"
+          {/* Category Tabs & Add Work Button */}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap gap-1.5 p-1 rounded-2xl bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800">
+              {CATEGORIES.map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => setSelectedCategory(cat.id)}
+                  className={`px-3 py-1.5 rounded-xl font-mono text-[11px] uppercase tracking-wider font-semibold transition-all cursor-pointer ${
+                    selectedCategory === cat.id
+                      ? 'bg-amber-400 text-neutral-950 shadow-sm font-bold'
+                      : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-950 dark:hover:text-white'
+                  }`}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
+
+            {/* In-Place Add Project Button */}
+            {isEditable && (
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingProject(null);
+                  setIsProjectModalOpen(true);
+                }}
+                className="px-3.5 py-2 rounded-2xl bg-amber-400 hover:bg-amber-300 text-neutral-950 font-bold text-xs flex items-center gap-1.5 shadow-md transition-transform hover:scale-105 active:scale-95 cursor-pointer ml-1"
+                title="Add a new project to your portfolio"
               >
-                <div className="relative aspect-[4/5] overflow-hidden">
+                <Plus className="w-4 h-4 stroke-[2.5]" />
+                <span>Add Work</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Dynamic Asymmetrical High-Fashion Masonry Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 pt-12">
+          {filteredProjects.map((project, idx) => {
+            // Asymmetrical layout styling for high-fashion editorial look
+            const isWide = idx % 5 === 0;
+
+            return (
+              <motion.article
+                key={project.id}
+                layout
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: '-50px' }}
+                transition={{ duration: 0.6, delay: (idx % 3) * 0.1 }}
+                className={`group relative rounded-2xl overflow-hidden bg-white dark:bg-[#121316] border border-neutral-200/90 dark:border-neutral-800/80 shadow-xs hover:shadow-xl transition-all duration-500 flex flex-col ${
+                  isWide ? 'md:col-span-2' : ''
+                }`}
+              >
+                {/* Photo Container */}
+                <div
+                  className="relative aspect-4/3 sm:aspect-16/10 overflow-hidden cursor-pointer bg-neutral-900"
+                  onClick={() => setActiveProjectModal(project)}
+                >
                   <img
                     src={project.coverUrl}
                     alt={project.title}
-                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+                    loading="lazy"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-80 group-hover:opacity-90 transition-opacity" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-60 group-hover:opacity-80 transition-opacity duration-300" />
 
-                  {/* Top Badge & Edit/Delete Controls */}
-                  <div className="absolute top-4 left-4 right-4 flex items-center justify-between">
-                    <span className="px-3 py-1 rounded-full bg-white/20 backdrop-blur-md border border-white/25 text-white font-mono text-[10px] uppercase font-bold tracking-wider">
+                  {/* Category Pill & Year */}
+                  <div className="absolute top-3.5 left-3.5 right-3.5 flex items-center justify-between pointer-events-none">
+                    <span className="px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md text-[10px] font-mono uppercase tracking-widest text-amber-300 font-bold border border-white/10">
                       {project.category}
                     </span>
+                    <span className="px-2 py-0.5 rounded-md bg-black/50 backdrop-blur-md text-[10px] font-mono text-white/90">
+                      {project.year}
+                    </span>
+                  </div>
 
-                    <div className="flex items-center gap-1.5">
-                      {isEditable && (
+                  {/* In-Place Edit Actions (Photographer Only) */}
+                  {isEditable && (
+                    <div className="absolute top-3 right-3 flex items-center gap-1.5 z-20">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingProject(project);
+                          setIsProjectModalOpen(true);
+                        }}
+                        className="p-2 rounded-xl bg-neutral-950/90 hover:bg-amber-400 hover:text-neutral-950 text-white shadow-lg transition-colors cursor-pointer"
+                        title="Edit project details"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (window.confirm(`Remove "${project.title}" from your portfolio?`)) {
+                            handleDeleteProject(project.id);
+                          }
+                        }}
+                        className="p-2 rounded-xl bg-neutral-950/90 hover:bg-rose-500 text-white shadow-lg transition-colors cursor-pointer"
+                        title="Remove project"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Hover Inspect CTA */}
+                  <div className="absolute bottom-3.5 right-3.5 px-3 py-1 rounded-full bg-white/90 dark:bg-neutral-950/90 text-neutral-950 dark:text-white text-[11px] font-mono uppercase tracking-wider font-semibold opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center gap-1 transform translate-y-1 group-hover:translate-y-0">
+                    <span>Inspect</span>
+                    <ArrowUpRight className="w-3.5 h-3.5" />
+                  </div>
+                </div>
+
+                {/* Editorial Caption Box */}
+                <div className="p-5 flex-1 flex flex-col justify-between space-y-3">
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2 text-[11px] font-mono text-neutral-500 uppercase tracking-wider">
+                      <MapPin className="w-3 h-3 text-amber-500 shrink-0" />
+                      <span className="line-clamp-1">{project.location}</span>
+                      {project.clientName && (
                         <>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setEditingProject(project);
-                              setEditingModal('project');
-                            }}
-                            className="p-1.5 rounded-full bg-black/60 hover:bg-amber-400 hover:text-neutral-950 text-white backdrop-blur-md transition-colors"
-                            title="Edit Project"
-                          >
-                            <Edit2 className="w-3 h-3" />
-                          </button>
-                          <button
-                            onClick={(e) => handleDeleteProject(project.id, e)}
-                            className="p-1.5 rounded-full bg-black/60 hover:bg-rose-500 text-white backdrop-blur-md transition-colors"
-                            title="Delete Project"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
+                          <span>•</span>
+                          <span className="line-clamp-1">{project.clientName}</span>
                         </>
                       )}
-                      <span className="text-[11px] font-mono text-white/80 font-bold bg-black/40 px-2 py-0.5 rounded-full">
-                        {project.year}
-                      </span>
                     </div>
-                  </div>
 
-                  {/* Bottom Info on Image */}
-                  <div className="absolute bottom-4 left-4 right-4 text-white">
-                    <span className="text-[11px] font-mono text-amber-400 uppercase tracking-widest block mb-1 flex items-center gap-1">
-                      <MapPin className="w-3 h-3" />
-                      <span>{project.location}</span>
-                    </span>
-                    <h3 className="text-lg font-serif font-bold tracking-tight leading-snug">
+                    <h3
+                      onClick={() => setActiveProjectModal(project)}
+                      className="font-serif text-lg sm:text-xl font-bold tracking-tight text-neutral-900 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors cursor-pointer line-clamp-2"
+                    >
                       {project.title}
                     </h3>
+
+                    {project.description && (
+                      <p className="text-xs text-neutral-500 dark:text-neutral-400 line-clamp-2 leading-relaxed font-serif">
+                        {project.description}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="pt-2 border-t border-neutral-100 dark:border-neutral-800/80 flex items-center justify-between text-[11px] font-mono text-neutral-400">
+                    <span>{project.mediaCount || 24} Curated Frames</span>
+                    <button
+                      type="button"
+                      onClick={() => setActiveProjectModal(project)}
+                      className="font-semibold text-neutral-800 dark:text-neutral-200 group-hover:text-amber-500 flex items-center gap-1 transition-colors cursor-pointer"
+                    >
+                      <span>View Lookbook</span>
+                      <ArrowRight className="w-3 h-3 stroke-[2.5]" />
+                    </button>
                   </div>
                 </div>
+              </motion.article>
+            );
+          })}
+        </div>
 
-                <div className="p-4 flex items-center justify-between text-xs text-neutral-500 dark:text-neutral-400 border-t border-neutral-100 dark:border-neutral-800/80">
-                  <span>{project.mediaCount || 48} Curated Frames</span>
-                  <span className="text-amber-600 dark:text-amber-400 font-semibold group-hover:underline flex items-center gap-1">
-                    <span>Inspect Series</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </span>
+        {/* Empty State */}
+        {filteredProjects.length === 0 && (
+          <div className="text-center py-20 rounded-3xl border-2 border-dashed border-neutral-300 dark:border-neutral-800 my-8 space-y-3">
+            <Sparkles className="w-8 h-8 text-amber-400 mx-auto" />
+            <h3 className="font-serif text-lg font-bold">No Projects Found in this Category</h3>
+            <p className="text-xs text-neutral-400 font-mono">Select another category or add a new project to this collection.</p>
+          </div>
+        )}
+      </section>
+
+      {/* ─── SECTION 3: THE ATELIER & PHILOSOPHY DOUBLE SPREAD ─── */}
+      <section id="philosophy" className="py-20 sm:py-28 bg-white dark:bg-[#0f1013] border-y border-neutral-200 dark:border-neutral-800/80">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center">
+            {/* Left: Oversized Quotation & Philosophy Statement */}
+            <div className="lg:col-span-7 space-y-6">
+              <span className="text-[10px] font-mono uppercase tracking-[0.3em] text-amber-600 dark:text-amber-400 font-bold block">
+                PHILOSOPHIE & VISION
+              </span>
+
+              <blockquote className="font-serif text-2xl sm:text-4xl md:text-5xl font-bold tracking-tight leading-[1.15] text-neutral-900 dark:text-white">
+                “
+                <EditableText
+                  value={config.philosophyQuote}
+                  onSave={(val) => handleUpdate('philosophyQuote', val)}
+                  isEditable={isEditable}
+                  multiline={true}
+                  label="Philosophy Quote"
+                  className="font-serif italic font-normal"
+                />
+                ”
+              </blockquote>
+
+              <div className="flex items-center gap-3 pt-2">
+                <div className="w-10 h-0.5 bg-amber-400" />
+                <span className="font-mono text-xs uppercase tracking-widest text-neutral-500 dark:text-neutral-400 font-bold">
+                  —{' '}
+                  <EditableText
+                    value={config.philosophyAuthor}
+                    onSave={(val) => handleUpdate('philosophyAuthor', val)}
+                    isEditable={isEditable}
+                    label="Quote Author"
+                    className="font-bold"
+                  />
+                </span>
+              </div>
+
+              {/* Bio & Story */}
+              <div className="pt-4 space-y-4 text-xs sm:text-sm text-neutral-600 dark:text-neutral-300 leading-relaxed font-serif max-w-xl">
+                <EditableText
+                  value={config.aboutStory || config.bio}
+                  onSave={(val) => handleUpdate('aboutStory', val)}
+                  isEditable={isEditable}
+                  multiline={true}
+                  label="Artist Story / Bio"
+                  as="p"
+                  className="leading-relaxed"
+                />
+              </div>
+
+              {/* Investment Starting Pill */}
+              <div className="pt-4 flex flex-wrap items-center gap-4 text-xs font-mono">
+                <div className="px-4 py-2 rounded-xl bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800">
+                  <span className="text-neutral-500 uppercase mr-2">Investment from:</span>
+                  <EditableText
+                    value={config.pricingStartingAt}
+                    onSave={(val) => handleUpdate('pricingStartingAt', val)}
+                    isEditable={isEditable}
+                    label="Starting Pricing"
+                    className="font-bold text-amber-500 dark:text-amber-400"
+                  />
+                </div>
+                <div className="px-4 py-2 rounded-xl bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800">
+                  <span className="text-neutral-500 uppercase mr-2">Studio Base:</span>
+                  <span className="font-bold text-neutral-900 dark:text-white">{config.location}</span>
                 </div>
               </div>
-            ))}
+            </div>
+
+            {/* Right: Framed Photographer Portrait */}
+            <div className="lg:col-span-5 flex flex-col items-center">
+              <div className="relative w-full max-w-md aspect-3/4 rounded-3xl overflow-hidden shadow-2xl border-4 border-white dark:border-neutral-800 bg-neutral-900">
+                <EditableImage
+                  src={config.avatarUrl}
+                  alt={config.artistName}
+                  onSave={(url) => handleUpdate('avatarUrl', url)}
+                  isEditable={isEditable}
+                  label="Artist Portrait"
+                  className="w-full h-full object-cover filter contrast-[1.05]"
+                  containerClassName="w-full h-full"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
+
+                <div className="absolute bottom-5 left-5 right-5 text-white">
+                  <span className="text-[10px] font-mono uppercase tracking-[0.25em] text-amber-400 font-bold block mb-1">
+                    PRIMARY ARTIST
+                  </span>
+                  <h4 className="font-serif text-2xl font-bold tracking-tight">
+                    {config.artistName}
+                  </h4>
+                  <p className="text-xs text-neutral-300 font-serif italic">
+                    Principal Visual Director & Founder
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* ─── 5. BESPOKE INQUIRY & BOOKING SECTION ─── */}
-      <section id="contact" className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 relative">
-        {isEditable && (
-          <div className="max-w-4xl mx-auto flex justify-end mb-4">
-            <button
-              onClick={() => setEditingModal('contact')}
-              className="px-3.5 py-1.5 rounded-full bg-neutral-900 dark:bg-neutral-800 text-amber-400 border border-amber-400/30 text-xs font-mono font-bold flex items-center gap-2 hover:bg-neutral-800 transition-all cursor-pointer"
-            >
-              <Edit3 className="w-3.5 h-3.5" />
-              <span>Edit Pricing & Contact Details</span>
-            </button>
-          </div>
-        )}
+      {/* ─── SECTION 4: HAUTE COUTURE INQUIRY SALON ─── */}
+      <section id="inquire" className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto">
+        <div className="text-center space-y-3 mb-12">
+          <span className="text-[10px] font-mono uppercase tracking-[0.3em] text-amber-600 dark:text-amber-400 font-bold block">
+            RESERVATION & COMMISSIONS
+          </span>
+          <h2 className="font-serif text-4xl sm:text-6xl font-bold tracking-tight">
+            Reserve Your <span className="italic font-normal">Story</span>
+          </h2>
+          <p className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 font-serif max-w-lg mx-auto">
+            We limit our calendar to a curated number of commissions each season to ensure bespoke attention to every story.
+          </p>
+        </div>
 
-        <div className="max-w-4xl mx-auto rounded-3xl p-6 sm:p-12 bg-white dark:bg-[#13141b] border border-neutral-200 dark:border-neutral-800 shadow-2xl space-y-8 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-80 h-80 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
-
-          <div className="text-center max-w-xl mx-auto space-y-2">
-            <span className="text-xs uppercase font-mono tracking-widest text-amber-600 dark:text-amber-400 font-bold block">
-              Commissions & Bookings
-            </span>
-            <h2 className="text-3xl sm:text-4xl font-serif font-bold text-neutral-900 dark:text-white tracking-tight">
-              Begin Your Visual Legacy
-            </h2>
-            <p className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400">
-              Tell us about your wedding, editorial campaign, or worldwide destination shoot.
-            </p>
-          </div>
-
+        {/* Inquiry Card Form */}
+        <div className="rounded-3xl bg-white dark:bg-[#121316] border border-neutral-200 dark:border-neutral-800 shadow-xl p-6 sm:p-10 relative overflow-hidden">
           {isSuccess ? (
-            <div className="p-8 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-center space-y-3 animate-in fade-in">
-              <div className="w-12 h-12 rounded-full bg-emerald-500 text-neutral-950 flex items-center justify-center mx-auto">
-                <CheckCircle2 className="w-6 h-6 stroke-[2.5]" />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="text-center py-12 space-y-4"
+            >
+              <div className="w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 mx-auto flex items-center justify-center">
+                <CheckCircle2 className="w-8 h-8 stroke-[2.5]" />
               </div>
-              <h3 className="text-lg font-bold text-neutral-900 dark:text-white">
-                Inquiry Successfully Dispatched
-              </h3>
-              <p className="text-xs text-neutral-600 dark:text-neutral-400 max-w-md mx-auto">
-                Thank you for reaching out to {config.studioName}. Our team will review your dates and respond within 24 hours.
+              <h3 className="font-serif text-2xl sm:text-3xl font-bold">Commission Request Delivered</h3>
+              <p className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 font-serif max-w-md mx-auto leading-relaxed">
+                Thank you for considering our atelier. We review all inquiries personally and will respond within 24 to 48 hours.
               </p>
               <button
+                type="button"
                 onClick={() => setIsSuccess(false)}
-                className="mt-2 text-xs font-semibold text-amber-500 hover:underline cursor-pointer"
+                className="mt-4 px-6 py-2.5 rounded-full bg-amber-400 text-neutral-950 font-bold text-xs uppercase tracking-wider font-mono hover:bg-amber-300 transition-all cursor-pointer"
               >
                 Send Another Note
               </button>
-            </div>
+            </motion.div>
           ) : (
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-400 block mb-1">
-                    Your Name / Couple
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Row 1: Name & Email */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                <div className="space-y-1.5">
+                  <label htmlFor="client-name" className="text-[11px] font-mono uppercase tracking-wider text-neutral-600 dark:text-neutral-400 font-semibold block">
+                    Your Full Name *
                   </label>
                   <input
+                    id="client-name"
                     type="text"
                     required
                     value={formData.clientName}
                     onChange={(e) => setFormData({ ...formData, clientName: e.target.value })}
-                    placeholder="Ananya & Kabir"
-                    className="w-full px-4 py-2.5 rounded-xl bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-xs text-neutral-900 dark:text-white focus:outline-none focus:border-amber-400 transition-colors"
+                    placeholder="e.g. Alisha Mehta"
+                    className="w-full px-4 py-3 rounded-xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-sm focus:outline-none focus:border-amber-400 transition-colors"
                   />
                 </div>
-                <div>
-                  <label className="text-xs font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-400 block mb-1">
-                    Email Address
+                <div className="space-y-1.5">
+                  <label htmlFor="client-email" className="text-[11px] font-mono uppercase tracking-wider text-neutral-600 dark:text-neutral-400 font-semibold block">
+                    Email Address *
                   </label>
                   <input
+                    id="client-email"
                     type="email"
                     required
                     value={formData.clientEmail}
                     onChange={(e) => setFormData({ ...formData, clientEmail: e.target.value })}
-                    placeholder="ananya@example.com"
-                    className="w-full px-4 py-2.5 rounded-xl bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-xs text-neutral-900 dark:text-white focus:outline-none focus:border-amber-400 transition-colors"
+                    placeholder="alisha@studio.com"
+                    className="w-full px-4 py-3 rounded-xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-sm focus:outline-none focus:border-amber-400 transition-colors"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <label className="text-xs font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-400 block mb-1">
+              {/* Row 2: Phone & Event Type */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                <div className="space-y-1.5">
+                  <label htmlFor="client-phone" className="text-[11px] font-mono uppercase tracking-wider text-neutral-600 dark:text-neutral-400 font-semibold block">
                     Phone / WhatsApp
                   </label>
                   <input
+                    id="client-phone"
                     type="tel"
                     value={formData.clientPhone}
                     onChange={(e) => setFormData({ ...formData, clientPhone: e.target.value })}
-                    placeholder="+91 98201 44521"
-                    className="w-full px-4 py-2.5 rounded-xl bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-xs text-neutral-900 dark:text-white focus:outline-none focus:border-amber-400 transition-colors"
+                    placeholder="+91 98765 43210"
+                    className="w-full px-4 py-3 rounded-xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-sm focus:outline-none focus:border-amber-400 transition-colors"
                   />
                 </div>
-                <div>
-                  <label className="text-xs font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-400 block mb-1">
-                    Event Date
-                  </label>
-                  <input
-                    type="date"
-                    value={formData.eventDate}
-                    onChange={(e) => setFormData({ ...formData, eventDate: e.target.value })}
-                    className="w-full px-4 py-2.5 rounded-xl bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-xs text-neutral-900 dark:text-white focus:outline-none focus:border-amber-400 transition-colors"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-400 block mb-1">
-                    Event Category
+                <div className="space-y-1.5">
+                  <label htmlFor="event-type" className="text-[11px] font-mono uppercase tracking-wider text-neutral-600 dark:text-neutral-400 font-semibold block">
+                    Occasion / Event Type
                   </label>
                   <select
+                    id="event-type"
                     value={formData.eventType}
                     onChange={(e) => setFormData({ ...formData, eventType: e.target.value })}
-                    className="w-full px-4 py-2.5 rounded-xl bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-xs text-neutral-900 dark:text-white focus:outline-none focus:border-amber-400 transition-colors cursor-pointer"
+                    className="w-full px-4 py-3 rounded-xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-sm focus:outline-none focus:border-amber-400 transition-colors"
                   >
-                    <option value="wedding">Wedding (2-3 Days)</option>
-                    <option value="pre-wedding">Pre-Wedding Shoot</option>
-                    <option value="editorial">Fashion / Editorial</option>
-                    <option value="commercial">Commercial / Brand</option>
+                    <option value="wedding">Destination Wedding</option>
+                    <option value="editorial">Fashion / Brand Editorial</option>
+                    <option value="pre-wedding">Pre-Wedding Story</option>
+                    <option value="portrait">Private Portrait Commission</option>
+                    <option value="commercial">Architecture / Commercial</option>
                   </select>
                 </div>
               </div>
 
-              <div>
-                <label className="text-xs font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-400 block mb-1">
-                  Vision & Message
+              {/* Row 3: Date & Destination */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                <div className="space-y-1.5">
+                  <label htmlFor="event-date" className="text-[11px] font-mono uppercase tracking-wider text-neutral-600 dark:text-neutral-400 font-semibold block">
+                    Anticipated Date
+                  </label>
+                  <input
+                    id="event-date"
+                    type="date"
+                    value={formData.eventDate}
+                    onChange={(e) => setFormData({ ...formData, eventDate: e.target.value })}
+                    className="w-full px-4 py-3 rounded-xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-sm focus:outline-none focus:border-amber-400 transition-colors font-mono"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label htmlFor="event-location" className="text-[11px] font-mono uppercase tracking-wider text-neutral-600 dark:text-neutral-400 font-semibold block">
+                    City / Venue Destination
+                  </label>
+                  <input
+                    id="event-location"
+                    type="text"
+                    value={formData.location}
+                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                    placeholder="e.g. Udaipur, Lake Como, Mumbai"
+                    className="w-full px-4 py-3 rounded-xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-sm focus:outline-none focus:border-amber-400 transition-colors"
+                  />
+                </div>
+              </div>
+
+              {/* Message */}
+              <div className="space-y-1.5">
+                <label htmlFor="inquiry-message" className="text-[11px] font-mono uppercase tracking-wider text-neutral-600 dark:text-neutral-400 font-semibold block">
+                  Tell Us About Your Vision *
                 </label>
                 <textarea
-                  rows={4}
+                  id="inquiry-message"
                   required
+                  rows={4}
                   value={formData.message}
                   onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-                  placeholder="Tell us about your venue, the vision for your documentary film, and any specific moments you hold dear..."
-                  className="w-full px-4 py-2.5 rounded-xl bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-xs text-neutral-900 dark:text-white focus:outline-none focus:border-amber-400 transition-colors resize-none"
+                  placeholder="Share details about your celebration, aesthetics, timeline, and what draws you to our work..."
+                  className="w-full px-4 py-3 rounded-xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-sm focus:outline-none focus:border-amber-400 transition-colors resize-none leading-relaxed"
                 />
               </div>
 
-              <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <span className="text-xs text-neutral-500 font-mono">
-                  Starting Investment: <strong className="text-neutral-900 dark:text-white">{config.pricingStartingAt}</strong>
-                </span>
-
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="px-8 py-3.5 rounded-xl bg-neutral-950 dark:bg-amber-400 hover:bg-neutral-800 dark:hover:bg-amber-300 text-white dark:text-neutral-950 font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-all hover:scale-105 active:scale-95 shadow-lg cursor-pointer"
-                >
-                  <Send className="w-4 h-4" />
-                  <span>{isSubmitting ? 'Sending...' : 'Submit Inquiry'}</span>
-                </button>
-              </div>
+              {/* Submit CTA */}
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full py-4 rounded-2xl bg-amber-400 hover:bg-amber-300 text-neutral-950 font-bold text-sm tracking-wide transition-all shadow-xl shadow-amber-400/20 active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                {isSubmitting ? (
+                  <Loader2 className="w-4 h-4 animate-spin text-neutral-950" />
+                ) : (
+                  <>
+                    <span>Submit Commission Inquiry</span>
+                    <Send className="w-4 h-4 stroke-[2.2]" />
+                  </>
+                )}
+              </button>
             </form>
           )}
+
+          {/* Direct Studio Contacts */}
+          <div className="pt-8 mt-8 border-t border-neutral-100 dark:border-neutral-800/80 flex flex-wrap items-center justify-between gap-4 text-xs font-mono text-neutral-500">
+            <div className="flex items-center gap-2">
+              <Mail className="w-4 h-4 text-amber-500 shrink-0" />
+              <EditableText
+                value={config.contactEmail}
+                onSave={(val) => handleUpdate('contactEmail', val)}
+                isEditable={isEditable}
+                label="Contact Email"
+              />
+            </div>
+            {config.contactPhone && (
+              <div className="flex items-center gap-2">
+                <Phone className="w-4 h-4 text-amber-500 shrink-0" />
+                <EditableText
+                  value={config.contactPhone}
+                  onSave={(val) => handleUpdate('contactPhone', val)}
+                  isEditable={isEditable}
+                  label="Contact Phone"
+                />
+              </div>
+            )}
+            {config.instagramHandle && (
+              <div className="flex items-center gap-2">
+                <svg className="w-4 h-4 text-amber-500 shrink-0 fill-current" viewBox="0 0 24 24">
+                  <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" />
+                </svg>
+                <span>@</span>
+                <EditableText
+                  value={config.instagramHandle}
+                  onSave={(val) => handleUpdate('instagramHandle', val)}
+                  isEditable={isEditable}
+                  label="Instagram Handle"
+                />
+              </div>
+            )}
+          </div>
         </div>
       </section>
 
-      {/* ─── 6. FOOTER ─── */}
-      <footer className="py-12 border-t border-neutral-200 dark:border-neutral-800/80 text-xs text-neutral-500 dark:text-neutral-400">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <span className="font-serif font-bold text-neutral-900 dark:text-white">{config.studioName}</span>
-            <span>•</span>
-            <span>{config.location}</span>
-          </div>
-
-          <div className="flex items-center gap-4">
-            {config.instagramHandle && (
-              <a href={`https://instagram.com/${config.instagramHandle.replace('@', '')}`} target="_blank" rel="noreferrer" className="hover:text-amber-500 transition-colors flex items-center gap-1">
-                <InstagramIcon className="w-4 h-4" />
-                <span>{config.instagramHandle}</span>
-              </a>
-            )}
-            <a href={`mailto:${config.contactEmail}`} className="hover:text-amber-500 transition-colors flex items-center gap-1">
-              <Mail className="w-3.5 h-3.5" />
-              <span>{config.contactEmail}</span>
-            </a>
-          </div>
-        </div>
+      {/* ─── FOOTER: MAGAZINE COLOPHON ─── */}
+      <footer className="py-12 border-t border-neutral-200 dark:border-neutral-800 text-center text-xs font-mono text-neutral-500 space-y-2">
+        <p className="uppercase tracking-[0.25em]">
+          © {new Date().getFullYear()} {config.studioName} • ALL RIGHTS RESERVED
+        </p>
+        <p className="text-[10px] text-neutral-400">
+          POWERED BY EX SHARE • HIGH-FASHION EDITORIAL PORTFOLIO ENGINE
+        </p>
       </footer>
 
-      {/* ─── PROJECT LIGHTBOX MODAL WITH MULTI-IMAGE CAROUSEL ─── */}
+      {/* ─── PROJECT LOOKBOOK LIGHTBOX MODAL ─── */}
       {activeProjectModal && (
-        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in">
-          <div className="max-w-4xl w-full bg-white dark:bg-[#13141b] rounded-3xl border border-neutral-200 dark:border-neutral-800 overflow-hidden shadow-2xl max-h-[90vh] flex flex-col">
-            <div className="relative aspect-video bg-black shrink-0">
-              <img src={activeProjectModal.coverUrl} alt={activeProjectModal.title} className="w-full h-full object-cover" />
+        <div
+          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-xl flex items-center justify-center p-4 sm:p-8 animate-in fade-in duration-200"
+          onClick={() => setActiveProjectModal(null)}
+        >
+          <div
+            className="w-full max-w-4xl rounded-3xl bg-neutral-950 border border-white/10 shadow-2xl overflow-hidden flex flex-col text-white max-h-[90vh]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Image */}
+            <div className="relative aspect-16/9 bg-neutral-900 overflow-hidden">
+              <img
+                src={activeProjectModal.coverUrl}
+                alt={activeProjectModal.title}
+                className="w-full h-full object-cover"
+              />
               <button
                 onClick={() => setActiveProjectModal(null)}
-                className="absolute top-4 right-4 p-2.5 rounded-full bg-black/70 text-white hover:bg-black transition-colors cursor-pointer"
+                className="absolute top-4 right-4 p-2 rounded-full bg-black/60 hover:bg-black text-white backdrop-blur-md transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
+              <div className="absolute bottom-4 left-4 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md text-amber-400 font-mono text-xs uppercase font-bold tracking-wider">
+                {activeProjectModal.category} • {activeProjectModal.year}
+              </div>
             </div>
+
+            {/* Modal Details */}
             <div className="p-6 sm:p-8 space-y-4 overflow-y-auto">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-mono font-bold uppercase text-amber-500 tracking-wider">
-                  {activeProjectModal.category} • {activeProjectModal.year}
-                </span>
-                <span className="text-xs text-neutral-400 flex items-center gap-1">
-                  <MapPin className="w-3.5 h-3.5" />
-                  {activeProjectModal.location}
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-800 pb-4">
+                <div>
+                  <h3 className="font-serif text-2xl sm:text-3xl font-bold">
+                    {activeProjectModal.title}
+                  </h3>
+                  <div className="flex items-center gap-2 text-xs font-mono text-neutral-400 mt-1">
+                    <MapPin className="w-3.5 h-3.5 text-amber-400" />
+                    <span>{activeProjectModal.location}</span>
+                    {activeProjectModal.clientName && (
+                      <>
+                        <span>•</span>
+                        <span>Client: {activeProjectModal.clientName}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <span className="text-xs font-mono text-neutral-400 px-3 py-1 rounded-lg bg-neutral-900 border border-neutral-800">
+                  {activeProjectModal.mediaCount || 24} High-Res Frames
                 </span>
               </div>
-              <h3 className="text-2xl sm:text-3xl font-serif font-bold text-neutral-900 dark:text-white">
-                {activeProjectModal.title}
-              </h3>
-              <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-300 leading-relaxed">
-                {activeProjectModal.description}
+
+              <p className="text-sm font-serif text-neutral-300 leading-relaxed">
+                {activeProjectModal.description ||
+                  'An intimate photographic visual narrative celebrating genuine emotion, tailored light, and candid luxury.'}
               </p>
 
+              {/* Gallery Highlight Frames */}
               {activeProjectModal.highlightMedia && activeProjectModal.highlightMedia.length > 0 && (
-                <div className="pt-4 border-t border-neutral-200 dark:border-neutral-800 space-y-2">
-                  <span className="text-[11px] font-mono text-neutral-400 uppercase tracking-wider block">
-                    Series Highlights
+                <div className="space-y-2 pt-2">
+                  <span className="text-[10px] font-mono uppercase tracking-widest text-neutral-400 font-bold block">
+                    Curated Frames
                   </span>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    {activeProjectModal.highlightMedia.map((imgUrl, i) => (
-                      <div key={i} className="aspect-square rounded-xl overflow-hidden border border-neutral-200 dark:border-neutral-800">
-                        <img src={imgUrl} alt={`Highlight ${i}`} className="w-full h-full object-cover hover:scale-105 transition-transform" />
+                    {activeProjectModal.highlightMedia.map((mediaUrl, idx) => (
+                      <div key={idx} className="aspect-4/3 rounded-xl overflow-hidden bg-neutral-900 border border-neutral-800">
+                        <img src={mediaUrl} alt="" className="w-full h-full object-cover" />
                       </div>
                     ))}
                   </div>
@@ -737,386 +874,17 @@ export const EditorialVogueTemplate: React.FC<PortfolioTemplateProps> = ({
         </div>
       )}
 
-      {/* ─── LIVE EDIT MODAL: HERO & BANNER ─── */}
-      {editingModal === 'hero' && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in">
-          <div className="max-w-2xl w-full bg-neutral-900 border border-neutral-800 rounded-3xl p-6 sm:p-8 space-y-5 text-white shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
-              <div className="flex items-center gap-2">
-                <Edit3 className="w-4 h-4 text-amber-400" />
-                <h3 className="font-serif font-bold text-lg text-white">Edit Hero & Cover Image</h3>
-              </div>
-              <button onClick={() => setEditingModal(null)} className="text-neutral-400 hover:text-white">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="space-y-4 text-xs font-mono">
-              <div>
-                <label className="text-neutral-400 block mb-1">STUDIO NAME</label>
-                <input
-                  type="text"
-                  value={heroDraft.studioName}
-                  onChange={(e) => setHeroDraft({ ...heroDraft, studioName: e.target.value })}
-                  className="w-full p-3 rounded-xl bg-neutral-950 border border-neutral-800 text-white focus:outline-none focus:border-amber-400"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="text-neutral-400 block mb-1">ARTIST / DIRECTOR NAME</label>
-                  <input
-                    type="text"
-                    value={heroDraft.artistName}
-                    onChange={(e) => setHeroDraft({ ...heroDraft, artistName: e.target.value })}
-                    className="w-full p-3 rounded-xl bg-neutral-950 border border-neutral-800 text-white focus:outline-none focus:border-amber-400"
-                  />
-                </div>
-                <div>
-                  <label className="text-neutral-400 block mb-1">LOCATION TAG</label>
-                  <input
-                    type="text"
-                    value={heroDraft.location}
-                    onChange={(e) => setHeroDraft({ ...heroDraft, location: e.target.value })}
-                    className="w-full p-3 rounded-xl bg-neutral-950 border border-neutral-800 text-white focus:outline-none focus:border-amber-400"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-neutral-400 block mb-1">HERO TAGLINE / ELEVATOR STATEMENT</label>
-                <textarea
-                  rows={2}
-                  value={heroDraft.tagline}
-                  onChange={(e) => setHeroDraft({ ...heroDraft, tagline: e.target.value })}
-                  className="w-full p-3 rounded-xl bg-neutral-950 border border-neutral-800 text-white focus:outline-none focus:border-amber-400 resize-none"
-                />
-              </div>
-
-              <div>
-                <label className="text-neutral-400 block mb-1">COVER IMAGE URL</label>
-                <input
-                  type="text"
-                  value={heroDraft.bannerUrl}
-                  onChange={(e) => setHeroDraft({ ...heroDraft, bannerUrl: e.target.value })}
-                  className="w-full p-3 rounded-xl bg-neutral-950 border border-neutral-800 text-white focus:outline-none focus:border-amber-400"
-                />
-              </div>
-
-              <div>
-                <label className="text-neutral-400 block mb-2">OR CHOOSE FROM CURATED FINE-ART PRESETS</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {CURATED_HERO_PRESETS.map((preset, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      onClick={() => setHeroDraft({ ...heroDraft, bannerUrl: preset.url })}
-                      className={`relative aspect-video rounded-lg overflow-hidden border-2 transition-all cursor-pointer ${
-                        heroDraft.bannerUrl === preset.url ? 'border-amber-400 ring-2 ring-amber-400/30' : 'border-neutral-700 opacity-60 hover:opacity-100'
-                      }`}
-                    >
-                      <img src={preset.url} alt={preset.title} className="w-full h-full object-cover" />
-                      <span className="absolute bottom-0 inset-x-0 bg-black/75 p-1 text-[9px] text-white truncate text-center">
-                        {preset.title}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-3 pt-3 border-t border-neutral-800">
-              <button
-                type="button"
-                onClick={() => setEditingModal(null)}
-                className="px-4 py-2 rounded-xl bg-neutral-800 text-neutral-300 text-xs font-mono hover:text-white cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveHero}
-                className="px-6 py-2 rounded-xl bg-amber-400 text-neutral-950 text-xs font-mono font-bold hover:bg-amber-300 cursor-pointer"
-              >
-                Save Changes
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ─── LIVE EDIT MODAL: PHILOSOPHY & STORY ─── */}
-      {editingModal === 'philosophy' && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in">
-          <div className="max-w-2xl w-full bg-neutral-900 border border-neutral-800 rounded-3xl p-6 sm:p-8 space-y-5 text-white shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
-              <div className="flex items-center gap-2">
-                <Edit3 className="w-4 h-4 text-amber-400" />
-                <h3 className="font-serif font-bold text-lg text-white">Edit Philosophy & Bio</h3>
-              </div>
-              <button onClick={() => setEditingModal(null)} className="text-neutral-400 hover:text-white">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="space-y-4 text-xs font-mono">
-              <div>
-                <label className="text-neutral-400 block mb-1">SIGNATURE PHILOSOPHY QUOTE</label>
-                <textarea
-                  rows={3}
-                  value={philDraft.philosophyQuote}
-                  onChange={(e) => setPhilDraft({ ...philDraft, philosophyQuote: e.target.value })}
-                  className="w-full p-3 rounded-xl bg-neutral-950 border border-neutral-800 text-white focus:outline-none focus:border-amber-400 resize-none"
-                />
-              </div>
-
-              <div>
-                <label className="text-neutral-400 block mb-1">ARTISTIC BIO STATEMENT</label>
-                <textarea
-                  rows={3}
-                  value={philDraft.bio}
-                  onChange={(e) => setPhilDraft({ ...philDraft, bio: e.target.value })}
-                  className="w-full p-3 rounded-xl bg-neutral-950 border border-neutral-800 text-white focus:outline-none focus:border-amber-400 resize-none"
-                />
-              </div>
-
-              <div>
-                <label className="text-neutral-400 block mb-1">ABOUT STUDIO STORY</label>
-                <textarea
-                  rows={3}
-                  value={philDraft.aboutStory}
-                  onChange={(e) => setPhilDraft({ ...philDraft, aboutStory: e.target.value })}
-                  className="w-full p-3 rounded-xl bg-neutral-950 border border-neutral-800 text-white focus:outline-none focus:border-amber-400 resize-none"
-                />
-              </div>
-
-              <div>
-                <label className="text-neutral-400 block mb-1">PORTRAIT PHOTO URL</label>
-                <input
-                  type="text"
-                  value={philDraft.avatarUrl}
-                  onChange={(e) => setPhilDraft({ ...philDraft, avatarUrl: e.target.value })}
-                  className="w-full p-3 rounded-xl bg-neutral-950 border border-neutral-800 text-white focus:outline-none focus:border-amber-400"
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-3 pt-3 border-t border-neutral-800">
-              <button
-                type="button"
-                onClick={() => setEditingModal(null)}
-                className="px-4 py-2 rounded-xl bg-neutral-800 text-neutral-300 text-xs font-mono hover:text-white cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleSavePhilosophy}
-                className="px-6 py-2 rounded-xl bg-amber-400 text-neutral-950 text-xs font-mono font-bold hover:bg-amber-300 cursor-pointer"
-              >
-                Save Changes
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ─── LIVE EDIT MODAL: PROJECT EDIT / ADD ─── */}
-      {editingModal === 'project' && editingProject && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in">
-          <div className="max-w-xl w-full bg-neutral-900 border border-neutral-800 rounded-3xl p-6 sm:p-8 space-y-4 text-white shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
-              <div className="flex items-center gap-2">
-                <Film className="w-4 h-4 text-amber-400" />
-                <h3 className="font-serif font-bold text-lg text-white">
-                  {config.featuredWorks.some((p) => p.id === editingProject.id) ? 'Edit Project' : 'Add New Project'}
-                </h3>
-              </div>
-              <button onClick={() => setEditingModal(null)} className="text-neutral-400 hover:text-white">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="space-y-3.5 text-xs font-mono">
-              <div>
-                <label className="text-neutral-400 block mb-1">PROJECT TITLE</label>
-                <input
-                  type="text"
-                  value={editingProject.title}
-                  onChange={(e) => setEditingProject({ ...editingProject, title: e.target.value })}
-                  placeholder="e.g. Royal Palace Udaipur • Ananya & Kabir"
-                  className="w-full p-3 rounded-xl bg-neutral-950 border border-neutral-800 text-white focus:outline-none focus:border-amber-400"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-neutral-400 block mb-1">CATEGORY</label>
-                  <select
-                    value={editingProject.category}
-                    onChange={(e) => setEditingProject({ ...editingProject, category: e.target.value as any })}
-                    className="w-full p-3 rounded-xl bg-neutral-950 border border-neutral-800 text-white focus:outline-none focus:border-amber-400 cursor-pointer"
-                  >
-                    <option value="weddings">Weddings</option>
-                    <option value="editorial">Editorial</option>
-                    <option value="pre-wedding">Pre-Wedding</option>
-                    <option value="commercial">Commercial</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-neutral-400 block mb-1">YEAR</label>
-                  <input
-                    type="text"
-                    value={editingProject.year}
-                    onChange={(e) => setEditingProject({ ...editingProject, year: e.target.value })}
-                    className="w-full p-3 rounded-xl bg-neutral-950 border border-neutral-800 text-white focus:outline-none focus:border-amber-400"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-neutral-400 block mb-1">LOCATION</label>
-                <input
-                  type="text"
-                  value={editingProject.location}
-                  onChange={(e) => setEditingProject({ ...editingProject, location: e.target.value })}
-                  placeholder="Taj Lake Palace, Udaipur"
-                  className="w-full p-3 rounded-xl bg-neutral-950 border border-neutral-800 text-white focus:outline-none focus:border-amber-400"
-                />
-              </div>
-
-              <div>
-                <label className="text-neutral-400 block mb-1">COVER IMAGE URL</label>
-                <input
-                  type="text"
-                  value={editingProject.coverUrl}
-                  onChange={(e) => setEditingProject({ ...editingProject, coverUrl: e.target.value })}
-                  className="w-full p-3 rounded-xl bg-neutral-950 border border-neutral-800 text-white focus:outline-none focus:border-amber-400"
-                />
-              </div>
-
-              <div>
-                <label className="text-neutral-400 block mb-1">STORY / DESCRIPTION</label>
-                <textarea
-                  rows={3}
-                  value={editingProject.description}
-                  onChange={(e) => setEditingProject({ ...editingProject, description: e.target.value })}
-                  placeholder="Describe the mood, rituals, daylight, and styling..."
-                  className="w-full p-3 rounded-xl bg-neutral-950 border border-neutral-800 text-white focus:outline-none focus:border-amber-400 resize-none"
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-3 pt-3 border-t border-neutral-800">
-              <button
-                type="button"
-                onClick={() => setEditingModal(null)}
-                className="px-4 py-2 rounded-xl bg-neutral-800 text-neutral-300 text-xs font-mono hover:text-white cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveProject}
-                className="px-6 py-2 rounded-xl bg-amber-400 text-neutral-950 text-xs font-mono font-bold hover:bg-amber-300 cursor-pointer"
-              >
-                Save Project
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ─── LIVE EDIT MODAL: CONTACT & PRICING ─── */}
-      {editingModal === 'contact' && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in">
-          <div className="max-w-xl w-full bg-neutral-900 border border-neutral-800 rounded-3xl p-6 sm:p-8 space-y-4 text-white shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
-              <div className="flex items-center gap-2">
-                <Edit3 className="w-4 h-4 text-amber-400" />
-                <h3 className="font-serif font-bold text-lg text-white">Edit Pricing & Contact</h3>
-              </div>
-              <button onClick={() => setEditingModal(null)} className="text-neutral-400 hover:text-white">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="space-y-3.5 text-xs font-mono">
-              <div>
-                <label className="text-neutral-400 block mb-1">STARTING INVESTMENT RATE</label>
-                <input
-                  type="text"
-                  value={contactDraft.pricingStartingAt}
-                  onChange={(e) => setContactDraft({ ...contactDraft, pricingStartingAt: e.target.value })}
-                  placeholder="₹4,50,000 / Day"
-                  className="w-full p-3 rounded-xl bg-neutral-950 border border-neutral-800 text-white focus:outline-none focus:border-amber-400"
-                />
-              </div>
-
-              <div>
-                <label className="text-neutral-400 block mb-1">STUDIO CONTACT EMAIL</label>
-                <input
-                  type="email"
-                  value={contactDraft.contactEmail}
-                  onChange={(e) => setContactDraft({ ...contactDraft, contactEmail: e.target.value })}
-                  className="w-full p-3 rounded-xl bg-neutral-950 border border-neutral-800 text-white focus:outline-none focus:border-amber-400"
-                />
-              </div>
-
-              <div>
-                <label className="text-neutral-400 block mb-1">PHONE / WHATSAPP NUMBER</label>
-                <input
-                  type="tel"
-                  value={contactDraft.contactPhone}
-                  onChange={(e) => setContactDraft({ ...contactDraft, contactPhone: e.target.value })}
-                  className="w-full p-3 rounded-xl bg-neutral-950 border border-neutral-800 text-white focus:outline-none focus:border-amber-400"
-                />
-              </div>
-
-              <div>
-                <label className="text-neutral-400 block mb-1">INSTAGRAM HANDLE</label>
-                <input
-                  type="text"
-                  value={contactDraft.instagramHandle}
-                  onChange={(e) => setContactDraft({ ...contactDraft, instagramHandle: e.target.value })}
-                  className="w-full p-3 rounded-xl bg-neutral-950 border border-neutral-800 text-white focus:outline-none focus:border-amber-400"
-                />
-              </div>
-
-              <div className="flex items-center gap-2 pt-2">
-                <input
-                  type="checkbox"
-                  id="bookingOpenCheck"
-                  checked={contactDraft.isBookingOpen}
-                  onChange={(e) => setContactDraft({ ...contactDraft, isBookingOpen: e.target.checked })}
-                  className="w-4 h-4 accent-amber-400 rounded cursor-pointer"
-                />
-                <label htmlFor="bookingOpenCheck" className="text-neutral-300 cursor-pointer">
-                  Show "Commissions Open" Availability Badge
-                </label>
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-3 pt-3 border-t border-neutral-800">
-              <button
-                type="button"
-                onClick={() => setEditingModal(null)}
-                className="px-4 py-2 rounded-xl bg-neutral-800 text-neutral-300 text-xs font-mono hover:text-white cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveContact}
-                className="px-6 py-2 rounded-xl bg-amber-400 text-neutral-950 text-xs font-mono font-bold hover:bg-amber-300 cursor-pointer"
-              >
-                Save Details
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
+      {/* ─── IN-PLACE PROJECT EDIT MODAL ─── */}
+      <ProjectEditModal
+        project={editingProject}
+        isOpen={isProjectModalOpen}
+        onClose={() => {
+          setIsProjectModalOpen(false);
+          setEditingProject(null);
+        }}
+        onSave={handleSaveProject}
+        onDelete={handleDeleteProject}
+      />
     </div>
   );
 };

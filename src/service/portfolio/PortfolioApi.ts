@@ -1,5 +1,11 @@
 import { CommonApi } from '@/lib/CommonApi';
 import type { PortfolioConfig, PortfolioProject } from '@/types/atelier';
+import type {
+  DeletePortfolioProjectResponse,
+  PortfolioAnalyticsResponse,
+} from './type';
+
+export * from './type';
 
 /**
  * 1. Retrieve Photographer Portfolio Configuration
@@ -35,7 +41,7 @@ export const AddPortfolioProjectApi = async (
  */
 export const DeletePortfolioProjectApi = async (
   projectId: string
-): Promise<{ success: boolean; message?: string }> => {
+): Promise<DeletePortfolioProjectResponse> => {
   return CommonApi('DELETE', `/api/portfolio/projects/${projectId}/`);
 };
 
@@ -53,10 +59,6 @@ export const GetPublicPortfolioApi = async (
  * 6. Retrieve Portfolio Analytics
  * Endpoint: GET /api/portfolio/analytics/
  */
-export const GetPortfolioAnalyticsApi = async (): Promise<{
-  total_visitors: number;
-  inquiry_conversion: number;
-  top_viewed_projects: Array<{ id: string; title: string; views: number }>;
-}> => {
+export const GetPortfolioAnalyticsApi = async (): Promise<PortfolioAnalyticsResponse> => {
   return CommonApi('GET', '/api/portfolio/analytics/');
 };

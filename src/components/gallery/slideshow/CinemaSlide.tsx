@@ -2,6 +2,7 @@ import React from 'react';
 import type { MediaItem } from '../../../types';
 import type { CinemaColorGrade, CinemaFitMode } from './types';
 import { Sparkles } from 'lucide-react';
+import { WatermarkOverlay } from '../WatermarkOverlay';
 
 interface CinemaSlideProps {
   item: MediaItem;
@@ -12,6 +13,11 @@ interface CinemaSlideProps {
   showTitleCard?: boolean;
   clientName?: string;
   galleryTitle?: string;
+  watermarkEnabled?: boolean;
+  watermarkText?: string;
+  watermarkOpacity?: number;
+  watermarkPosition?: string;
+  watermarkImage?: string | null;
 }
 
 export const CinemaSlide: React.FC<CinemaSlideProps> = ({
@@ -23,6 +29,11 @@ export const CinemaSlide: React.FC<CinemaSlideProps> = ({
   showTitleCard = false,
   clientName,
   galleryTitle,
+  watermarkEnabled = false,
+  watermarkText,
+  watermarkOpacity,
+  watermarkPosition,
+  watermarkImage,
 }) => {
   // Cycle 4 cinematic camera motions
   const motionClass = `cinema-motion-${index % 4}`;
@@ -65,6 +76,17 @@ export const CinemaSlide: React.FC<CinemaSlideProps> = ({
             fitMode === 'cover' ? 'object-cover' : 'object-contain max-w-full max-h-full'
           } ${isActive ? motionClass : 'scale-95'}`}
         />
+
+        {/* Watermark Overlay for Slideshow */}
+        {watermarkEnabled && item.type !== 'video' && !showTitleCard && (
+          <WatermarkOverlay
+            text={watermarkText}
+            imageUrl={watermarkImage}
+            opacity={watermarkOpacity}
+            position={watermarkPosition}
+            size="md"
+          />
+        )}
       </div>
 
       {/* Cinematic Opening Title Card (Slide 0 Intro) */}

@@ -4,6 +4,50 @@
   "framework": "vite",
   "rewrites": [
     {
+      "source": "/gallery/:slug*",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(facebookexternalhit|facebot|whatsapp|twitterbot|telegrambot|slackbot|slack-imgproxy|linkedinbot|pinterest|discordbot|applebot|googlebot|bingbot|duckduckbot|skypeuripreview|yandexbot|vkshare|w3c_validator).*"
+        }
+      ],
+      "destination": "/api/crawler-seo?type=gallery&slug=:slug*"
+    },
+    {
+      "source": "/events/:slug*",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(facebookexternalhit|facebot|whatsapp|twitterbot|telegrambot|slackbot|slack-imgproxy|linkedinbot|pinterest|discordbot|applebot|googlebot|bingbot|duckduckbot|skypeuripreview|yandexbot|vkshare|w3c_validator).*"
+        }
+      ],
+      "destination": "/api/crawler-seo?type=event&slug=:slug*"
+    },
+    {
+      "source": "/event/:slug*",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(facebookexternalhit|facebot|whatsapp|twitterbot|telegrambot|slackbot|slack-imgproxy|linkedinbot|pinterest|discordbot|applebot|googlebot|bingbot|duckduckbot|skypeuripreview|yandexbot|vkshare|w3c_validator).*"
+        }
+      ],
+      "destination": "/api/crawler-seo?type=event&slug=:slug*"
+    },
+    {
+      "source": "/portfolio/:slug*",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(facebookexternalhit|facebot|whatsapp|twitterbot|telegrambot|slackbot|slack-imgproxy|linkedinbot|pinterest|discordbot|applebot|googlebot|bingbot|duckduckbot|skypeuripreview|yandexbot|vkshare|w3c_validator).*"
+        }
+      ],
+      "destination": "/api/crawler-seo?type=portfolio&slug=:slug*"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

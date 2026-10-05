@@ -19,7 +19,8 @@ interface GalleryMediaGridProps {
   onOpenUpload: () => void;
   onOpenLightbox: (idx: number) => void;
   onToggleSelect: (id: string) => void;
-  onMoveSequence: (idx: number, direction: 'up' | 'down') => void;
+  onMoveSequence: (idx: number, direction: 'up' | 'down' | 'top' | 'bottom') => void;
+  onMoveToPosition?: (fromIdx: number, toIdx: number) => void;
   onToggleFavorite: (id: string) => void;
   onOpenMoveSingle: (item: MediaItem) => void;
   onSetBanner: (item: MediaItem) => void;
@@ -41,6 +42,7 @@ export const GalleryMediaGrid: React.FC<GalleryMediaGridProps> = ({
   onOpenLightbox,
   onToggleSelect,
   onMoveSequence,
+  onMoveToPosition,
   onToggleFavorite,
   onOpenMoveSingle,
   onSetBanner,
@@ -49,6 +51,8 @@ export const GalleryMediaGrid: React.FC<GalleryMediaGridProps> = ({
   favoritingMediaIds,
 }) => {
   const [visibleCount, setVisibleCount] = useState(INITIAL_BATCH_SIZE);
+  const [draggedCardIndex, setDraggedCardIndex] = useState<number | null>(null);
+  const [dragOverCardIndex, setDragOverCardIndex] = useState<number | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const { lenis } = useSmoothScroll();
 
@@ -200,6 +204,36 @@ export const GalleryMediaGrid: React.FC<GalleryMediaGridProps> = ({
       ? (gallery.masonryBannerImages?.[0] || gallery.templateBanners?.['masonry'] || gallery.coverImage)
       : (gallery.templateBanners?.[currentTemplate] || gallery.coverImage);
 
+  const handleCardDragStart = (cardIdx: number, e: React.DragEvent) => {
+    setDraggedCardIndex(cardIdx);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', String(cardIdx));
+  };
+
+  const handleCardDragOver = (cardIdx: number, e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverCardIndex !== cardIdx) {
+      setDragOverCardIndex(cardIdx);
+    }
+  };
+
+  const handleCardDrop = (dropIdx: number, e: React.DragEvent) => {
+    e.preventDefault();
+    if (draggedCardIndex !== null && draggedCardIndex !== dropIdx) {
+      if (onMoveToPosition) {
+        onMoveToPosition(draggedCardIndex, dropIdx + 1);
+      }
+    }
+    setDraggedCardIndex(null);
+    setDragOverCardIndex(null);
+  };
+
+  const handleCardDragEnd = () => {
+    setDraggedCardIndex(null);
+    setDragOverCardIndex(null);
+  };
+
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-2.5 md:gap-3 stagger">
@@ -211,12 +245,13 @@ export const GalleryMediaGrid: React.FC<GalleryMediaGridProps> = ({
           );
           const isSettingBanner = settingBannerMediaId === item.id;
           const originalIndex = gallery.media.findIndex((m) => m.id === item.id);
+          const effectiveIdx = originalIndex !== -1 ? originalIndex : idx;
 
           return (
             <GalleryMediaCard
               key={item.id}
               item={item}
-              idx={originalIndex !== -1 ? originalIndex : idx}
+              idx={effectiveIdx}
               totalCount={gallery.media.length}
               isSelected={isSelected}
               isCover={isBanner}
@@ -224,9 +259,15 @@ export const GalleryMediaGrid: React.FC<GalleryMediaGridProps> = ({
               isSettingBanner={isSettingBanner}
               isFavoriting={favoritingMediaIds?.has(item.id)}
               currentTemplateName={currentTemplate}
+              isDropTarget={dragOverCardIndex === effectiveIdx && draggedCardIndex !== effectiveIdx}
+              onDragStartItem={handleCardDragStart}
+              onDragOverItem={handleCardDragOver}
+              onDropItem={handleCardDrop}
+              onDragEndItem={handleCardDragEnd}
               onToggleSelect={onToggleSelect}
               onOpenLightbox={(openIdx) => onOpenLightbox(openIdx)}
               onMoveSequence={onMoveSequence}
+              onMoveToPosition={onMoveToPosition}
               onToggleFavorite={onToggleFavorite}
               onOpenMoveSingle={onOpenMoveSingle}
               onSetBanner={onSetBanner}

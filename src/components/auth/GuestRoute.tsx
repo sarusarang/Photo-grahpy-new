@@ -17,7 +17,7 @@ export const GuestRoute: React.FC<GuestRouteProps> = ({
   children,
   redirectTo = '/dashboard/overview',
 }) => {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, photographer } = useAuth();
   const location = useLocation();
 
   if (isLoading) {
@@ -30,6 +30,19 @@ export const GuestRoute: React.FC<GuestRouteProps> = ({
   }
 
   if (isAuthenticated) {
+    const isOnboardingPath = ['/onboarding', '/signup', '/register'].includes(location.pathname);
+
+    // If authenticated but not yet onboarded:
+    // Allow user to remain on onboarding screens to complete profile setup.
+    // If attempting to access login while un-onboarded, direct them to onboarding.
+    if (!photographer.isOnboarded) {
+      if (isOnboardingPath) {
+        return children ? <>{children}</> : <Outlet />;
+      }
+      return <Navigate to="/onboarding" replace />;
+    }
+
+    // If fully authenticated and onboarded, redirect away from guest-only pages
     const from = (location.state as any)?.from?.pathname || redirectTo;
     return <Navigate to={from} replace />;
   }

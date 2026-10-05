@@ -6,13 +6,16 @@ import {
   Eye,
   Loader2,
   Lock,
+  ArrowDown,
 } from 'lucide-react';
 import type { Gallery, GalleryTemplateId } from '@/types';
-import { GALLERY_TEMPLATES, isVideoMedia } from '@/data/demoData';
+import { GALLERY_TEMPLATES } from '@/components/gallery/templates';
+import { isVideoMedia } from '@/utils/mediaUtils';
 import { formatHeroShootDate } from '../GalleryHeroBanner';
 import { getInitialGalleryCover, handleCoverImageError } from '@/utils/coverImageUtils';
 import { usePlanQuota } from '@/hooks/usePlanQuota';
 import { PlanUpgradeModal } from '@/components/billing/PlanUpgradeModal';
+import { getGalleryPreviewUrl } from '@/utils/domain';
 
 interface GalleryDesignLayoutTabProps {
   gallery: Gallery;
@@ -104,14 +107,7 @@ export const GalleryDesignLayoutTab: React.FC<GalleryDesignLayoutTabProps> = ({
 
           {/* Quick Template Switcher Pills */}
           <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 overflow-x-auto no-scrollbar">
-            {(
-              [
-                { id: 'editorial', label: 'Editorial' },
-                { id: 'masonry', label: 'Masonry' },
-                { id: 'cinematic', label: 'Cinematic' },
-                { id: 'minimal', label: 'Minimal' },
-              ] as const
-            ).map((tpl) => {
+            {GALLERY_TEMPLATES.map((tpl) => {
               const isAllowed = planQuota.isTemplateAllowed(tpl.id);
               const isCurTemplate = selectedBannerTemplate === tpl.id;
               const isGalleryActive = gallery.templateId === tpl.id;
@@ -123,8 +119,8 @@ export const GalleryDesignLayoutTab: React.FC<GalleryDesignLayoutTabProps> = ({
                       setUpgradeModal({
                         isOpen: true,
                         errorCode: 'PREMIUM_TEMPLATE_LOCKED',
-                        errorMessage: `The ${tpl.label} layout is a premium template not included in your current studio plan (${planQuota.planName}). Upgrade your plan to unlock and customize this layout.`,
-                        lockedFeature: `${tpl.label} Layout`,
+                        errorMessage: `The ${tpl.name} layout is a premium template not included in your current studio plan (${planQuota.planName}). Upgrade your plan to unlock and customize this layout.`,
+                        lockedFeature: `${tpl.name} Layout`,
                       });
                       return;
                     }
@@ -138,7 +134,7 @@ export const GalleryDesignLayoutTab: React.FC<GalleryDesignLayoutTabProps> = ({
                       : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-white dark:hover:bg-neutral-800'
                   }`}
                 >
-                  <span>{tpl.label}</span>
+                  <span>{tpl.name}</span>
                   {!isAllowed && (
                     <span className="px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-600 dark:text-amber-400 font-bold text-[9px] uppercase tracking-wider flex items-center gap-0.5 border border-amber-400/30">
                       <Lock className="w-2.5 h-2.5" /> PRO
@@ -160,74 +156,100 @@ export const GalleryDesignLayoutTab: React.FC<GalleryDesignLayoutTabProps> = ({
 
         {/* Current Active Banner Live Preview */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-          {/* Banner Preview Screen */}
-          <div className="lg:col-span-7 relative aspect-[16/9] sm:aspect-[21/9] rounded-2xl overflow-hidden bg-neutral-950 border border-neutral-200 dark:border-neutral-800 shadow-md p-2 flex flex-col justify-between group">
+          {/* Banner Preview Screen: Exact 1:1 Mirror of Live Gallery Templates */}
+          <div className="lg:col-span-7 relative aspect-[16/9] sm:aspect-[21/9] rounded-2xl overflow-hidden bg-neutral-950 border border-neutral-200 dark:border-neutral-800 shadow-xl group">
             {isCinematic ? (
-              <div className="w-full h-full bg-[#050507] rounded-xl p-3 sm:p-4 flex flex-col justify-center items-center relative overflow-hidden">
-                <div className="absolute inset-0 bg-amber-500/15 rounded-xl blur-xl pointer-events-none" />
-                <div className="relative w-full aspect-[2.39/1] max-h-[220px] rounded-lg overflow-hidden shadow-2xl shadow-black bg-black border border-amber-500/35 ring-1 ring-amber-400/20 group">
-                  {currentCinematicVideo ? (
-                    <video
-                      src={currentCinematicVideo}
-                      autoPlay
-                      muted
-                      loop
-                      playsInline
-                      className="w-full h-full object-cover object-center"
-                    />
-                  ) : (
-                    <img
-                      src={currentSingleBanner}
-                      alt=""
-                      loading="lazy"
-                      onError={(e) => handleCoverImageError(e, getInitialGalleryCover('cinematic'))}
-                      className="w-full h-full object-cover object-center"
-                    />
-                  )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-amber-500/10 pointer-events-none" />
-                </div>
-                <div className="text-center space-y-0.5 pt-2">
-                  <h5 className="text-xs sm:text-sm md:text-base font-serif tracking-widest text-white uppercase drop-shadow-md truncate max-w-md">
-                    {gallery.title}
-                  </h5>
-                  <div className="flex items-center justify-center gap-2 text-amber-400/80">
-                    <span className="h-px w-6 bg-amber-800/60" />
-                    <span className="text-[8px] font-mono tracking-[0.25em] uppercase text-amber-400 font-semibold">
-                      // {formattedDate} //
-                    </span>
-                    <span className="h-px w-6 bg-amber-800/60" />
+              /* 1. CINEMATIC LIVE PREVIEW: Full-bleed edge-to-edge, bottom-left title + date */
+              <div className="w-full h-full relative overflow-hidden bg-black select-none">
+                {currentCinematicVideo ? (
+                  <video
+                    src={currentCinematicVideo}
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                    className="w-full h-full object-cover object-center"
+                  />
+                ) : (
+                  <img
+                    src={currentSingleBanner}
+                    alt=""
+                    loading="lazy"
+                    onError={(e) => handleCoverImageError(e, getInitialGalleryCover('cinematic'))}
+                    className="w-full h-full object-cover object-center"
+                  />
+                )}
+
+                {/* Bottom-left overlay: Title & Date with Localized Scrim */}
+                <div className="absolute bottom-3 sm:bottom-4 left-3 sm:left-5 z-10 pointer-events-none">
+                  <div className="relative max-w-xs">
+                    <div className="absolute -inset-2 bg-black/60 rounded-xl blur-md pointer-events-none -z-10" />
+                    <div className="space-y-0.5">
+                      {formattedDate && (
+                        <div className="flex items-center gap-1.5 text-amber-400">
+                          <span className="h-px w-4 sm:w-6 bg-amber-400/80" />
+                          <span className="text-[8px] sm:text-[9px] font-mono tracking-[0.2em] uppercase font-semibold">
+                            {formattedDate}
+                          </span>
+                        </div>
+                      )}
+                      <h5 className="text-sm sm:text-base md:text-lg font-serif tracking-tight text-white font-bold drop-shadow-[0_2px_10px_rgba(0,0,0,0.95)] leading-tight truncate">
+                        {gallery.title}
+                      </h5>
+                    </div>
                   </div>
+                </div>
+
+                {/* Scroll to explore animation */}
+                <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-0.5 text-white/90 drop-shadow-md pointer-events-none">
+                  <span className="text-[7px] font-mono tracking-[0.25em] uppercase font-semibold">Scroll to explore</span>
+                  <ArrowDown className="w-2.5 h-2.5 animate-bounce text-amber-400" />
                 </div>
               </div>
             ) : isMasonry ? (
-              <div className="relative w-full h-full rounded-xl overflow-hidden flex items-center justify-center text-center p-4 bg-[#09110E]">
-                <img
-                  src={currentSingleBanner}
-                  alt=""
-                  loading="lazy"
-                  onError={(e) => handleCoverImageError(e, getInitialGalleryCover('masonry'))}
-                  className="absolute inset-0 w-full h-full object-cover"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-black/55 pointer-events-none" />
-                <div className="absolute inset-0 bg-emerald-950/20 mix-blend-multiply pointer-events-none" />
-                <div className="relative z-10 px-4 py-2.5 rounded-2xl bg-[#09110E]/85 backdrop-blur-md border border-emerald-500/30 text-center shadow-lg space-y-1">
-                  <div className="flex items-center justify-center gap-2 text-emerald-400">
-                    <span className="h-px w-6 bg-emerald-500/60" />
-                    <span className="text-[8px] font-mono tracking-[0.25em] uppercase text-emerald-400 font-semibold">
-                      // {formattedDate} //
-                    </span>
-                    <span className="h-px w-6 bg-emerald-500/60" />
+              /* 2. MASONRY LIVE PREVIEW: Expansive Botanical with Floating Liquid Glass Capsule */
+              <div className="w-full h-full bg-[#070D0B] p-1.5 flex items-center justify-center relative select-none">
+                <div className="relative w-full h-full rounded-xl overflow-hidden shadow-xl border border-emerald-500/25 ring-1 ring-emerald-500/15 group">
+                  <img
+                    src={currentSingleBanner}
+                    alt=""
+                    loading="lazy"
+                    onError={(e) => handleCoverImageError(e, getInitialGalleryCover('masonry'))}
+                    className="w-full h-full object-cover"
+                  />
+
+                  {/* Centered Floating Atelier Liquid Glass Capsule */}
+                  <div className="absolute bottom-3 sm:bottom-4 left-1/2 -translate-x-1/2 z-20 w-[88%] sm:w-auto min-w-[190px] max-w-sm px-4 sm:px-6 py-2 sm:py-3 rounded-xl bg-white/[0.08] dark:bg-black/35 backdrop-blur-xl border border-white/25 border-t-white/40 border-b-white/10 shadow-[0_10px_25px_rgba(0,0,0,0.6),inset_0_1px_1px_rgba(255,255,255,0.35)] text-center space-y-0.5">
+                    <div className="absolute inset-0 rounded-xl bg-gradient-to-b from-white/20 via-transparent to-black/25 pointer-events-none" />
+                    <div className="relative z-10 space-y-0.5">
+                      {formattedDate && (
+                        <div className="flex items-center justify-center gap-1.5 text-emerald-300">
+                          <span className="h-px w-4 bg-emerald-400/70" />
+                          <span className="text-[7.5px] font-mono uppercase tracking-[0.2em] font-semibold text-emerald-300">
+                            // {formattedDate} //
+                          </span>
+                          <span className="h-px w-4 bg-emerald-400/70" />
+                        </div>
+                      )}
+                      <h5 className="text-xs sm:text-sm font-serif italic text-white leading-tight drop-shadow-md truncate">
+                        {gallery.title}
+                      </h5>
+                      <span className="text-[6.5px] font-mono uppercase tracking-[0.2em] text-emerald-300/85 block pt-0.5">
+                        Atelier Masonry Edition
+                      </span>
+                    </div>
                   </div>
-                  <h5 className="text-base sm:text-lg font-serif italic text-white leading-tight drop-shadow-md truncate max-w-md">
-                    {gallery.title}
-                  </h5>
-                  <span className="text-[8px] font-mono uppercase tracking-[0.2em] text-emerald-400/80 block">
-                    Atelier Masonry Edition
-                  </span>
+
+                  {/* Scroll to explore animation */}
+                  <div className="absolute bottom-1 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-0.5 text-emerald-300/90 drop-shadow-md pointer-events-none">
+                    <span className="text-[6.5px] font-mono tracking-[0.2em] uppercase font-semibold">Scroll to explore</span>
+                    <ArrowDown className="w-2.5 h-2.5 animate-bounce text-emerald-400" />
+                  </div>
                 </div>
               </div>
             ) : isEditorial ? (
-              <div className="relative w-full h-full rounded-xl overflow-hidden flex items-center justify-center text-center p-4">
+              /* 3. EDITORIAL LIVE PREVIEW: Full-bleed Vogue Cover with Centerpiece Typography */
+              <div className="w-full h-full relative overflow-hidden flex items-center justify-center text-center select-none">
                 <img
                   src={currentSingleBanner}
                   alt=""
@@ -235,21 +257,35 @@ export const GalleryDesignLayoutTab: React.FC<GalleryDesignLayoutTabProps> = ({
                   onError={(e) => handleCoverImageError(e, getInitialGalleryCover('editorial'))}
                   className="absolute inset-0 w-full h-full object-cover"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/60 pointer-events-none" />
-                <div className="relative z-10 space-y-0.5 text-white">
-                  <span className="text-[8px] font-mono tracking-[0.25em] uppercase text-amber-200/90 block">
-                    SHOOT DATE • {formattedDate}
-                  </span>
-                  <h5 className="text-lg sm:text-xl font-serif font-light tracking-tight text-white leading-tight drop-shadow-md truncate max-w-md">
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div className="w-64 h-24 bg-black/45 rounded-full blur-xl pointer-events-none" />
+                </div>
+                <div className="relative z-10 space-y-1 text-white px-4 max-w-sm">
+                  {formattedDate && (
+                    <div className="flex items-center justify-center gap-2 text-amber-200">
+                      <span className="h-px w-4 sm:w-6 bg-amber-200/80" />
+                      <span className="text-[8px] sm:text-[9px] font-mono uppercase tracking-[0.3em]">
+                        {formattedDate}
+                      </span>
+                      <span className="h-px w-4 sm:w-6 bg-amber-200/80" />
+                    </div>
+                  )}
+                  <h5 className="text-base sm:text-xl font-serif text-white tracking-tight leading-tight drop-shadow-[0_2px_10px_rgba(0,0,0,0.95)] truncate">
                     {gallery.title}
                   </h5>
-                  <span className="font-script text-base text-amber-200/90 block">Atelier Series</span>
+                </div>
+
+                {/* Scroll to explore animation */}
+                <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-0.5 text-white/80 drop-shadow-md pointer-events-none">
+                  <span className="text-[7px] font-mono tracking-[0.25em] uppercase font-semibold">Scroll to explore</span>
+                  <ArrowDown className="w-2.5 h-2.5 animate-bounce text-amber-300" />
                 </div>
               </div>
             ) : (
-              <div className="w-full h-full rounded-xl overflow-hidden bg-[#F8F8F6] text-neutral-900 p-4 grid grid-cols-12 gap-4 items-center">
+              /* 4. MINIMAL LIVE PREVIEW: Scandinavian Museum Wall Exhibition Split */
+              <div className="w-full h-full bg-[#F8F8F6] text-neutral-900 p-3 sm:p-4 grid grid-cols-12 gap-3 items-center relative overflow-hidden select-none">
                 <div className="col-span-7 h-full flex items-center justify-center">
-                  <div className="p-1.5 bg-white shadow-lg border border-neutral-200 w-full h-full max-h-[190px] relative overflow-hidden">
+                  <div className="p-2 bg-white shadow-xl border border-neutral-200/90 rounded-xs w-full h-[90%] max-h-[220px] relative overflow-hidden group">
                     <img
                       src={currentSingleBanner}
                       alt=""
@@ -259,12 +295,18 @@ export const GalleryDesignLayoutTab: React.FC<GalleryDesignLayoutTabProps> = ({
                     />
                   </div>
                 </div>
-                <div className="col-span-5 text-left space-y-1">
-                  <span className="text-[8px] font-mono tracking-[0.2em] uppercase text-neutral-400 block">EXHIBITION MONOGRAPH</span>
-                  <h5 className="text-xs sm:text-sm font-serif font-light text-neutral-900 line-clamp-2 leading-tight">
+                <div className="col-span-5 text-left space-y-1 px-1">
+                  <span className="text-[7.5px] font-mono tracking-[0.25em] uppercase text-neutral-400 block">— EXHIBITION MONOGRAPH —</span>
+                  <h5 className="text-xs sm:text-sm font-serif font-light text-neutral-900 leading-snug line-clamp-2">
                     {gallery.title}
                   </h5>
-                  <span className="text-[8px] font-mono tracking-[0.2em] uppercase text-neutral-500 block">— {formattedDate} —</span>
+                  <span className="text-[7.5px] font-mono tracking-[0.2em] uppercase text-neutral-500 block">— {formattedDate} —</span>
+                </div>
+
+                {/* Scroll to explore animation */}
+                <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-0.5 text-neutral-500 pointer-events-none">
+                  <span className="text-[7px] font-mono tracking-[0.25em] uppercase font-semibold">Scroll to explore</span>
+                  <ArrowDown className="w-2.5 h-2.5 animate-bounce text-neutral-700" />
                 </div>
               </div>
             )}
@@ -607,11 +649,11 @@ export const GalleryDesignLayoutTab: React.FC<GalleryDesignLayoutTabProps> = ({
                   )}
 
                   <a
-                    href={`https://exshare.ai/gallery/${encodeURIComponent(gallery.slug || gallery.id)}?previewTemplate=${encodeURIComponent(tpl.id)}`}
+                    href={getGalleryPreviewUrl(gallery.slug || gallery.id, tpl.id)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="px-4 py-2.5 rounded-xl bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer shrink-0"
-                    title={`Preview ${tpl.name} layout live on https://exshare.ai`}
+                    title={`Preview ${tpl.name} layout live`}
                   >
                     <Eye className="w-3.5 h-3.5" />
                     <span>Preview</span>

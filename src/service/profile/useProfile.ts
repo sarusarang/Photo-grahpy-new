@@ -5,6 +5,7 @@ import {
   UpdatePersonalInformationApi,
   UploadProfileAvatarApi,
   RemoveProfileAvatarApi,
+  UpdateWatermarkApi,
 } from './ProfileApi';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -155,6 +156,44 @@ export const useRemoveProfileAvatar = () => {
       const err = error as { message?: string; response?: { data?: { message?: string } } };
       toast.error("Remove Failed", {
         description: err?.response?.data?.message || err?.message || "Failed to remove profile photo.",
+      });
+    },
+  });
+};
+
+/**
+ * Hook to update studio watermark configuration
+ * PATCH /api/photographers/profiles/me/watermark/ or /api/photographers/profiles/me/
+ */
+export const useUpdateWatermark = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation<
+    any,
+    Error,
+    {
+      enable_watermark?: boolean;
+      watermark_text?: string;
+      watermark_opacity?: number;
+      watermark_position?: string;
+      watermark_image?: File;
+    }
+  >({
+    mutationFn: async (payload) => {
+      return await UpdateWatermarkApi(payload);
+    },
+    onSuccess: () => {
+      toast.success("Watermark Suite Saved", {
+        description: "Studio watermark settings updated successfully.",
+      });
+      queryClient.invalidateQueries({ queryKey: ['photographer-profile'] });
+      queryClient.invalidateQueries({ queryKey: ['check-login'] });
+    },
+    onError: (error) => {
+      const err = error as { message?: string; response?: { data?: { message?: string } } };
+      toast.error("Save Failed", {
+        description:
+          err?.response?.data?.message || err?.message || "Failed to update watermark configuration.",
       });
     },
   });

@@ -18,6 +18,11 @@ export const SlideshowModal: React.FC<SlideshowModalProps> = ({
   clientName = 'Celebration of Love',
   selectedTrack,
   onChangeTrack,
+  watermarkEnabled = false,
+  watermarkText,
+  watermarkOpacity,
+  watermarkPosition,
+  watermarkImage,
 }) => {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [isPlaying, setIsPlaying] = useState(true);
@@ -244,6 +249,11 @@ export const SlideshowModal: React.FC<SlideshowModalProps> = ({
               showTitleCard={showTitleCard}
               clientName={clientName}
               galleryTitle={galleryTitle}
+              watermarkEnabled={watermarkEnabled}
+              watermarkText={watermarkText}
+              watermarkOpacity={watermarkOpacity}
+              watermarkPosition={watermarkPosition}
+              watermarkImage={watermarkImage}
             />
           );
         })}

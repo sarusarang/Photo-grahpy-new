@@ -1,29 +1,13 @@
 import { CommonApi } from '@/lib/CommonApi';
-import type { Gallery, MediaItem, GalleryTemplateId } from '@/types/atelier';
+import { getUploadBatchSize } from '@/utils/uploadConfig';
+import type { Gallery, GalleryTemplateId, MediaItem } from '@/types/atelier';
+import type {
+  GalleryFilterParams,
+  CreateGalleryPayload,
+  GalleryDetailQueryParams,
+} from './type';
 
-export interface GalleryFilterParams {
-  search?: string;
-  status?: string;
-  date_filter?: string;
-  date_from?: string;
-  date_to?: string;
-  sort?: string;
-}
-
-export interface CreateGalleryPayload {
-  title: string;
-  client_name?: string;
-  client_email?: string;
-  event_date?: string;
-  description?: string;
-  template_id?: GalleryTemplateId;
-  visibility?: 'public' | 'private' | 'password_protected';
-  password?: string;
-  allow_downloads?: boolean;
-  allow_favorites?: boolean;
-  face_search_enabled?: boolean;
-  cover_image?: string;
-}
+export * from './type';
 
 /**
  * 1. List Photographer Galleries (with optional filtering)
@@ -44,15 +28,6 @@ export const GetGalleriesApi = async (params?: GalleryFilterParams): Promise<Gal
 export const CreateGalleryApi = async (payload: CreateGalleryPayload): Promise<Gallery> => {
   return CommonApi<Gallery>('POST', '/api/galleries/', payload);
 };
-
-export interface GalleryDetailQueryParams {
-  cursor?: string | null;
-  limit?: number;
-  section?: string;
-  is_favorite?: boolean;
-  type?: 'photo' | 'video';
-  all_media?: boolean;
-}
 
 /**
  * 3. Retrieve Gallery Detail with Media & Sections
@@ -207,8 +182,8 @@ export const BulkUploadGalleryMediaApi = async (
   }
 
   const isVideoBatch = type === 'video' || files.some((f) => f.type.startsWith('video/'));
-  // Videos are large so upload 1 at a time; photos upload in safe batches of 20
-  const BATCH_SIZE = isVideoBatch ? 1 : 20;
+  // Dynamic batch size from .env (VITE_UPLOAD_BATCH_SIZE / VITE_VIDEO_UPLOAD_BATCH_SIZE)
+  const BATCH_SIZE = getUploadBatchSize(isVideoBatch);
 
   const uploadChunk = async (
     chunkFiles: File[],
@@ -411,9 +386,17 @@ export const DeleteGalleryMediaApi = async (
  * Endpoint: POST /api/galleries/media/bulk-delete/
  */
 export const BulkDeleteGalleryMediaApi = async (
-  mediaIds: string[]
-): Promise<{ deleted_count: number; freed_bytes: number }> => {
-  return CommonApi('POST', '/api/galleries/media/bulk-delete/', { media_ids: mediaIds });
+  mediaIds: string[],
+  galleryId?: string,
+  options?: { section?: string; deleteAll?: boolean }
+): Promise<{ deleted_count: number; freed_bytes?: number }> => {
+  const payload: any = { media_ids: mediaIds };
+  if (galleryId) payload.gallery_id = galleryId;
+  if (options?.deleteAll) payload.delete_all = true;
+  if (options?.section && options.section.toLowerCase() !== 'all') {
+    payload.section = options.section;
+  }
+  return CommonApi('POST', '/api/galleries/media/bulk-delete/', payload);
 };
 
 /**

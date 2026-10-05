@@ -1,5 +1,6 @@
 import React from 'react';
-import type { Gallery } from '../../../types';
+import type { Gallery, GalleryTemplateId } from '@/types';
+import type { GalleryGridDesign } from '../UniversalPhotoGrid';
 
 export interface TemplateLayoutProps {
   gallery: Gallery;
@@ -9,14 +10,24 @@ export interface TemplateLayoutProps {
   onToggleSelectMedia?: (mediaId: string) => void;
   onStartSlideshow?: (startIndex?: number) => void;
   studioName?: string;
+  photographerName?: string;
   onShareGallery?: () => void;
+  gridDesign?: GalleryGridDesign;
+  onSelectGridDesign?: (design: GalleryGridDesign) => void;
+  onDownloadSingle?: (e: React.MouseEvent, item: any) => void;
+  onCreateStoryVideo?: () => void;
 }
 
 export interface TemplateConfig {
-  id: string;
+  id: GalleryTemplateId;
   name: string;
+  tagline: string;
   description: string;
   aspectRatioLabel: string;
-  theme: 'editorial' | 'masonry' | 'cinematic' | 'minimal';
+  theme: 'editorial' | 'masonry' | 'cinematic' | 'minimal' | string;
   component: React.ComponentType<TemplateLayoutProps>;
+  previewImage: string;
+  badge: string;
+  characteristics: string[];
+  defaultCover: string;
 }

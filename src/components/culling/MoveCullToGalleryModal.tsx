@@ -1,0 +1,629 @@
+import React, { useState, useMemo, useEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
+import {
+  X,
+  FolderKanban,
+  Check,
+  Plus,
+  Tag,
+  ArrowRight,
+  FolderPlus,
+  Layers,
+  Loader2,
+  Trash2,
+  Trophy,
+} from 'lucide-react';
+import { useGalleries } from '@/hooks/useAtelierQueries';
+import { normalizeServerGallery } from '@/utils/galleryNormalizer';
+import type { Gallery } from '@/types';
+import { useToast } from '@/components/ui/Toast';
+import { CustomSelect } from '@/components/ui/CustomSelect';
+import { MoveCullingToGalleryApi } from '@/service/culling/CullingApi';
+import type { AnalyzedPhoto } from '@/utils/deduplicationEngine';
+
+export interface MoveCullToGalleryModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  photos: AnalyzedPhoto[];
+  sessionId?: string;
+  onMoveSuccess?: () => void;
+}
+
+const DEFAULT_CATEGORY_PRESETS = [
+  'HIGHLIGHTS',
+  'PORTRAITS',
+  'CEREMONY',
+  'RECEPTION',
+  'GETTING READY',
+  'CANDIDS',
+  'DETAILS',
+  'PARTY',
+  'AI CURATED',
+];
+
+export const MoveCullToGalleryModal: React.FC<MoveCullToGalleryModalProps> = ({
+  isOpen,
+  onClose,
+  photos,
+  sessionId,
+  onMoveSuccess,
+}) => {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { showToast } = useToast();
+  const { data: apiGalleries } = useGalleries();
+
+  const galleries = useMemo<Gallery[]>(() => {
+    if (apiGalleries && Array.isArray(apiGalleries)) {
+      return apiGalleries.map((g: any) => normalizeServerGallery(g));
+    }
+    return [];
+  }, [apiGalleries]);
+
+  // Target Mode: 'new' or 'existing' (same as Event MoveToGalleryModal)
+  const [targetMode, setTargetMode] = useState<'new' | 'existing'>('new');
+  const [newGalleryTitle, setNewGalleryTitle] = useState('AI Curated Shoot');
+  const [selectedExistingGalleryId, setSelectedExistingGalleryId] = useState('');
+
+  useEffect(() => {
+    if (galleries.length > 0 && !selectedExistingGalleryId) {
+      setSelectedExistingGalleryId(galleries[0].id);
+    }
+  }, [galleries, selectedExistingGalleryId]);
+
+  // Category titles available (presets + custom ones added)
+  const [availableCategories, setAvailableCategories] = useState<string[]>(() => {
+    return DEFAULT_CATEGORY_PRESETS.map((c) => c.toUpperCase());
+  });
+
+  const [newCategoryInput, setNewCategoryInput] = useState('');
+  const [showAddCustomInput, setShowAddCustomInput] = useState(false);
+
+  // Photo assignments: photoId -> sectionTitle
+  // Default: keepers get 'HIGHLIGHTS', discarded duplicates get 'ALTERNATE TAKES'
+  const [assignments, setAssignments] = useState<Record<string, string>>(() => {
+    const initial: Record<string, string> = {};
+    photos.forEach((p) => {
+      initial[p.id] = p.status === 'discard' ? 'ALTERNATE TAKES' : 'HIGHLIGHTS';
+    });
+    return initial;
+  });
+
+  // Selected media IDs for batch categorization
+  const [selectedMediaIds, setSelectedMediaIds] = useState<Set<string>>(new Set());
+
+  // Filter view: 'all' | 'unassigned' | or specific category
+  const [activeCategoryFilter, setActiveCategoryFilter] = useState<string>('all');
+
+  const [isPending, setIsPending] = useState(false);
+
+  // Toggle selection for an item
+  const toggleSelect = (id: string) => {
+    setSelectedMediaIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleSelectAll = () => {
+    setSelectedMediaIds(new Set(photos.map((m) => m.id)));
+  };
+
+  const handleDeselectAll = () => {
+    setSelectedMediaIds(new Set());
+  };
+
+  // Add a new custom category title
+  const handleAddCategory = () => {
+    const trimmed = newCategoryInput.trim().toUpperCase();
+    if (!trimmed) return;
+    if (!availableCategories.includes(trimmed)) {
+      setAvailableCategories((prev) => [...prev, trimmed]);
+    }
+    // If photos are selected, assign immediately
+    if (selectedMediaIds.size > 0) {
+      applyCategoryToSelected(trimmed);
+    }
+    setNewCategoryInput('');
+    setShowAddCustomInput(false);
+    showToast('Category Added', `Created "${trimmed}" category title.`, 'info');
+  };
+
+  // Assign a category to all currently selected photos
+  const applyCategoryToSelected = (categoryTitle: string) => {
+    if (selectedMediaIds.size === 0) {
+      showToast('Select Photos First', 'Click or tap photos below to assign them to this category.', 'info');
+      return;
+    }
+
+    setAssignments((prev) => {
+      const next = { ...prev };
+      selectedMediaIds.forEach((id) => {
+        next[id] = categoryTitle.toUpperCase();
+      });
+      return next;
+    });
+
+    showToast(
+      'Photos Categorized',
+      `Assigned ${selectedMediaIds.size} photo(s) to "${categoryTitle.toUpperCase()}".`,
+      'success'
+    );
+    setSelectedMediaIds(new Set());
+  };
+
+  // Filtered photos list based on category filter
+  const displayedMedia = useMemo(() => {
+    if (activeCategoryFilter === 'all') return photos;
+    if (activeCategoryFilter === 'unassigned') {
+      return photos.filter((m) => !assignments[m.id]);
+    }
+    return photos.filter((m) => assignments[m.id] === activeCategoryFilter);
+  }, [photos, activeCategoryFilter, assignments]);
+
+  // Statistics by category
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    photos.forEach((m) => {
+      const cat = assignments[m.id] || 'UNASSIGNED';
+      counts[cat] = (counts[cat] || 0) + 1;
+    });
+    return counts;
+  }, [photos, assignments]);
+
+  const assignedSectionsList = useMemo(() => {
+    return Array.from(new Set(Object.values(assignments).filter(Boolean)));
+  }, [assignments]);
+
+  // Execute Move to Gallery & Delete from Culling Session
+  const handleConfirmMove = async () => {
+    if (photos.length === 0) {
+      showToast('No Photos', 'There are no photos to move.', 'error');
+      return;
+    }
+
+    if (targetMode === 'existing' && !selectedExistingGalleryId) {
+      showToast('Select Gallery', 'Please select a destination gallery.', 'warning');
+      return;
+    }
+
+    if (targetMode === 'new' && !newGalleryTitle.trim()) {
+      showToast('Name Gallery', 'Please provide a title for the new gallery.', 'warning');
+      return;
+    }
+
+    setIsPending(true);
+    try {
+      const resGallery = await MoveCullingToGalleryApi({
+        session_id: sessionId,
+        target_mode: targetMode,
+        target_gallery_id: targetMode === 'existing' ? selectedExistingGalleryId : null,
+        new_gallery_title: targetMode === 'new' ? newGalleryTitle : undefined,
+        target_section_title: assignedSectionsList[0] || 'AI CURATED',
+        category_assignments: assignments,
+        include_duplicates: true,
+        duplicate_section_title: 'ALTERNATE TAKES',
+        items: photos.map((p) => ({
+          id: p.id,
+          url: p.previewUrl,
+          name: p.name,
+          sizeBytes: p.sizeBytes,
+          status: p.status,
+          sectionTitle: assignments[p.id] || (p.status === 'discard' ? 'ALTERNATE TAKES' : 'HIGHLIGHTS'),
+        })),
+      });
+
+      // Synchronize TanStack Queries
+      await Promise.allSettled([
+        queryClient.invalidateQueries({ queryKey: ['gallery'], exact: false }),
+        queryClient.invalidateQueries({ queryKey: ['galleries'], exact: false }),
+      ]);
+
+      const targetTitle =
+        targetMode === 'new'
+          ? newGalleryTitle
+          : galleries.find((g) => g.id === selectedExistingGalleryId)?.title || 'Selected Gallery';
+
+      showToast(
+        'Moved to Studio Gallery',
+        `Photos successfully published into "${targetTitle}" across ${assignedSectionsList.length} categories. All photos have been permanently removed from AI Smart Cull staging.`,
+        'success'
+      );
+
+      // Trigger deletion & cleanup of all photos from the culling page
+      onMoveSuccess?.();
+
+      onClose();
+
+      const targetId = resGallery.gallery_id || selectedExistingGalleryId;
+      if (targetId && !targetId.startsWith('gallery_')) {
+        navigate(`/dashboard/gallery/${targetId}`);
+      } else {
+        navigate('/dashboard/gallery');
+      }
+    } catch (err: any) {
+      showToast('Move Failed', err?.message || 'Failed to move photos to gallery.', 'error');
+    } finally {
+      setIsPending(false);
+    }
+  };
+
+  // Lock background scroll & handle escape key
+  useEffect(() => {
+    if (!isOpen) return;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !isPending) onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, onClose, isPending]);
+
+  if (!isOpen) return null;
+
+  return createPortal(
+    <div
+      role="dialog"
+      aria-modal="true"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 md:p-6 bg-black/60 dark:bg-black/80 backdrop-blur-sm sm:backdrop-blur-md overlay-animate overflow-y-auto"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !isPending) onClose();
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="relative w-full max-w-4xl bg-white dark:bg-[#101116] border border-neutral-200 dark:border-neutral-800 text-neutral-900 dark:text-white shadow-2xl rounded-3xl my-auto modal-animate max-h-[min(92vh,840px)] flex flex-col overflow-hidden"
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between p-5 sm:p-6 pb-4 border-b border-neutral-200 dark:border-neutral-800/80 shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-500 dark:text-amber-400 flex items-center justify-center">
+              <FolderKanban className="w-6 h-6" />
+            </div>
+            <div>
+              <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-amber-600 dark:text-amber-400 block">
+                Studio Gallery Integration
+              </span>
+              <h3 className="text-xl font-serif font-bold text-neutral-900 dark:text-white tracking-tight">
+                Move Culled Photos to Gallery & Categorize
+              </h3>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            disabled={isPending}
+            className="p-2 rounded-full text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Modal Scrollable Body */}
+        <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-6">
+          {/* Step 1: Destination Gallery Selection */}
+          <div className="bg-neutral-50 dark:bg-neutral-950/80 border border-neutral-200 dark:border-neutral-800/80 rounded-2xl p-4 sm:p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-mono font-bold uppercase tracking-wider text-neutral-700 dark:text-neutral-300 flex items-center gap-2">
+                <FolderPlus className="w-4 h-4 text-amber-500" />
+                <span>1. Choose Gallery Destination</span>
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Option A: Create New Gallery */}
+              <button
+                type="button"
+                onClick={() => setTargetMode('new')}
+                className={`p-4 rounded-xl text-left border transition-all cursor-pointer ${
+                  targetMode === 'new'
+                    ? 'bg-amber-400/10 border-amber-400 text-neutral-900 dark:text-white ring-1 ring-amber-400'
+                    : 'bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400 hover:border-neutral-300 dark:hover:border-neutral-700'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-mono font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                    Create New Gallery
+                  </span>
+                  {targetMode === 'new' && <Check className="w-4 h-4 text-amber-500" />}
+                </div>
+                <p className="text-sm font-semibold text-neutral-900 dark:text-white">Create Fresh Collection</p>
+                <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-1">
+                  Creates a dedicated client proofing gallery.
+                </p>
+              </button>
+
+              {/* Option B: Merge into Existing Gallery */}
+              <button
+                type="button"
+                onClick={() => setTargetMode('existing')}
+                className={`p-4 rounded-xl text-left border transition-all cursor-pointer ${
+                  targetMode === 'existing'
+                    ? 'bg-amber-400/10 border-amber-400 text-neutral-900 dark:text-white ring-1 ring-amber-400'
+                    : 'bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400 hover:border-neutral-300 dark:hover:border-neutral-700'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-mono font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                    Merge Into Existing
+                  </span>
+                  {targetMode === 'existing' && <Check className="w-4 h-4 text-amber-500" />}
+                </div>
+                <p className="text-sm font-semibold text-neutral-900 dark:text-white">Append to Existing Gallery</p>
+                <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-1">
+                  Adds these photos into an existing gallery collection.
+                </p>
+              </button>
+            </div>
+
+            {/* Input for New Gallery Name or Dropdown for Existing */}
+            {targetMode === 'new' ? (
+              <div className="space-y-1.5 pt-1">
+                <label className="atelier-label mb-1">
+                  <span>Gallery Title</span>
+                </label>
+                <input
+                  type="text"
+                  value={newGalleryTitle}
+                  onChange={(e) => setNewGalleryTitle(e.target.value)}
+                  className="atelier-input font-medium"
+                  placeholder="e.g. Royal Palace Wedding • Ananya & Kabir"
+                />
+              </div>
+            ) : (
+              <div className="space-y-1.5 pt-1">
+                <label className="text-xs font-mono text-neutral-700 dark:text-neutral-400 font-medium">
+                  Select Existing Gallery
+                </label>
+                <CustomSelect
+                  value={selectedExistingGalleryId}
+                  onChange={(val) => setSelectedExistingGalleryId(String(val))}
+                  options={galleries.map((gal) => ({
+                    value: gal.id,
+                    label: gal.title,
+                    badge: `${gal.media.length} photos`,
+                  }))}
+                  placeholder="Select a destination gallery..."
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Step 2: Categorization Workspace */}
+          <div className="bg-neutral-50 dark:bg-neutral-950/80 border border-neutral-200 dark:border-neutral-800/80 rounded-2xl p-4 sm:p-5 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <span className="text-xs font-mono font-bold uppercase tracking-wider text-neutral-800 dark:text-neutral-300 flex items-center gap-2">
+                <Tag className="w-4 h-4 text-amber-500" />
+                <span>2. Categorize Photos Under Titles</span>
+              </span>
+              <div className="flex items-center gap-2">
+                {selectedMediaIds.size > 0 && (
+                  <span className="text-xs font-mono text-amber-700 dark:text-amber-300 font-bold bg-amber-400/10 px-2.5 py-1 rounded-lg border border-amber-400/20">
+                    {selectedMediaIds.size} Selected
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={
+                    selectedMediaIds.size === photos.length
+                      ? handleDeselectAll
+                      : handleSelectAll
+                  }
+                  className="px-3 py-1 rounded-lg bg-white dark:bg-neutral-900 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300 text-xs font-mono border border-neutral-200 dark:border-neutral-800 transition-colors cursor-pointer"
+                >
+                  {selectedMediaIds.size === photos.length ? 'Deselect All' : 'Select All'}
+                </button>
+              </div>
+            </div>
+
+            {/* Category Assign Buttons (Pills Bar) */}
+            <div className="space-y-2">
+              <span className="text-[11px] font-mono text-neutral-500 dark:text-neutral-400 block">
+                Select photos below, then click a category title to assign them:
+              </span>
+
+              <div className="flex flex-wrap items-center gap-2">
+                {availableCategories.map((cat) => {
+                  const count = categoryCounts[cat] || 0;
+                  return (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => applyCategoryToSelected(cat)}
+                      className="group px-3 py-1.5 rounded-xl bg-white dark:bg-neutral-900 hover:bg-amber-400 hover:text-neutral-950 text-neutral-800 dark:text-neutral-200 text-xs font-mono font-semibold border border-neutral-200 dark:border-neutral-800 shadow-2xs transition-all flex items-center gap-2 cursor-pointer"
+                      title={`Assign selected photos to ${cat}`}
+                    >
+                      <span>{cat}</span>
+                      <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-neutral-100 dark:bg-neutral-800 group-hover:bg-neutral-950 group-hover:text-amber-400 text-neutral-600 dark:text-neutral-400 font-bold">
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
+
+                {/* Add Custom Category Trigger */}
+                {showAddCustomInput ? (
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="text"
+                      placeholder="e.g. HALDI EDITED"
+                      value={newCategoryInput}
+                      onChange={(e) => setNewCategoryInput(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleAddCategory()}
+                      className="px-3 py-1 rounded-xl bg-white dark:bg-neutral-900 border border-amber-400 text-xs font-mono text-neutral-900 dark:text-white focus:outline-none uppercase w-36"
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddCategory}
+                      className="px-2.5 py-1 rounded-xl bg-amber-400 text-neutral-950 text-xs font-mono font-bold cursor-pointer"
+                    >
+                      Add
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddCustomInput(false)}
+                      className="p-1 text-neutral-400 hover:text-neutral-700 dark:hover:text-white"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowAddCustomInput(true)}
+                    className="px-3 py-1.5 rounded-xl bg-white/80 dark:bg-neutral-900/50 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-amber-600 dark:text-amber-400 text-xs font-mono border border-dashed border-amber-500/40 hover:border-amber-500 flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>New Category Title</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Filter Tabs to View Specific Category */}
+            <div className="flex items-center gap-1.5 pt-2 border-t border-neutral-200 dark:border-neutral-900 overflow-x-auto pb-1">
+              <button
+                type="button"
+                onClick={() => setActiveCategoryFilter('all')}
+                className={`px-3 py-1 rounded-lg text-xs font-mono transition-colors cursor-pointer whitespace-nowrap ${
+                  activeCategoryFilter === 'all'
+                    ? 'bg-neutral-200 dark:bg-white/10 text-neutral-900 dark:text-white font-bold'
+                    : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200'
+                }`}
+              >
+                All Photos ({photos.length})
+              </button>
+              {availableCategories.map((cat) => {
+                const count = categoryCounts[cat] || 0;
+                if (count === 0) return null;
+                return (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => setActiveCategoryFilter(cat)}
+                    className={`px-3 py-1 rounded-lg text-xs font-mono transition-colors cursor-pointer whitespace-nowrap ${
+                      activeCategoryFilter === cat
+                        ? 'bg-amber-400/15 text-amber-700 dark:text-amber-300 font-bold border border-amber-400/30'
+                        : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200'
+                    }`}
+                  >
+                    {cat} ({count})
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Photos Grid with Selection & Category Badges */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 max-h-72 overflow-y-auto pr-1">
+              {displayedMedia.map((item) => {
+                const isSelected = selectedMediaIds.has(item.id);
+                const assigned = assignments[item.id] || 'UNASSIGNED';
+                const isBest = item.isBestPick;
+                const isDiscarded = item.status === 'discard';
+
+                return (
+                  <div
+                    key={item.id}
+                    onClick={() => toggleSelect(item.id)}
+                    className={`relative aspect-[4/3] rounded-xl overflow-hidden group border-2 transition-all cursor-pointer bg-neutral-900 ${
+                      isSelected
+                        ? 'border-amber-400 ring-2 ring-amber-400/60 scale-[1.01]'
+                        : isBest
+                        ? 'border-emerald-500/50'
+                        : isDiscarded
+                        ? 'border-red-500/30 opacity-75 hover:opacity-100'
+                        : 'border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700'
+                    }`}
+                  >
+                    <img
+                      src={item.previewUrl}
+                      alt={item.name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+
+                    {/* Gradient Overlay */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30 pointer-events-none" />
+
+                    {/* Selection Checkbox */}
+                    <div
+                      className={`absolute top-2 left-2 w-6 h-6 rounded-lg flex items-center justify-center transition-all ${
+                        isSelected
+                          ? 'bg-amber-400 text-neutral-950 font-bold shadow-md'
+                          : 'bg-black/50 text-white/60 border border-white/20 opacity-80 group-hover:opacity-100'
+                      }`}
+                    >
+                      <Check className={`w-3.5 h-3.5 ${isSelected ? 'stroke-[3]' : 'stroke-2'}`} />
+                    </div>
+
+                    {/* Top Right Sharpness Pill */}
+                    <div className="absolute top-2 right-2 px-1.5 py-0.5 rounded bg-black/70 backdrop-blur-xs text-[9px] font-mono text-white/90">
+                      {isBest ? 'Winner' : `${item.sharpnessScore}%`}
+                    </div>
+
+                    {/* Category Title Badge */}
+                    <div className="absolute bottom-2 left-2 right-2">
+                      <span className="inline-block max-w-full px-2 py-0.5 rounded-md bg-neutral-950/80 border border-amber-400/30 text-amber-300 text-[10px] font-mono font-bold uppercase truncate shadow">
+                        {assigned}
+                      </span>
+                      <p className="text-[10px] text-white/80 font-mono truncate mt-0.5">
+                        {item.name}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Modal Footer & Move Action (Fixed Footer) */}
+        <div className="p-4 sm:p-6 pt-3 border-t border-neutral-200 dark:border-neutral-800/80 bg-neutral-50/80 dark:bg-[#101116]/90 backdrop-blur-xs flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
+          <div className="text-xs font-mono text-neutral-500 dark:text-neutral-400 flex items-center gap-2">
+            <Layers className="w-4 h-4 text-amber-500" />
+            <span>
+              Moving {photos.length} photos into {assignedSectionsList.length} gallery categories (clears from AI cull)
+            </span>
+          </div>
+
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={isPending}
+              className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl bg-white dark:bg-neutral-900 hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed text-neutral-700 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-800 text-xs font-mono transition-colors cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={isPending}
+              onClick={handleConfirmMove}
+              className="flex-1 sm:flex-none px-6 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 text-xs font-mono font-bold flex items-center justify-center gap-2 transition-all hover:scale-[1.02] shadow-lg shadow-amber-400/20 cursor-pointer disabled:opacity-50"
+            >
+              {isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Migrating & Clearing...</span>
+                </>
+              ) : (
+                <>
+                  <span>Move to Studio Gallery</span>
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+};

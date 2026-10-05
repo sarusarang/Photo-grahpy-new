@@ -1,0 +1,32 @@
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # ----------------------------------------------------------------------
+  # 1. Social Media Crawlers & Scrapers
+  # Intercept requests from WhatsApp, Facebook, Twitter/X, Telegram, Slack,
+  # LinkedIn, Pinterest, Discord, Applebot, Googlebot, etc. so they receive
+  # dynamic OpenGraph meta tags with the gallery/event's hero image and title.
+  # ----------------------------------------------------------------------
+
+  # Gallery Routes
+  RewriteCond %{HTTP_USER_AGENT} (facebookexternalhit|Facebot|WhatsApp|Twitterbot|TelegramBot|Slackbot|Slack-ImgProxy|LinkedInBot|Pinterest|Discordbot|Applebot|Googlebot|bingbot|DuckDuckBot|SkypeUriPreview|YandexBot|vkShare|W3C_Validator) [NC]
+  RewriteRule ^gallery/([^/]+)/?.*$ seo.php?type=gallery&slug=$1 [L,QSA]
+
+  # Live Event Routes (supports /events/... and /event/...)
+  RewriteCond %{HTTP_USER_AGENT} (facebookexternalhit|Facebot|WhatsApp|Twitterbot|TelegramBot|Slackbot|Slack-ImgProxy|LinkedInBot|Pinterest|Discordbot|Applebot|Googlebot|bingbot|DuckDuckBot|SkypeUriPreview|YandexBot|vkShare|W3C_Validator) [NC]
+  RewriteRule ^events?/([^/]+)/?.*$ seo.php?type=event&slug=$1 [L,QSA]
+
+  # Portfolio Routes
+  RewriteCond %{HTTP_USER_AGENT} (facebookexternalhit|Facebot|WhatsApp|Twitterbot|TelegramBot|Slackbot|Slack-ImgProxy|LinkedInBot|Pinterest|Discordbot|Applebot|Googlebot|bingbot|DuckDuckBot|SkypeUriPreview|YandexBot|vkShare|W3C_Validator) [NC]
+  RewriteRule ^portfolio/([^/]+)/?.*$ seo.php?type=portfolio&slug=$1 [L,QSA]
+
+  # ----------------------------------------------------------------------
+  # 2. React Single Page Application (SPA) Fallback
+  # Direct all other browser requests to index.html if the file or folder
+  # does not physically exist.
+  # ----------------------------------------------------------------------
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule . /index.html [L]
+</IfModule>

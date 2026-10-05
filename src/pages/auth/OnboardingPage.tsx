@@ -23,28 +23,47 @@ import {
 import { Logo } from '../../components/common/Logo';
 import {
   emailSchema,
-  otpSchema,
   profileSetupSchema,
   type EmailFormData,
-  type OtpFormData,
   type ProfileSetupFormData,
 } from '../../schemas/authSchemas';
 import { useSendRegOtp, useVerifyRegOtp, useResendRegOtp } from '../../service/auth/useAuth';
 import { useSubmitOnboarding, useOnboardingState } from '../../service/profile/useProfile';
+import { OtpSection } from '../../components/auth';
 
 type OnboardStep = 'email' | 'otp' | 'profile';
 
 export const OnboardingPage: React.FC = () => {
-  const { completeOnboarding, login, isAuthenticated } = useAuth();
+  const { completeOnboarding, login, isAuthenticated, photographer, user } = useAuth();
   const navigate = useNavigate();
 
-  const [step, setStep] = useState<OnboardStep>('email');
-  const [activeEmail, setActiveEmail] = useState('');
-  const [otpDigits, setOtpDigits] = useState(['', '', '', '', '', '']);
+  // Redirect to dashboard if user is already fully authenticated and onboarded
+  useEffect(() => {
+    if (isAuthenticated && photographer.isOnboarded) {
+      navigate('/dashboard/gallery', { replace: true });
+    }
+  }, [isAuthenticated, photographer.isOnboarded, navigate]);
+
+  // If already authenticated via OTP/session but profile setup is pending, initialize directly at 'profile'
+  const [step, setStep] = useState<OnboardStep>(() => {
+    if (isAuthenticated && !photographer.isOnboarded) {
+      return 'profile';
+    }
+    return 'email';
+  });
+
+  const [activeEmail, setActiveEmail] = useState(() => user?.email || '');
+
+  // Keep step synchronized if auth state updates dynamically
+  useEffect(() => {
+    if (isAuthenticated && !photographer.isOnboarded && step !== 'profile') {
+      setStep('profile');
+    }
+  }, [isAuthenticated, photographer.isOnboarded, step]);
 
   // Avatar upload state
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
-  const [avatarPreview, setAvatarPreview] = useState<string>('');
+  const [avatarPreview, setAvatarPreview] = useState<string>(() => user?.avatar_url || '');
   const [isDraggingAvatar, setIsDraggingAvatar] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -58,29 +77,40 @@ export const OnboardingPage: React.FC = () => {
   // React Hook Form for Step 1: Email
   const emailForm = useForm<EmailFormData>({
     resolver: zodResolver(emailSchema),
-    defaultValues: { email: '' },
+    defaultValues: { email: user?.email || '' },
     mode: 'onTouched',
-  });
-
-  // React Hook Form for Step 2: OTP
-  const otpForm = useForm<OtpFormData>({
-    resolver: zodResolver(otpSchema),
-    defaultValues: { otp: '' },
-    mode: 'onChange',
   });
 
   // React Hook Form for Step 3: Profile Setup (Phone and Occupation are REQUIRED)
   const profileForm = useForm<ProfileSetupFormData>({
     resolver: zodResolver(profileSetupSchema),
     defaultValues: {
-      name: '',
-      phone: '',
-      occupation: '',
+      name: user?.fullname || '',
+      phone: user?.phone || '',
+      occupation: user?.occupation || '',
     },
     mode: 'onTouched',
   });
 
-  // Prepopulate profile if onboarding state returns existing info
+  // Prepopulate profile if user data or onboarding state returns existing info
+  useEffect(() => {
+    if (user?.email && !activeEmail) {
+      setActiveEmail(user.email);
+    }
+    if (user?.fullname && !profileForm.getValues('name')) {
+      profileForm.setValue('name', user.fullname);
+    }
+    if (user?.phone && !profileForm.getValues('phone')) {
+      profileForm.setValue('phone', user.phone);
+    }
+    if (user?.occupation && !profileForm.getValues('occupation')) {
+      profileForm.setValue('occupation', user.occupation);
+    }
+    if (user?.avatar_url && !avatarPreview) {
+      setAvatarPreview(user.avatar_url);
+    }
+  }, [user, activeEmail, profileForm, avatarPreview]);
+
   useEffect(() => {
     if (onboardingState) {
       if (onboardingState.name && !profileForm.getValues('name')) {
@@ -93,7 +123,9 @@ export const OnboardingPage: React.FC = () => {
         profileForm.setValue('occupation', onboardingState.occupation);
       }
       if (onboardingState.avatar_url && !avatarPreview) {
-        setAvatarPreview(onboardingState.avatar_url);
+        queueMicrotask(() => {
+          setAvatarPreview(onboardingState.avatar_url);
+        });
       }
     }
   }, [onboardingState, profileForm, avatarPreview]);
@@ -159,105 +191,12 @@ export const OnboardingPage: React.FC = () => {
     }
   };
 
-  // Step 2: OTP Digit Synchronization, Paste & Submission
-  const handleOtpPaste = (e: React.ClipboardEvent<HTMLInputElement>, startIndex: number) => {
-    e.preventDefault();
-    const pastedText = e.clipboardData.getData('text');
-    const digits = pastedText.replace(/\D/g, '');
-    if (!digits) return;
-
-    const nextDigits = [...otpDigits];
-    // If full OTP or more pasted, fill all slots starting at index 0
-    const startFrom = digits.length >= 6 ? 0 : startIndex;
-    const chars = digits.slice(0, 6 - startFrom).split('');
-
-    chars.forEach((d, i) => {
-      if (startFrom + i < 6) {
-        nextDigits[startFrom + i] = d;
-      }
-    });
-
-    setOtpDigits(nextDigits);
-    const fullCode = nextDigits.join('');
-    otpForm.setValue('otp', fullCode, { shouldValidate: fullCode.length === 6 });
-
-    const focusIndex = Math.min(5, startFrom + chars.length - 1);
-    document.getElementById(`reg-otp-${focusIndex}`)?.focus();
-  };
-
-  const handleOtpDigitChange = (index: number, val: string) => {
-    const digitsOnly = val.replace(/\D/g, '');
-
-    if (!digitsOnly) {
-      const nextDigits = [...otpDigits];
-      nextDigits[index] = '';
-      setOtpDigits(nextDigits);
-      const fullCode = nextDigits.join('');
-      otpForm.setValue('otp', fullCode, { shouldValidate: fullCode.length === 6 });
-      return;
-    }
-
-    // If more than 1 character was entered (autofill, native paste, or rapid input)
-    if (digitsOnly.length > 1) {
-      // If user typed a single character while input was already filled
-      if (digitsOnly.length === 2 && digitsOnly[0] === otpDigits[index]) {
-        const char = digitsOnly[1];
-        const nextDigits = [...otpDigits];
-        nextDigits[index] = char;
-        setOtpDigits(nextDigits);
-        const fullCode = nextDigits.join('');
-        otpForm.setValue('otp', fullCode, { shouldValidate: fullCode.length === 6 });
-        if (index < 5) {
-          document.getElementById(`reg-otp-${index + 1}`)?.focus();
-        }
-        return;
-      }
-
-      const nextDigits = [...otpDigits];
-      const startFrom = digitsOnly.length >= 6 ? 0 : index;
-      const chars = digitsOnly.slice(0, 6 - startFrom).split('');
-
-      chars.forEach((c, idx) => {
-        if (startFrom + idx < 6) {
-          nextDigits[startFrom + idx] = c;
-        }
-      });
-
-      setOtpDigits(nextDigits);
-      const fullCode = nextDigits.join('');
-      otpForm.setValue('otp', fullCode, { shouldValidate: fullCode.length === 6 });
-
-      const focusIndex = Math.min(5, startFrom + chars.length - 1);
-      document.getElementById(`reg-otp-${focusIndex}`)?.focus();
-      return;
-    }
-
-    // Single digit input
-    const nextDigits = [...otpDigits];
-    nextDigits[index] = digitsOnly;
-    setOtpDigits(nextDigits);
-
-    const fullCode = nextDigits.join('');
-    otpForm.setValue('otp', fullCode, { shouldValidate: fullCode.length === 6 });
-
-    if (index < 5) {
-      const nextEl = document.getElementById(`reg-otp-${index + 1}`);
-      nextEl?.focus();
-    }
-  };
-
-  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Backspace' && !otpDigits[index] && index > 0) {
-      const prevEl = document.getElementById(`reg-otp-${index - 1}`);
-      prevEl?.focus();
-    }
-  };
-
-  const onOtpSubmit = async (data: OtpFormData) => {
+  // Step 2: OTP Verification & Resend Handlers
+  const handleVerifyRegOtp = async (code: string) => {
     try {
       const res = await verifyOtpMutation.mutateAsync({
         email: activeEmail,
-        otp: data.otp,
+        otp: code,
         role: 'photographer',
       });
 
@@ -270,15 +209,9 @@ export const OnboardingPage: React.FC = () => {
     }
   };
 
-  const handleResendOtp = async () => {
+  const handleResendRegOtp = async () => {
     if (!activeEmail) return;
-    setOtpDigits(['', '', '', '', '', '']);
-    otpForm.setValue('otp', '');
-    try {
-      await resendOtpMutation.mutateAsync({ email: activeEmail });
-    } catch {
-      // Handled
-    }
+    await resendOtpMutation.mutateAsync({ email: activeEmail });
   };
 
   // Step 3: Profile Setup Submission via Real API
@@ -307,7 +240,11 @@ export const OnboardingPage: React.FC = () => {
         isOnboarded: true,
       });
 
-      navigate('/dashboard/gallery');
+      toast.success('Profile created successfully!', {
+        description: 'Select your studio plan to activate your workspace.',
+      });
+
+      navigate('/dashboard/gallery', { replace: true });
     } catch {
       // Handled by mutation toast
     }
@@ -326,10 +263,9 @@ export const OnboardingPage: React.FC = () => {
       ? 'Join photographers worldwide building client galleries.'
       : step === 'otp'
       ? `Enter the 6-digit code sent to ${activeEmail}`
-      : 'Tell us a bit about yourself to personalize your studio workspace.';
+      : 'Complete your profile setup. Next, you will select your studio plan.';
 
   const isEmailLoading = sendOtpMutation.isPending;
-  const isOtpLoading = verifyOtpMutation.isPending;
   const isProfileLoading = submitOnboardingMutation.isPending;
 
   return (
@@ -423,72 +359,19 @@ export const OnboardingPage: React.FC = () => {
 
           {/* Step 2: OTP Form */}
           {step === 'otp' && (
-            <form onSubmit={otpForm.handleSubmit(onOtpSubmit)} className="flex flex-col gap-3">
-              <div className="flex gap-2 justify-between my-1">
-                {otpDigits.map((digit, i) => (
-                  <input
-                    key={i}
-                    id={`reg-otp-${i}`}
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={6}
-                    value={digit}
-                    onChange={(e) => handleOtpDigitChange(i, e.target.value)}
-                    onKeyDown={(e) => handleOtpKeyDown(i, e)}
-                    onPaste={(e) => handleOtpPaste(e, i)}
-                    onFocus={(e) => e.target.select()}
-                    className={`w-11 h-12 sm:w-12 sm:h-14 text-center rounded-xl font-mono text-lg font-bold outline-none transition-all ${
-                      digit
-                        ? 'bg-amber-400/10 border border-amber-400 text-amber-400'
-                        : 'bg-neutral-900 border border-neutral-800 text-white focus:border-amber-400'
-                    }`}
-                    autoFocus={i === 0}
-                  />
-                ))}
-              </div>
-
-              {otpForm.formState.errors.otp && (
-                <div className="flex items-center gap-1.5 text-rose-400 text-[11px] justify-center">
-                  <AlertCircle className="w-3 h-3 shrink-0" />
-                  <span>{otpForm.formState.errors.otp.message}</span>
-                </div>
-              )}
-
-              <button
-                type="submit"
-                disabled={isOtpLoading || otpDigits.join('').length < 6}
-                className="w-full py-2.5 sm:py-3 px-4 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 font-bold text-xs sm:text-sm tracking-wide transition-all shadow-md shadow-amber-400/20 active:scale-[0.99] flex items-center justify-center gap-2 mt-1 cursor-pointer disabled:opacity-50"
-              >
-                {isOtpLoading ? (
-                  <Loader2 className="w-4 h-4 animate-spin text-neutral-950" />
-                ) : (
-                  <>
-                    <span>Verify Email</span>
-                    <ArrowRight className="w-4 h-4 stroke-[2.2]" />
-                  </>
-                )}
-              </button>
-
-              <p className="text-center text-xs text-neutral-500 mt-2">
-                Didn't get the code?{' '}
-                <button
-                  type="button"
-                  onClick={handleResendOtp}
-                  disabled={resendOtpMutation.isPending}
-                  className="text-amber-400 font-semibold hover:text-amber-300 cursor-pointer disabled:opacity-50"
-                >
-                  {resendOtpMutation.isPending ? 'Sending...' : 'Resend'}
-                </button>
-                {' · '}
-                <button
-                  type="button"
-                  onClick={() => setStep('email')}
-                  className="text-neutral-400 hover:text-white cursor-pointer"
-                >
-                  Change email
-                </button>
-              </p>
-            </form>
+            <OtpSection
+              email={activeEmail}
+              onVerify={handleVerifyRegOtp}
+              onResend={handleResendRegOtp}
+              onChangeEmail={() => setStep('email')}
+              isVerifying={verifyOtpMutation.isPending}
+              isResending={resendOtpMutation.isPending}
+              hideHeader={true}
+              validityMinutes={10}
+              resendCooldownSeconds={30}
+              idPrefix="reg-otp"
+              submitLabel="Verify Email"
+            />
           )}
 
           {/* Step 3: Profile Setup Form (Zod validated, Phone and Occupation required) */}
@@ -672,7 +555,7 @@ export const OnboardingPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Enter Workspace Button */}
+              {/* Submit Profile & Proceed to Plan Selection */}
               <button
                 type="submit"
                 disabled={isProfileLoading}
@@ -682,7 +565,7 @@ export const OnboardingPage: React.FC = () => {
                   <Loader2 className="w-4 h-4 animate-spin text-neutral-950" />
                 ) : (
                   <>
-                    <span>Enter Workspace</span>
+                    <span>Continue to Plan Selection</span>
                     <ArrowRight className="w-4 h-4 stroke-[2.2]" />
                   </>
                 )}

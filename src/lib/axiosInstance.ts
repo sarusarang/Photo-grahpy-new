@@ -23,7 +23,7 @@ const onRefreshFailed = (error: any) => {
     refreshSubscribers = [];
 };
 
-const rawBaseURL = (import.meta.env.VITE_API_BASE_URL || "https://pv0smzkc-8000.inc1.devtunnels.ms/api").trim();
+const rawBaseURL = (import.meta.env.VITE_API_BASE_URL || "https://server.exshare.ai/api").trim();
 const normalizedBaseURL = rawBaseURL.endsWith("/") ? rawBaseURL : `${rawBaseURL}/`;
 
 // Axios instance
@@ -69,7 +69,15 @@ axiosInstance.interceptors.response.use(
             url.includes("/auth/passwordless/") ||
             url.includes("/photographers/onboarding/");
 
-        if (error.response?.status === 401 && !originalRequest._retry && !isAuthCheckRoute) {
+        const isPublicGuestRoute =
+            typeof window !== "undefined" &&
+            (window.location.pathname.startsWith("/gallery/") ||
+             window.location.pathname.startsWith("/events/") ||
+             window.location.pathname.startsWith("/e/") ||
+             window.location.pathname.startsWith("/portfolio/") ||
+             window.location.pathname.startsWith("/guest/"));
+
+        if (error.response?.status === 401 && !originalRequest._retry && !isAuthCheckRoute && !isPublicGuestRoute) {
             originalRequest._retry = true;
 
             // Prevent multiple parallel refresh calls
@@ -124,7 +132,7 @@ axiosInstance.interceptors.response.use(
             error?.message ||
             "Something went wrong, please try again.";
 
-        return Promise.reject({ status, message, data });
+        return Promise.reject({ status, message, data, response: error?.response });
     }
 );
 

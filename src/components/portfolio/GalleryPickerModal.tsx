@@ -36,7 +36,7 @@ export const GalleryPickerModal: React.FC<GalleryPickerModalProps> = ({
   const { data: apiGalleries } = useGalleries();
   const galleries = useMemo<Gallery[]>(() => {
     if (apiGalleries && Array.isArray(apiGalleries)) {
-      return apiGalleries.map((g: any) => normalizeServerGallery(g));
+      return apiGalleries.map((g: Parameters<typeof normalizeServerGallery>[0]) => normalizeServerGallery(g));
     }
     return [];
   }, [apiGalleries]);

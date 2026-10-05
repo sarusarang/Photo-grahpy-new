@@ -12,6 +12,7 @@ import type { PortfolioConfig, PortfolioProject } from '../../types/portfolio';
 import { useUpdatePortfolioConfig, usePortfolioConfig } from '@/hooks/useAtelierQueries';
 import { usePlanQuota } from '@/hooks/usePlanQuota';
 import { PlanUpgradeModal } from '@/components/billing/PlanUpgradeModal';
+import { getPortfolioShareUrl } from '@/utils/domain';
 import { PortfolioDevicePreview } from '../../components/portfolio/preview/PortfolioDevicePreview';
 import { GalleryPickerModal } from '../../components/portfolio/GalleryPickerModal';
 import { ImageUploadButton } from '../../components/portfolio/ImageUploadButton';
@@ -93,7 +94,7 @@ export const PortfolioStudioPage: React.FC = () => {
   const { showToast } = useToast();
 
   const portfolioId = user?.username || photographer.id || 'studio';
-  const publicUrl = `${window.location.origin}/portfolio/${portfolioId}`;
+  const publicUrl = getPortfolioShareUrl(portfolioId);
 
   const [config, setConfig] = useState<PortfolioConfig>(() => getPortfolioConfig());
   const { data: serverConfig } = usePortfolioConfig();
@@ -567,9 +568,13 @@ export const PortfolioStudioPage: React.FC = () => {
             <button
               onClick={handleSave}
               disabled={isSaving}
-              className="px-6 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 disabled:opacity-70 text-neutral-950 text-sm font-bold flex items-center gap-2 transition-all hover:scale-105 active:scale-95 shadow-md cursor-pointer"
+              className="px-6 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 disabled:opacity-70 disabled:cursor-not-allowed text-neutral-950 text-sm font-bold flex items-center gap-2 transition-all hover:scale-105 active:scale-95 shadow-md cursor-pointer"
             >
-              <Save className="w-4 h-4 stroke-[2.5]" />
+              {isSaving ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Save className="w-4 h-4 stroke-[2.5]" />
+              )}
               {isSaving ? 'Publishing...' : 'Save & Publish'}
             </button>
           </div>

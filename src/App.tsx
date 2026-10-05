@@ -56,6 +56,9 @@ const EventDetailPage = lazy(() =>
 const GuestEventPage = lazy(() =>
   import('./pages/events/GuestEventPage').then((m) => ({ default: m.GuestEventPage }))
 );
+const SmartCullPage = lazy(() =>
+  import('./pages/dashboard/SmartCullPage').then((m) => ({ default: m.SmartCullPage }))
+);
 
 import { SuspenseLoader } from './components/common/SuspenseLoader';
 
@@ -106,7 +109,14 @@ export default function App() {
               </GuestRoute>
             }
           />
-          <Route path="/onboarding" element={<OnboardingPage />} />
+          <Route
+            path="/onboarding"
+            element={
+              <GuestRoute>
+                <OnboardingPage />
+              </GuestRoute>
+            }
+          />
 
           {/* Authenticated Photographer Dashboard Routes (Outlet based, Protected) */}
           <Route
@@ -125,6 +135,8 @@ export default function App() {
             <Route path="drive/:galleryId" element={<GalleryDetailPage />} />
             <Route path="events" element={<EventsPage />} />
             <Route path="events/:eventId" element={<EventDetailPage />} />
+            <Route path="culling" element={<SmartCullPage />} />
+            <Route path="smart-cull" element={<Navigate to="/dashboard/culling" replace />} />
             <Route path="inquiries" element={<InquiriesPage />} />
             <Route path="portfolio" element={<PortfolioStudioPage />} />
             <Route path="tutorials" element={<TutorialPage />} />

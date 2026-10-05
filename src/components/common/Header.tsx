@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { AnimatedThemeToggler } from '../ui/animated-theme-toggler';
 import { ProfileDropdown } from './ProfileDropdown';
 import { NotificationDropdown } from './NotificationDropdown';
+import { useNotifications } from '../../service/notifications';
 import { Logo } from './Logo';
 import {
   Bell,
@@ -20,7 +21,11 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
   const { photographer, user } = useAuth();
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [unreadCount, setUnreadCount] = useState<number>(3);
+  const [localUnreadCount, setLocalUnreadCount] = useState<number>(0);
+
+  // Live dynamic studio notifications from backend API
+  const { data: notifData } = useNotifications();
+  const unreadCount = notifData?.unread_count ?? localUnreadCount;
 
 
   return (
@@ -80,7 +85,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
           <NotificationDropdown
             isOpen={notificationsOpen}
             onClose={() => setNotificationsOpen(false)}
-            onUnreadCountChange={(count) => setUnreadCount(count)}
+            onUnreadCountChange={(count) => setLocalUnreadCount(count)}
           />
         </div>
 

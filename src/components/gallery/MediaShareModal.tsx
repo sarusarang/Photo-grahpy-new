@@ -6,13 +6,15 @@ import { useScrollLock } from '../../hooks/useScrollLock';
 import { SocialShareButton } from './share/SocialShareButton';
 import { MediaPreviewCard } from './share/MediaPreviewCard';
 import { ShareUrlBar } from './share/ShareUrlBar';
+import { QRCodeStudioBox } from './share/QRCodeStudioBox';
+import { getGalleryShareUrl } from '@/utils/domain';
+import { resolveAbsoluteImageUrl } from '@/utils/seo';
 import {
   X,
   Share2,
   Send,
   Mail,
   Smartphone,
-  QrCode,
 } from 'lucide-react';
 
 interface MediaShareModalProps {
@@ -34,7 +36,6 @@ export const MediaShareModal: React.FC<MediaShareModalProps> = ({
 }) => {
   const { showToast } = useToast();
   const [copied, setCopied] = useState(false);
-  const [viewMode, setViewMode] = useState<'preview' | 'qr'>('preview');
   const [activePreviewIndex, setActivePreviewIndex] = useState(0);
 
   // Lock body scroll and pause Lenis smooth scroll while modal is open
@@ -50,24 +51,24 @@ export const MediaShareModal: React.FC<MediaShareModalProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
-  // Reset view mode when modal opens or closes
-  useEffect(() => {
+  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
+  if (isOpen !== prevIsOpen) {
+    setPrevIsOpen(isOpen);
     if (isOpen) {
-      setViewMode('preview');
       setActivePreviewIndex(0);
     }
-  }, [isOpen]);
+  }
 
   if (!isOpen || mediaItems.length === 0) return null;
 
   const currentItem = mediaItems[activePreviewIndex] || mediaItems[0];
   const isMultiple = mediaItems.length > 1;
 
-  // Build direct shareable URL on canonical domain https://exshare.ai
-  const baseUrl = 'https://exshare.ai';
-  const shareUrl = gallerySlug
-    ? `${baseUrl}/gallery/${encodeURIComponent(gallerySlug)}?photo=${encodeURIComponent(currentItem.id)}`
-    : `${baseUrl}/gallery/${currentItem.galleryId || 'collection'}?photo=${encodeURIComponent(currentItem.id)}`;
+  // Build direct shareable URL using global domain utility
+  const shareUrl = getGalleryShareUrl(
+    gallerySlug || currentItem.galleryId || 'collection',
+    currentItem.id
+  );
 
   const shareText = isMultiple
     ? `Check out these ${mediaItems.length} photos from "${galleryTitle}"`
@@ -85,8 +86,8 @@ export const MediaShareModal: React.FC<MediaShareModalProps> = ({
           url: shareUrl,
         });
         showToast('Shared Successfully', 'Thank you for sharing!', 'success');
-      } catch (err: any) {
-        if (err.name !== 'AbortError') {
+      } catch (err: unknown) {
+        if ((err as Error)?.name !== 'AbortError') {
           handleCopyLink();
         }
       }
@@ -129,7 +130,7 @@ export const MediaShareModal: React.FC<MediaShareModalProps> = ({
   };
 
   const handlePinterest = () => {
-    const mediaUrl = currentItem.url;
+    const mediaUrl = resolveAbsoluteImageUrl(currentItem.url);
     window.open(
       `https://pinterest.com/pin/create/button/?url=${encodeURIComponent(
         shareUrl
@@ -219,7 +220,7 @@ export const MediaShareModal: React.FC<MediaShareModalProps> = ({
           data-lenis-prevent="true"
           className="mt-3 sm:mt-4 grid grid-cols-1 md:grid-cols-12 gap-3.5 sm:gap-5 overflow-y-auto pr-0.5 sm:pr-1 overscroll-contain"
         >
-          {/* Left Column: Interactive Media Preview & Seamless QR Code Toggle */}
+          {/* Left Column: Dedicated Clean Photo Preview */}
           <div className="md:col-span-5">
             <MediaPreviewCard
               currentItem={currentItem}
@@ -227,12 +228,10 @@ export const MediaShareModal: React.FC<MediaShareModalProps> = ({
               activePreviewIndex={activePreviewIndex}
               onSelectIndex={setActivePreviewIndex}
               shareUrl={shareUrl}
-              viewMode={viewMode}
-              onToggleViewMode={setViewMode}
             />
           </div>
 
-          {/* Right Column: Mobile App Share, Social Grid, Link Bar, Actions */}
+          {/* Right Column: Mobile App Share, Social Grid, QR Code Studio, Direct Link */}
           <div className="md:col-span-7 flex flex-col justify-between gap-3 sm:gap-4">
             {/* Quick Native App Share (Instagram, Messages, AirDrop) */}
             {canNativeShare && (
@@ -252,24 +251,6 @@ export const MediaShareModal: React.FC<MediaShareModalProps> = ({
                 <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
                   Share to Social Media
                 </p>
-                {viewMode === 'preview' ? (
-                  <button
-                    type="button"
-                    onClick={() => setViewMode('qr')}
-                    className="inline-flex items-center gap-1 text-[11px] text-amber-400 hover:text-amber-300 transition-colors cursor-pointer"
-                  >
-                    <QrCode className="w-3 h-3" />
-                    <span>Show QR Code</span>
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setViewMode('preview')}
-                    className="inline-flex items-center gap-1 text-[11px] text-neutral-400 hover:text-white transition-colors cursor-pointer"
-                  >
-                    <span>Back to Photo</span>
-                  </button>
-                )}
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -352,13 +333,13 @@ export const MediaShareModal: React.FC<MediaShareModalProps> = ({
                 <SocialShareButton
                   label="Pinterest"
                   onClick={handlePinterest}
-                  accentBg="bg-rose-500/15"
-                  accentText="text-rose-400"
-                  hoverBg="hover:bg-rose-950/40"
-                  hoverBorder="hover:border-rose-500/40"
+                  accentBg="bg-red-500/15"
+                  accentText="text-red-400"
+                  hoverBg="hover:bg-red-950/40"
+                  hoverBorder="hover:border-red-500/40"
                   icon={
                     <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
-                      <path d="M12 0C5.373 0 0 5.372 0 12c0 5.084 3.163 9.426 7.627 11.174-.105-.949-.2-2.405.042-3.441.218-.937 1.407-5.965 1.407-5.965s-.359-.719-.359-1.782c0-1.668.967-2.914 2.171-2.914 1.023 0 1.518.769 1.518 1.69 0 1.029-.655 2.568-.994 3.995-.283 1.194.599 2.169 1.777 2.169 2.133 0 3.772-2.249 3.772-5.495 0-2.873-2.064-4.882-5.012-4.882-3.414 0-5.418 2.561-5.418 5.207 0 1.031.397 2.138.893 2.738.098.119.112.224.083.345-.09.375-.293 1.199-.334 1.363-.053.225-.172.271-.401.165-1.495-.69-2.433-2.878-2.433-4.646 0-3.776 2.748-7.252 7.92-7.252 4.158 0 7.392 2.967 7.392 6.923 0 4.135-2.607 7.462-6.233 7.462-1.214 0-2.354-.629-2.758-1.379l-.749 2.848c-.269 1.045-1.004 2.352-1.498 3.146 1.123.345 2.306.535 3.55.535 6.627 0 12-5.373 12-12 0-6.628-5.373-12-12-12z" />
+                      <path d="M12 0C5.373 0 0 5.372 0 12c0 5.084 3.163 9.426 7.627 11.174-.105-.949-.2-2.405.042-3.441.218-.937 1.407-5.965 1.407-5.965s-.359-.719-.359-1.782c0-1.668.967-2.914 2.171-2.914 1.023 0 1.518.769 1.518 1.69 0 1.029-.655 2.568-.994 3.995-.283 1.194.599 2.169 1.777 2.169 2.133 0 3.772-2.249 3.772-5.495 0-2.873-2.064-4.882-5.012-4.882-3.414 0-5.418 2.561-5.418 5.207 0 1.031.397 2.138.893 2.738.098.119.112.224.083.345-.09.375-.291 1.199-.334 1.357-.053.225-.172.271-.401.165-1.495-.69-2.433-2.878-2.433-4.646 0-3.776 2.748-7.252 7.92-7.252 4.158 0 7.392 2.967 7.392 6.923 0 4.135-2.607 7.462-6.233 7.462-1.214 0-2.354-.629-2.758-1.379l-.749 2.848c-.269 1.045-1.004 2.352-1.498 3.146 1.123.345 2.306.535 3.55.535 6.627 0 12-5.373 12-12 0-6.628-5.373-12-12-12z" />
                     </svg>
                   }
                 />
@@ -387,6 +368,14 @@ export const MediaShareModal: React.FC<MediaShareModalProps> = ({
               </div>
             </div>
 
+            {/* Dedicated QR Code Section: Placed right under Share to Social Media */}
+            <QRCodeStudioBox
+              url={shareUrl}
+              title={currentItem.title ? `${currentItem.title} • QR Code` : `${galleryTitle} • QR Code`}
+              subtitle="Scan with phone camera to open this photo directly. Download or share the QR code with clients."
+              filenamePrefix={gallerySlug || currentItem.title || 'photo'}
+            />
+
             {/* Direct Shareable URL Bar */}
             <ShareUrlBar url={shareUrl} onCopy={handleCopyLink} copied={copied} />
 
@@ -398,7 +387,7 @@ export const MediaShareModal: React.FC<MediaShareModalProps> = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="w-full sm:w-auto px-6 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-white text-xs font-semibold transition-colors cursor-pointer active:scale-95"
+                className="w-full sm:w-auto px-6 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-750 text-white text-xs font-semibold transition-colors cursor-pointer active:scale-95"
               >
                 Done
               </button>

@@ -7,12 +7,14 @@ import {
   subscribePortfolioConfig,
   AVAILABLE_TEMPLATES,
 } from '../../services/portfolioService';
-import { getPortfolioTemplate } from '../../components/portfolio/templates/PortfolioTemplateRegistry';
+import { EditorialVogueTemplate } from '../../components/portfolio/templates/EditorialVogueTemplate';
+import { DarkroomAtelierTemplate } from '../../components/portfolio/templates/DarkroomAtelierTemplate';
 import { addInquiry } from '../../services/inquiryService';
 import type { PortfolioConfig } from '../../types/portfolio';
 import type { InquiryEventType } from '../../types/inquiry';
 import { useToast } from '../../components/ui/Toast';
 import { useSubmitPublicInquiry, usePublicPortfolio, useUpdatePortfolioConfig } from '@/hooks/useAtelierQueries';
+import { usePortfolioSeo } from '@/hooks/useSeo';
 import {
   Edit3,
   Eye,
@@ -34,13 +36,18 @@ export const PortfolioPage: React.FC = () => {
   const [config, setConfig] = useState<PortfolioConfig>(() => getPortfolioConfig());
   const [isEditMode, setIsEditMode] = useState(false);
 
+  // Dynamic SEO & OpenGraph Social Graph: updates portfolio title, description, and hero banner
+  usePortfolioSeo(config, photographerId);
+
   // Sync if server portfolio data is available
   useEffect(() => {
     if (serverPortfolio && typeof serverPortfolio === 'object') {
-      setConfig((prev) => ({
-        ...prev,
-        ...serverPortfolio,
-      }));
+      queueMicrotask(() => {
+        setConfig((prev) => ({
+          ...prev,
+          ...serverPortfolio,
+        }));
+      });
     }
   }, [serverPortfolio]);
 
@@ -59,7 +66,9 @@ export const PortfolioPage: React.FC = () => {
       const exists = AVAILABLE_TEMPLATES.some((t) => t.id === queryTemplate);
       if (exists) {
         const updated = savePortfolioConfig({ templateId: queryTemplate });
-        setConfig(updated);
+        queueMicrotask(() => {
+          setConfig(updated);
+        });
       }
     }
   }, [searchParams, config.templateId]);
@@ -131,8 +140,6 @@ export const PortfolioPage: React.FC = () => {
       return true;
     }
   };
-
-  const TemplateComponent = getPortfolioTemplate(config.templateId);
 
   return (
     <div className="relative min-h-screen">
@@ -217,15 +224,23 @@ export const PortfolioPage: React.FC = () => {
           </div>
         </div>
       )}
-
-      {/* Render Selected Portfolio Template with Live Edit Props */}
-      <TemplateComponent
-        config={config}
-        onInquirySubmit={handleInquirySubmit}
-        isEditable={isEditMode}
-        onUpdateConfig={handleUpdateConfig}
-        onSwitchTemplate={handleSwitchTemplate}
-      />
+      {config.templateId === 'darkroom-atelier' ? (
+        <DarkroomAtelierTemplate
+          config={config}
+          onInquirySubmit={handleInquirySubmit}
+          isEditable={isEditMode}
+          onUpdateConfig={handleUpdateConfig}
+          onSwitchTemplate={handleSwitchTemplate}
+        />
+      ) : (
+        <EditorialVogueTemplate
+          config={config}
+          onInquirySubmit={handleInquirySubmit}
+          isEditable={isEditMode}
+          onUpdateConfig={handleUpdateConfig}
+          onSwitchTemplate={handleSwitchTemplate}
+        />
+      )}
     </div>
   );
 };

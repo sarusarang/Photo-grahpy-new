@@ -52,7 +52,7 @@ export const TrackGalleryFavoriteApi = async (
  * Endpoint: GET /api/public/galleries/{id_or_slug}/download-zip/
  */
 export const GetGalleryDownloadZipUrl = (slugOrId: string, section?: string): string => {
-  const base = (import.meta.env.VITE_API_BASE_URL || 'https://pv0smzkc-8000.inc1.devtunnels.ms/api').trim();
+  const base = (import.meta.env.VITE_API_BASE_URL || 'https://server.exshare.ai/api').trim();
   const normalized = base.endsWith('/') ? base : `${base}/`;
   const url = new URL(`${normalized}public/galleries/${slugOrId}/download-zip/`);
   if (section) url.searchParams.set('section', section);

@@ -1,29 +1,45 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useMemo, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
+import { useAuth } from '@/context/AuthContext';
 import type { LiveEvent, EventStats } from '../types/event';
-import type { MediaItem, Gallery } from '../types';
-import { INITIAL_EVENTS, TETHER_SIMULATION_PHOTOS, getExpiryDateHoursAhead } from '../data/eventData';
-import { useGallery } from './GalleryContext';
+import type { MediaItem } from '../types';
+import type { Gallery } from '@/types/atelier';
+import { normalizeServerEvent } from '@/utils/eventNormalizer';
+import {
+  useEvents,
+  useCreateEvent,
+  useUpdateEvent,
+  useDeleteEvent,
+  useRestoreEvent,
+  useUpdateEventQR,
+  useMoveEventToGallery,
+} from '@/hooks/useAtelierQueries';
+import { TetherPhotoUploadApi, DeleteEventMediaApi } from '@/service/events/EventApi';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface EventContextType {
   events: LiveEvent[];
   activeLiveEvents: LiveEvent[];
   upcomingEvents: LiveEvent[];
   pastEvents: LiveEvent[];
+  trashEvents: LiveEvent[];
+  isLoading: boolean;
   getEventByIdOrSlug: (idOrSlug: string) => LiveEvent | undefined;
-  createEvent: (data: Partial<LiveEvent>) => LiveEvent;
-  updateEvent: (eventId: string, updates: Partial<LiveEvent>) => void;
-  deleteEvent: (eventId: string) => void;
+  createEvent: (data: Partial<LiveEvent>) => Promise<LiveEvent>;
+  updateEvent: (eventId: string, updates: Partial<LiveEvent>) => Promise<void>;
+  deleteEvent: (eventId: string, permanent?: boolean) => Promise<void>;
+  restoreEvent: (eventId: string, targetStatus?: 'live' | 'upcoming') => Promise<void>;
   addMediaToEvent: (
     eventId: string,
     items: Omit<MediaItem, 'id' | 'galleryId' | 'dateAdded'>[]
   ) => void;
-  removeMediaFromEvent: (eventId: string, mediaId: string) => void;
-  updateEventBanner: (eventId: string, bannerUrl: string) => void;
+  removeMediaFromEvent: (eventId: string, mediaId: string) => Promise<void>;
+  updateEventBanner: (eventId: string, bannerUrl: string) => Promise<void>;
   updateQRExpiry: (
     eventId: string,
     expiresAt: string,
     durationHours: number | 'custom'
-  ) => void;
+  ) => Promise<void>;
   toggleAutoSync: (eventId: string) => void;
   simulateTetherShot: (eventId: string) => MediaItem | null;
   moveEventToGallery: (
@@ -32,38 +48,39 @@ interface EventContextType {
     targetGalleryId: string | undefined,
     categoryAssignments: Record<string, string>, // mediaId -> sectionTitle
     newGalleryTitle?: string
-  ) => Gallery | null;
+  ) => Promise<Gallery | null>;
   incrementEventStat: (eventId: string, statKey: keyof EventStats) => void;
   resetEventsData: () => void;
 }
 
-const EVENTS_STORAGE_KEY = 'photo_saas_events_v2';
-
 const EventContext = createContext<EventContextType | undefined>(undefined);
 
 export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { createGallery, addMediaToGallery, galleries } = useGallery();
+  const queryClient = useQueryClient();
+  const location = useLocation();
+  const { isAuthenticated } = useAuth();
 
-  const [events, setEvents] = useState<LiveEvent[]>(() => {
-    try {
-      const saved = localStorage.getItem(EVENTS_STORAGE_KEY);
-      if (saved && (saved.includes('Royal Venetian') || saved.includes('Milano Fashion'))) {
-        localStorage.removeItem(EVENTS_STORAGE_KEY);
-        return [];
-      }
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
+  // Prevent event API trigger on public/auth routes (home page '/', login page '/login', etc.)
+  const isDashboardRoute = location.pathname.startsWith('/dashboard');
+  const shouldFetchEvents = Boolean(isAuthenticated && isDashboardRoute);
+
+  const { data: apiEvents, isLoading } = useEvents(undefined, {
+    enabled: shouldFetchEvents,
   });
+  const createEventMutation = useCreateEvent();
+  const updateEventMutation = useUpdateEvent();
+  const deleteEventMutation = useDeleteEvent();
+  const restoreEventMutation = useRestoreEvent();
+  const updateQRMutation = useUpdateEventQR();
+  const moveEventMutation = useMoveEventToGallery();
 
-  useEffect(() => {
-    try {
-      localStorage.setItem(EVENTS_STORAGE_KEY, JSON.stringify(events));
-    } catch (e) {
-      console.error('Failed saving events to localStorage:', e);
+  // Normalize server events — 100% live backend API response with zero mock fallbacks
+  const events = useMemo<LiveEvent[]>(() => {
+    if (apiEvents && Array.isArray(apiEvents)) {
+      return apiEvents.map((e: any) => normalizeServerEvent(e));
     }
-  }, [events]);
+    return [];
+  }, [apiEvents]);
 
   const activeLiveEvents = useMemo(() => {
     return events.filter((e) => e.status === 'live');
@@ -77,9 +94,14 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return events.filter((e) => e.status === 'completed' || e.status === 'moved_to_gallery');
   }, [events]);
 
+  const trashEvents = useMemo(() => {
+    return events.filter((e) => e.status === 'trash' || e.status === 'archived');
+  }, [events]);
+
   const getEventByIdOrSlug = useCallback(
     (idOrSlug: string): LiveEvent | undefined => {
-      const query = (idOrSlug || '').trim().toLowerCase();
+      if (!idOrSlug) return undefined;
+      const query = idOrSlug.trim().toLowerCase();
       return events.find(
         (e) => e.id.toLowerCase() === query || e.slug.toLowerCase() === query
       );
@@ -87,319 +109,147 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     [events]
   );
 
-  const createEvent = useCallback((data: Partial<LiveEvent>): LiveEvent => {
-    const id = `evt-${Date.now()}`;
-    const slugBase = (data.title || 'event')
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/(^-|-$)/g, '');
-    const slug = `${slugBase}-${Math.floor(100 + Math.random() * 900)}`;
+  const createEvent = useCallback(
+    async (data: Partial<LiveEvent>): Promise<LiveEvent> => {
+      const res = await createEventMutation.mutateAsync({
+        title: data.title || 'Untitled Event',
+        event_type: data.eventType || 'wedding',
+        venue: data.venue,
+        city: data.city,
+        client_name: data.clientName,
+        client_contact: data.clientContact,
+        event_date: data.eventDate,
+        event_time: data.eventTime,
+        status: data.status || 'live',
+        banner_url: data.bannerUrl,
+        qr_duration_hours: data.qrSettings?.durationHours || 4,
+        qr_expires_at: data.qrSettings?.expiresAt,
+        qr_valid_from: data.qrSettings?.validFrom,
+      });
+      return normalizeServerEvent(res);
+    },
+    [createEventMutation]
+  );
 
-    const duration = data.qrSettings?.durationHours || 4;
-    const expiresAt =
-      data.qrSettings?.expiresAt ||
-      getExpiryDateHoursAhead(typeof duration === 'number' ? duration : 4);
+  const updateEvent = useCallback(
+    async (eventId: string, updates: Partial<LiveEvent>) => {
+      await updateEventMutation.mutateAsync({
+        id: eventId,
+        updates,
+      });
+    },
+    [updateEventMutation]
+  );
 
-    const newEvent: LiveEvent = {
-      id,
-      slug,
-      title: data.title || 'Untitled Live Event',
-      clientName: data.clientName || 'Private Client',
-      clientContact: data.clientContact || '',
-      eventType: data.eventType || 'wedding',
-      status: data.status || 'live',
-      bannerUrl:
-        data.bannerUrl ||
-        'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1800&q=85',
-      eventDate: data.eventDate || new Date().toISOString().split('T')[0],
-      eventTime: data.eventTime || '18:00',
-      venue: data.venue || 'Private Venue',
-      city: data.city || '',
-      description: data.description || '',
-      qrSettings: {
-        validFrom: data.qrSettings?.validFrom || new Date().toISOString(),
-        expiresAt,
-        durationHours: duration,
-        isActive: true,
-        allowGuestUploads: false,
-        ...(data.qrSettings || {}),
-      },
-      media: data.media || [],
-      autoSyncEnabled: data.status === 'live',
-      tetherCount: 0,
-      stats: {
-        views: 0,
-        qrScans: 0,
-        aiSearches: 0,
-        matchesFound: 0,
-        downloadsCount: 0,
-      },
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
+  const deleteEvent = useCallback(
+    async (eventId: string, permanent: boolean = false) => {
+      await deleteEventMutation.mutateAsync({ id: eventId, permanent });
+    },
+    [deleteEventMutation]
+  );
 
-    setEvents((prev) => [newEvent, ...prev]);
-    return newEvent;
-  }, []);
-
-  const updateEvent = useCallback((eventId: string, updates: Partial<LiveEvent>) => {
-    setEvents((prev) =>
-      prev.map((evt) =>
-        evt.id === eventId
-          ? {
-              ...evt,
-              ...updates,
-              updatedAt: new Date().toISOString(),
-            }
-          : evt
-      )
-    );
-  }, []);
-
-  const deleteEvent = useCallback((eventId: string) => {
-    setEvents((prev) => prev.filter((evt) => evt.id !== eventId));
-  }, []);
+  const restoreEvent = useCallback(
+    async (eventId: string, targetStatus: 'live' | 'upcoming' = 'upcoming') => {
+      await restoreEventMutation.mutateAsync({ id: eventId, targetStatus });
+    },
+    [restoreEventMutation]
+  );
 
   const addMediaToEvent = useCallback(
-    (
-      eventId: string,
-      items: Omit<MediaItem, 'id' | 'galleryId' | 'dateAdded'>[]
-    ) => {
-      const nowStr = new Date().toISOString().split('T')[0];
-      const newItems: MediaItem[] = items.map((it, idx) => ({
-        ...it,
-        id: `evt-m-${Date.now()}-${idx}`,
-        galleryId: eventId,
-        dateAdded: nowStr,
-      }));
-
-      setEvents((prev) =>
-        prev.map((evt) => {
-          if (evt.id !== eventId) return evt;
-          return {
-            ...evt,
-            media: [...newItems, ...evt.media], // newest on top
-            updatedAt: new Date().toISOString(),
-          };
-        })
-      );
+    (_eventId: string, _items: Omit<MediaItem, 'id' | 'galleryId' | 'dateAdded'>[]) => {
+      // In real backend mode, media files are uploaded as multipart Files via TetherPhotoUploadApi
+      // Query cache is automatically invalidated upon completion
     },
     []
   );
 
-  const removeMediaFromEvent = useCallback((eventId: string, mediaId: string) => {
-    setEvents((prev) =>
-      prev.map((evt) => {
-        if (evt.id !== eventId) return evt;
-        return {
-          ...evt,
-          media: evt.media.filter((m) => m.id !== mediaId),
-          updatedAt: new Date().toISOString(),
-        };
-      })
-    );
-  }, []);
+  const removeMediaFromEvent = useCallback(
+    async (eventId: string, mediaId: string) => {
+      try {
+        await DeleteEventMediaApi(eventId, mediaId);
+        queryClient.invalidateQueries({ queryKey: ['event', eventId] });
+        queryClient.invalidateQueries({ queryKey: ['events'] });
+      } catch (err) {
+        console.error('Failed to remove event media:', err);
+      }
+    },
+    [queryClient]
+  );
 
-  const updateEventBanner = useCallback((eventId: string, bannerUrl: string) => {
-    setEvents((prev) =>
-      prev.map((evt) =>
-        evt.id === eventId
-          ? {
-              ...evt,
-              bannerUrl,
-              updatedAt: new Date().toISOString(),
-            }
-          : evt
-      )
-    );
-  }, []);
+  const updateEventBanner = useCallback(
+    async (eventId: string, bannerUrl: string) => {
+      await updateEventMutation.mutateAsync({
+        id: eventId,
+        updates: { banner_url: bannerUrl },
+      });
+    },
+    [updateEventMutation]
+  );
 
   const updateQRExpiry = useCallback(
-    (
+    async (
       eventId: string,
       expiresAt: string,
       durationHours: number | 'custom'
     ) => {
-      setEvents((prev) =>
-        prev.map((evt) => {
-          if (evt.id !== eventId) return evt;
-          return {
-            ...evt,
-            qrSettings: {
-              ...evt.qrSettings,
-              expiresAt,
-              durationHours,
-              isActive: new Date(expiresAt).getTime() > Date.now(),
-            },
-            updatedAt: new Date().toISOString(),
-          };
-        })
-      );
+      await updateQRMutation.mutateAsync({
+        eventId,
+        durationHours,
+        expiresAt,
+      });
     },
-    []
+    [updateQRMutation]
   );
 
-  const toggleAutoSync = useCallback((eventId: string) => {
-    setEvents((prev) =>
-      prev.map((evt) =>
-        evt.id === eventId
-          ? {
-              ...evt,
-              autoSyncEnabled: !evt.autoSyncEnabled,
-              updatedAt: new Date().toISOString(),
-            }
-          : evt
-      )
-    );
+  const toggleAutoSync = useCallback(
+    async (eventId: string) => {
+      const current = getEventByIdOrSlug(eventId);
+      if (!current) return;
+      await updateEventMutation.mutateAsync({
+        id: eventId,
+        updates: { auto_sync_enabled: !current.autoSyncEnabled },
+      });
+    },
+    [getEventByIdOrSlug, updateEventMutation]
+  );
+
+  const simulateTetherShot = useCallback((_eventId: string): MediaItem | null => {
+    // Deprecated simulation: replaced by live camera hardware capture and hot-folder watcher
+    return null;
   }, []);
 
-  // Simulate an instant tethering shot landed from the photographer's camera buffer
-  const simulateTetherShot = useCallback((eventId: string): MediaItem | null => {
-    const target = events.find((e) => e.id === eventId);
-    if (!target) return null;
-
-    const pool = TETHER_SIMULATION_PHOTOS;
-    const randomItem = pool[Math.floor(Math.random() * pool.length)];
-
-    const nowStr = new Date().toISOString().split('T')[0];
-    const newMedia: MediaItem = {
-      id: `evt-tether-${Date.now()}`,
-      galleryId: eventId,
-      type: 'photo',
-      url: randomItem.url,
-      thumbnailUrl: randomItem.url,
-      title: `${randomItem.title} #${(target.tetherCount || 0) + 1}`,
-      caption: randomItem.caption,
-      sectionTitle: randomItem.sectionTitle,
-      aspectRatio: randomItem.aspectRatio || 1.5,
-      width: 2400,
-      height: 1600,
-      sizeMB: Number((8.5 + Math.random() * 4).toFixed(1)),
-      dateAdded: nowStr,
-      isFavorite: false,
-    };
-
-    setEvents((prev) =>
-      prev.map((evt) => {
-        if (evt.id !== eventId) return evt;
-        return {
-          ...evt,
-          tetherCount: (evt.tetherCount || 0) + 1,
-          media: [newMedia, ...evt.media],
-          updatedAt: new Date().toISOString(),
-        };
-      })
-    );
-
-    return newMedia;
-  }, [events]);
-
   const moveEventToGallery = useCallback(
-    (
+    async (
       eventId: string,
       targetMode: 'new' | 'existing',
       targetGalleryId: string | undefined,
       categoryAssignments: Record<string, string>,
       newGalleryTitle?: string
-    ): Gallery | null => {
-      const targetEvent = events.find((e) => e.id === eventId);
-      if (!targetEvent) return null;
-
-      // Apply the photographer's categorized titles to all media items
-      const categorizedMedia: MediaItem[] = targetEvent.media.map((m) => {
-        const assignedSection = categoryAssignments[m.id] || m.sectionTitle || 'GENERAL';
-        return {
-          ...m,
-          sectionTitle: assignedSection.toUpperCase(),
-        };
+    ): Promise<Gallery | null> => {
+      const res = await moveEventMutation.mutateAsync({
+        eventId,
+        payload: {
+          target_mode: targetMode,
+          target_gallery_id: targetMode === 'existing' ? (targetGalleryId || null) : null,
+          new_gallery_title: targetMode === 'new' ? newGalleryTitle : undefined,
+          category_assignments: categoryAssignments,
+        },
       });
-
-      // Extract unique sections
-      const sections = Array.from(
-        new Set(categorizedMedia.map((m) => m.sectionTitle).filter(Boolean) as string[])
-      );
-
-      let finalGallery: Gallery | null = null;
-
-      if (targetMode === 'new') {
-        finalGallery = createGallery({
-          title: newGalleryTitle || targetEvent.title,
-          clientName: targetEvent.clientName,
-          clientEmail: targetEvent.clientContact,
-          eventDate: targetEvent.eventDate,
-          coverImage: targetEvent.bannerUrl || categorizedMedia[0]?.url,
-          templateId: 'editorial', // Default to Editorial
-          media: categorizedMedia,
-          sections: sections.length > 0 ? sections : ['CEREMONY', 'RECEPTION', 'PORTRAITS'],
-          status: 'active',
-          allowDownloads: true,
-          allowFavorites: true,
-        });
-      } else if (targetMode === 'existing' && targetGalleryId) {
-        addMediaToGallery(
-          targetGalleryId,
-          categorizedMedia.map((m) => ({
-            type: m.type,
-            url: m.url,
-            thumbnailUrl: m.thumbnailUrl,
-            title: m.title,
-            caption: m.caption,
-            sectionTitle: m.sectionTitle,
-            aspectRatio: m.aspectRatio,
-            width: m.width,
-            height: m.height,
-            sizeMB: m.sizeMB,
-            isFavorite: m.isFavorite,
-          }))
-        );
-        finalGallery = galleries.find((g) => g.id === targetGalleryId) || null;
-      }
-
-      // Mark the event as moved to gallery and link to the gallery
-      setEvents((prev) =>
-        prev.map((evt) => {
-          if (evt.id !== eventId) return evt;
-          return {
-            ...evt,
-            status: 'moved_to_gallery',
-            associatedGalleryId: finalGallery?.id || targetGalleryId,
-            autoSyncEnabled: false,
-            updatedAt: new Date().toISOString(),
-          };
-        })
-      );
-
-      return finalGallery;
+      return res || null;
     },
-    [events, createGallery, addMediaToGallery, galleries]
+    [moveEventMutation]
   );
 
   const incrementEventStat = useCallback(
-    (eventId: string, statKey: keyof EventStats) => {
-      setEvents((prev) =>
-        prev.map((evt) => {
-          if (evt.id !== eventId) return evt;
-          return {
-            ...evt,
-            stats: {
-              ...evt.stats,
-              [statKey]: (evt.stats[statKey] || 0) + 1,
-            },
-          };
-        })
-      );
+    (_eventId: string, _statKey: keyof EventStats) => {
+      // Backend automatically aggregates analytics on view / scan / search
     },
     []
   );
 
   const resetEventsData = useCallback(() => {
-    setEvents(INITIAL_EVENTS);
-    try {
-      localStorage.removeItem(EVENTS_STORAGE_KEY);
-    } catch {
-      // ignore
-    }
-  }, []);
+    queryClient.invalidateQueries({ queryKey: ['events'] });
+  }, [queryClient]);
 
   return (
     <EventContext.Provider
@@ -408,10 +258,13 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         activeLiveEvents,
         upcomingEvents,
         pastEvents,
+        trashEvents,
+        isLoading,
         getEventByIdOrSlug,
         createEvent,
         updateEvent,
         deleteEvent,
+        restoreEvent,
         addMediaToEvent,
         removeMediaFromEvent,
         updateEventBanner,

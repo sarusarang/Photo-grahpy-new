@@ -27,6 +27,7 @@ export interface StudioPlan {
   max_galleries?: number;
   gallery_expiry_days?: number;
   face_search_enabled?: boolean;
+  watermark_enabled?: boolean;
   max_events?: number;
   allowed_templates?: string[];
   allowed_portfolio_templates?: string[];
@@ -68,6 +69,7 @@ export interface CurrentSubscriptionPlanSummary {
   max_galleries?: number;
   allowed_templates?: string[];
   face_search_enabled?: boolean;
+  watermark_enabled?: boolean;
   gallery_expiry_days?: number;
   max_events?: number;
   max_portfolio_posts?: number;
@@ -78,16 +80,27 @@ export interface CurrentSubscriptionPlanSummary {
 }
 
 export interface CurrentSubscription {
-  id: string;
-  status: 'active' | 'expired' | 'pending' | 'cancelled';
-  plan: CurrentSubscriptionPlanSummary;
-  start_date: string;
-  expiry_date: string;
-  days_remaining: number;
-  storage: StorageQuotaMetrics;
+  id?: string;
+  has_subscription?: boolean;
+  status: 'active' | 'expired' | 'pending' | 'cancelled' | 'no_plan' | string;
+  plan?: CurrentSubscriptionPlanSummary | null;
+  start_date?: string;
+  expiry_date?: string;
+  days_remaining?: number;
+  storage?: StorageQuotaMetrics;
   usage?: SubscriptionUsageSummary;
-  auto_renew: boolean;
+  auto_renew?: boolean;
+  cancel_at_period_end?: boolean; // Netflix-style: cancelled by user but active until expiry_date
+  cancelled_at?: string | null;   // ISO timestamp of when user requested cancellation
   payment_gateway_ref?: string;
+  razorpay_subscription_id?: string;
+  message?: string;
+}
+
+export interface ResumeSubscriptionResponse {
+  status: string;
+  message: string;
+  subscription: CurrentSubscription;
 }
 
 export interface CheckoutOrderPayload {
@@ -98,25 +111,30 @@ export interface CheckoutOrderPayload {
 export interface CheckoutOrderResponse {
   status: string;
   message?: string;
-  direct_activated: boolean;
+  direct_activated?: boolean;
   order_id?: string;
+  subscription_id?: string; // Razorpay Autopay recurring subscription ID (sub_xxxx)
   amount?: number;
   amount_paise?: number;
   currency?: string;
   key_id?: string;
   plan_id?: string;
+  interval_months?: number;
+  billing_cycle?: string;
   payment_id?: string;
   subscription?: CurrentSubscription;
 }
 
 export interface VerifyPaymentPayload {
   plan_id: string;
-  gateway_order_id: string;
-  gateway_payment_id: string;
-  gateway_signature: string;
+  gateway_order_id?: string;
+  gateway_payment_id?: string;
+  gateway_signature?: string;
+  gateway_subscription_id?: string;
   // Compatibility with razorpay_ prefixed keys
   razorpay_order_id?: string;
   razorpay_payment_id?: string;
+  razorpay_subscription_id?: string; // Razorpay recurring subscription ID
   razorpay_signature?: string;
 }
 

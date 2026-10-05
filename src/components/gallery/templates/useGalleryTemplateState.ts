@@ -1,13 +1,21 @@
 import { useState, useMemo } from 'react';
 import type { Gallery, MediaItem } from '../../../types';
 import type { FilterSelection } from '../ClientSectionFilterBar';
+import type { GalleryGridDesign } from '../UniversalPhotoGrid';
 
 export interface UseGalleryTemplateStateOptions {
   gallery: Gallery;
   templateKey?: 'editorial' | 'masonry' | 'cinematic' | 'minimal';
+  gridDesign?: GalleryGridDesign;
+  onSelectGridDesign?: (design: GalleryGridDesign) => void;
 }
 
-export function useGalleryTemplateState({ gallery, templateKey }: UseGalleryTemplateStateOptions) {
+export function useGalleryTemplateState({
+  gallery,
+  templateKey,
+  gridDesign: passedGridDesign,
+  onSelectGridDesign: passedSetGridDesign,
+}: UseGalleryTemplateStateOptions) {
   // Derive gallery sections from gallery.sections or media section titles
   const gallerySections = useMemo(() => {
     if (gallery.sections && gallery.sections.length > 0) {
@@ -21,6 +29,31 @@ export function useGalleryTemplateState({ gallery, templateKey }: UseGalleryTemp
   const [activeFilter, setActiveFilter] = useState<FilterSelection>({ type: 'all' });
   const [searchQuery, setSearchQuery] = useState('');
   const [aiMatchedIds, setAiMatchedIds] = useState<string[] | null>(null);
+
+  // Layout grid design preference with template default & localStorage persistence
+  const [internalGridDesign, setInternalGridDesignState] = useState<GalleryGridDesign>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('ex_share_gallery_grid_design') as GalleryGridDesign | null;
+        if (saved && ['default', 'masonry', 'collage', 'grid', 'large'].includes(saved)) {
+          return saved;
+        }
+      } catch {}
+    }
+    return 'default';
+  });
+
+  const gridDesign = passedGridDesign || internalGridDesign;
+  const setGridDesign = (design: GalleryGridDesign) => {
+    if (passedSetGridDesign) {
+      passedSetGridDesign(design);
+    } else {
+      setInternalGridDesignState(design);
+      try {
+        localStorage.setItem('ex_share_gallery_grid_design', design);
+      } catch {}
+    }
+  };
 
   const coverImage = useMemo(() => {
     if (templateKey && gallery.templateBanners?.[templateKey]) {
@@ -90,5 +123,7 @@ export function useGalleryTemplateState({ gallery, templateKey }: UseGalleryTemp
     photosCount,
     videosCount,
     findOriginalIndex,
+    gridDesign,
+    setGridDesign,
   };
 }

@@ -13,8 +13,11 @@ import {
   type ExpiryPresetId,
 } from '../../utils/expiryUtils';
 import { getInitialGalleryCover, handleCoverImageError } from '../../utils/coverImageUtils';
+import { getGalleryShareUrl } from '@/utils/domain';
+import { resolveAbsoluteImageUrl } from '@/utils/seo';
 import { SocialShareButton } from './share/SocialShareButton';
 import { ShareUrlBar } from './share/ShareUrlBar';
+import { QRCodeStudioBox } from './share/QRCodeStudioBox';
 import {
   X,
   QrCode,
@@ -30,6 +33,7 @@ import {
   ShieldCheck,
   Smartphone,
 } from 'lucide-react';
+import { usePlanQuota } from '@/hooks/usePlanQuota';
 
 interface ShareModalProps {
   isOpen: boolean;
@@ -39,11 +43,11 @@ interface ShareModalProps {
 
 export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, gallery }) => {
   const { showToast } = useToast();
+  const planQuota = usePlanQuota();
   const { updateGallery } = useGallery();
   const { mutate: updateGalleryApi } = useUpdateGallery();
   const { data: shareDetails } = useGalleryShareDetails(gallery.id);
   const [copied, setCopied] = useState(false);
-  const [viewMode, setViewMode] = useState<'qr' | 'preview'>('qr');
   const [showCustomExpiry, setShowCustomExpiry] = useState(false);
 
   // Formatted expiry details
@@ -73,18 +77,11 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, gallery
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
-  // Reset view mode to QR Code when modal opens
-  useEffect(() => {
-    if (isOpen) {
-      setViewMode('qr');
-    }
-  }, [isOpen]);
 
   if (!isOpen) return null;
 
-  // Canonical production front-end share link: https://exshare.ai/gallery/...
-  const publicUrl = `https://exshare.ai/gallery/${encodeURIComponent(gallery.slug || gallery.id)}`;
-
+  // Global canonical / localhost front-end share link
+  const publicUrl = getGalleryShareUrl(gallery.slug || gallery.id);
   const expiryNote =
     expiryStatus.hasExpiry && !expiryStatus.isExpired
       ? ` • Access valid until ${expiryStatus.humanFormatted}`
@@ -104,8 +101,8 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, gallery
           url: publicUrl,
         });
         showToast('Shared Successfully', 'Thank you for sharing!', 'success');
-      } catch (err: any) {
-        if (err.name !== 'AbortError') {
+      } catch (err: unknown) {
+        if ((err as Error)?.name !== 'AbortError') {
           handleCopyLink();
         }
       }
@@ -150,7 +147,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, gallery
   };
 
   const handlePinterest = () => {
-    const mediaUrl = gallery.coverImage || getInitialGalleryCover(gallery.templateId);
+    const mediaUrl = resolveAbsoluteImageUrl(gallery.coverImage || getInitialGalleryCover(gallery.templateId));
     window.open(
       `https://pinterest.com/pin/create/button/?url=${encodeURIComponent(
         publicUrl
@@ -281,77 +278,53 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, gallery
           </button>
         </div>
 
+        {/* Studio Plan Expired Notice */}
+        {planQuota.isExpired && (
+          <div className="mt-3 p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-300 flex items-start gap-3 text-xs shrink-0">
+            <Lock className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300">
+                  Public Link Suspended
+                </span>
+                <span className="font-bold text-white">Studio Plan Expired</span>
+              </div>
+              <p className="text-neutral-400 text-[11px] leading-relaxed">
+                Your studio membership is currently expired. Anyone opening this link will see a plan expiration notice until you renew your membership.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Modal Content: 2-Column on Tablet/Desktop, Smooth Mobile Scroll */}
         <div
           data-lenis-prevent="true"
           className="mt-3 sm:mt-4 grid grid-cols-1 md:grid-cols-12 gap-3.5 sm:gap-5 overflow-y-auto pr-0.5 sm:pr-1 overscroll-contain"
         >
-          {/* Left Column: QR Code Display Card & Cover Toggle */}
+          {/* Left Column: Clean Cover Photo Preview */}
           <div className="md:col-span-5 flex flex-col gap-2.5">
             <div className="p-3 sm:p-3.5 rounded-2xl bg-neutral-900/90 border border-neutral-800/80 flex flex-col gap-2.5">
-              {/* Segmented View Switcher: QR Code (Default) vs Cover Preview */}
-              <div className="flex items-center p-1 rounded-xl bg-neutral-950/80 border border-neutral-800/80 text-xs shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setViewMode('qr')}
-                  className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg font-medium transition-all cursor-pointer ${
-                    viewMode === 'qr'
-                      ? 'bg-amber-400 text-neutral-950 shadow-sm font-bold'
-                      : 'text-neutral-400 hover:text-amber-300'
-                  }`}
-                >
-                  <QrCode className="w-3.5 h-3.5 text-amber-500" />
-                  <span>QR Code</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setViewMode('preview')}
-                  className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg font-medium transition-all cursor-pointer ${
-                    viewMode === 'preview'
-                      ? 'bg-neutral-800 text-white shadow-sm font-semibold'
-                      : 'text-neutral-400 hover:text-white'
-                  }`}
-                >
-                  <ImageIcon className="w-3.5 h-3.5 text-neutral-300" />
+              {/* Header Badge */}
+              <div className="flex items-center justify-between px-1">
+                <span className="text-[10px] uppercase font-mono tracking-widest text-neutral-400 font-semibold flex items-center gap-1.5">
+                  <ImageIcon className="w-3 h-3 text-amber-400" />
                   <span>Cover Photo</span>
-                </button>
+                </span>
+                <span className="px-2 py-0.5 rounded-full bg-black/75 backdrop-blur-md text-[10px] font-mono text-amber-400 border border-white/10 uppercase">
+                  {gallery.templateId || 'Editorial'} Theme
+                </span>
               </div>
 
               {/* Main Display Area */}
               <div className="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-neutral-950 border border-neutral-800 flex items-center justify-center">
-                {viewMode === 'qr' ? (
-                  <div className="w-full h-full p-4 flex flex-col items-center justify-center bg-gradient-to-b from-neutral-900 to-neutral-950 text-center animate-in zoom-in-95 duration-200">
-                    <div className="p-2.5 sm:p-3 bg-white rounded-2xl shadow-xl ring-2 ring-white/10 flex items-center justify-center">
-                      <QRCodeSVG
-                        value={publicUrl}
-                        size={136}
-                        level="H"
-                        includeMargin={false}
-                      />
-                    </div>
-                    <p className="text-[11px] font-semibold text-neutral-200 mt-2.5">
-                      Scan with phone camera to open
-                    </p>
-                    <p className="text-[10px] text-neutral-500 font-mono mt-0.5">
-                      Permanent direct gallery link
-                    </p>
-                  </div>
-                ) : (
-                  <div className="relative w-full h-full">
-                    <img
-                      src={gallery.coverImage || getInitialGalleryCover(gallery.templateId)}
-                      alt={gallery.title}
-                      loading="lazy"
-                      onError={(e) => handleCoverImageError(e, getInitialGalleryCover(gallery.templateId))}
-                      className="w-full h-full object-cover animate-in fade-in duration-200"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent pointer-events-none" />
-                    <span className="absolute bottom-2 left-2 px-2 py-0.5 rounded-full bg-black/75 backdrop-blur-md text-[10px] font-mono text-amber-400 border border-white/10 uppercase">
-                      {gallery.templateId || 'Editorial'} Theme
-                    </span>
-                  </div>
-                )}
+                <img
+                  src={gallery.coverImage || getInitialGalleryCover(gallery.templateId)}
+                  alt={gallery.title}
+                  loading="lazy"
+                  onError={(e) => handleCoverImageError(e, getInitialGalleryCover(gallery.templateId))}
+                  className="w-full h-full object-cover animate-in fade-in duration-200"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent pointer-events-none" />
               </div>
 
               {/* Gallery Info & Metadata */}
@@ -569,25 +542,6 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, gallery
                 <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
                   Share to Social Media
                 </p>
-                {viewMode === 'preview' ? (
-                  <button
-                    type="button"
-                    onClick={() => setViewMode('qr')}
-                    className="inline-flex items-center gap-1 text-[11px] text-amber-400 hover:text-amber-300 transition-colors cursor-pointer"
-                  >
-                    <QrCode className="w-3 h-3" />
-                    <span>Show QR Code</span>
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setViewMode('preview')}
-                    className="inline-flex items-center gap-1 text-[11px] text-neutral-400 hover:text-white transition-colors cursor-pointer"
-                  >
-                    <ImageIcon className="w-3 h-3" />
-                    <span>Show Cover Photo</span>
-                  </button>
-                )}
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -704,6 +658,14 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, gallery
                 />
               </div>
             </div>
+
+            {/* Dedicated QR Code Studio Box */}
+            <QRCodeStudioBox
+              url={publicUrl}
+              title={`${gallery.title} • QR Code`}
+              subtitle="Scan with phone camera to open this entire gallery collection. Download or share the QR code."
+              filenamePrefix={gallery.slug || gallery.title || 'gallery'}
+            />
 
             {/* Direct Shareable URL Bar */}
             <ShareUrlBar url={publicUrl} onCopy={handleCopyLink} copied={copied} />

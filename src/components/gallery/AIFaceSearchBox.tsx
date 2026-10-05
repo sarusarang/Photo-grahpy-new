@@ -3,10 +3,11 @@ import { Camera, Upload, Sparkles, X, RefreshCw, CheckCircle2, AlertCircle } fro
 import type { MediaItem } from '../../types';
 import { searchPhotosByFace, fileToDataUrl, type FaceMatchResult } from '../../services/faceRecognitionService';
 import { SearchGalleryByFaceApi, SearchEventByFaceApi } from '@/service/ai/FaceSearchApi';
+import { normalizeServerMediaItem } from '@/utils/galleryNormalizer';
 
 interface AIFaceSearchBoxProps {
   mediaItems: MediaItem[];
-  onMatchesFound: (matchedIds: string[] | null) => void;
+  onMatchesFound: (matchedIds: string[] | null, matchedMedia?: MediaItem[]) => void;
   onClose?: () => void;
   theme?: 'editorial' | 'cinematic' | 'minimal' | 'masonry';
   galleryId?: string;
@@ -51,33 +52,14 @@ export const AIFaceSearchBox: React.FC<AIFaceSearchBoxProps> = ({
     try {
       setMode('scanning');
 
-      // 1. Try real Django Face Search API if galleryId or eventId is available
-      if (galleryId) {
-        try {
-          const apiRes = await SearchGalleryByFaceApi(galleryId, file);
-          const selfieThumb = await fileToDataUrl(file);
-          setMatchResult({
-            faceThumbnailUrl: selfieThumb,
-            matchedMediaIds: apiRes.matched_media_ids,
-            matchedCount: apiRes.total_matches || apiRes.matched_media_ids.length,
-            confidence: apiRes.confidence || 0.92,
-            timestamp: Date.now(),
-          });
-          setMode('results');
-          onMatchesFound(apiRes.matched_media_ids);
-          return;
-        } catch (apiErr: any) {
-          const errData = apiErr?.response?.data || apiErr?.data;
-          if (errData?.error_code === 'FACE_SEARCH_LOCKED') {
-            setCameraError('AI Biometric Face Search is locked on this plan tier. Please upgrade to Standard Annual or Studio Premium Elite.');
-            setMode('prompt');
-            return;
-          }
-        }
-      } else if (eventId) {
+      // 1. Try real Django Face Search API (prioritize eventId if on event page)
+      if (eventId) {
         try {
           const apiRes = await SearchEventByFaceApi(eventId, file);
           const selfieThumb = await fileToDataUrl(file);
+          const normalizedMedia = Array.isArray(apiRes.matched_media)
+            ? apiRes.matched_media.map((m: any) => normalizeServerMediaItem(m, eventId))
+            : [];
           setMatchResult({
             faceThumbnailUrl: selfieThumb,
             matchedMediaIds: apiRes.matched_media_ids,
@@ -86,12 +68,42 @@ export const AIFaceSearchBox: React.FC<AIFaceSearchBoxProps> = ({
             timestamp: Date.now(),
           });
           setMode('results');
-          onMatchesFound(apiRes.matched_media_ids);
+          onMatchesFound(apiRes.matched_media_ids, normalizedMedia);
           return;
         } catch (apiErr: any) {
           const errData = apiErr?.response?.data || apiErr?.data;
           if (errData?.error_code === 'FACE_SEARCH_LOCKED') {
             setCameraError('AI Biometric Face Search is locked on this event tier. Please upgrade to unlock.');
+            setMode('prompt');
+            return;
+          }
+        }
+      } else if (galleryId) {
+        try {
+          const apiRes = await SearchGalleryByFaceApi(galleryId, file);
+          const selfieThumb = await fileToDataUrl(file);
+          const normalizedMedia = Array.isArray(apiRes.matched_media)
+            ? apiRes.matched_media.map((m: any) => normalizeServerMediaItem(m, galleryId))
+            : [];
+          setMatchResult({
+            faceThumbnailUrl: selfieThumb,
+            matchedMediaIds: apiRes.matched_media_ids,
+            matchedCount: apiRes.total_matches || apiRes.matched_media_ids.length,
+            confidence: apiRes.confidence || 0.92,
+            timestamp: Date.now(),
+          });
+          setMode('results');
+          onMatchesFound(apiRes.matched_media_ids, normalizedMedia);
+          return;
+        } catch (apiErr: any) {
+          const errData = apiErr?.response?.data || apiErr?.data;
+          if (errData?.error_code === 'FACE_SEARCH_LOCKED') {
+            setCameraError(errData?.detail || 'AI Biometric Face Search is locked on this plan tier. Please upgrade to unlock.');
+            setMode('prompt');
+            return;
+          }
+          if (errData?.error_code === 'FACE_SEARCH_DISABLED') {
+            setCameraError(errData?.detail || 'AI Face Search has been disabled for this gallery by the photographer.');
             setMode('prompt');
             return;
           }
@@ -187,9 +199,12 @@ export const AIFaceSearchBox: React.FC<AIFaceSearchBoxProps> = ({
       // Convert canvas to Blob for API upload
       const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.9));
 
-      if (blob && galleryId) {
+      if (blob && eventId) {
         try {
-          const apiRes = await SearchGalleryByFaceApi(galleryId, blob);
+          const apiRes = await SearchEventByFaceApi(eventId, blob);
+          const normalizedMedia = Array.isArray(apiRes.matched_media)
+            ? apiRes.matched_media.map((m: any) => normalizeServerMediaItem(m, eventId))
+            : [];
           setMatchResult({
             faceThumbnailUrl: dataUrl,
             matchedMediaIds: apiRes.matched_media_ids,
@@ -198,19 +213,22 @@ export const AIFaceSearchBox: React.FC<AIFaceSearchBoxProps> = ({
             timestamp: Date.now(),
           });
           setMode('results');
-          onMatchesFound(apiRes.matched_media_ids);
+          onMatchesFound(apiRes.matched_media_ids, normalizedMedia);
           return;
         } catch (apiErr: any) {
           const errData = apiErr?.response?.data || apiErr?.data;
           if (errData?.error_code === 'FACE_SEARCH_LOCKED') {
-            setCameraError('AI Biometric Face Search is locked on this plan tier. Please upgrade to unlock.');
+            setCameraError('AI Biometric Face Search is locked on this event tier. Please upgrade to unlock.');
             setMode('prompt');
             return;
           }
         }
-      } else if (blob && eventId) {
+      } else if (blob && galleryId) {
         try {
-          const apiRes = await SearchEventByFaceApi(eventId, blob);
+          const apiRes = await SearchGalleryByFaceApi(galleryId, blob);
+          const normalizedMedia = Array.isArray(apiRes.matched_media)
+            ? apiRes.matched_media.map((m: any) => normalizeServerMediaItem(m, galleryId))
+            : [];
           setMatchResult({
             faceThumbnailUrl: dataUrl,
             matchedMediaIds: apiRes.matched_media_ids,
@@ -219,12 +237,17 @@ export const AIFaceSearchBox: React.FC<AIFaceSearchBoxProps> = ({
             timestamp: Date.now(),
           });
           setMode('results');
-          onMatchesFound(apiRes.matched_media_ids);
+          onMatchesFound(apiRes.matched_media_ids, normalizedMedia);
           return;
         } catch (apiErr: any) {
           const errData = apiErr?.response?.data || apiErr?.data;
           if (errData?.error_code === 'FACE_SEARCH_LOCKED') {
-            setCameraError('AI Biometric Face Search is locked on this plan tier. Please upgrade to unlock.');
+            setCameraError(errData?.detail || 'AI Biometric Face Search is locked on this plan tier. Please upgrade to unlock.');
+            setMode('prompt');
+            return;
+          }
+          if (errData?.error_code === 'FACE_SEARCH_DISABLED') {
+            setCameraError(errData?.detail || 'AI Face Search has been disabled for this gallery by the photographer.');
             setMode('prompt');
             return;
           }
@@ -247,7 +270,7 @@ export const AIFaceSearchBox: React.FC<AIFaceSearchBoxProps> = ({
     stopCamera();
     setMatchResult(null);
     setMode('prompt');
-    onMatchesFound(null);
+    onMatchesFound(null, []);
   };
 
   return (

@@ -8,6 +8,9 @@ import { getInquiries, getInquiryAnalytics } from '../../services/inquiryService
 import type { PortfolioInquiry, InquiryAnalyticsMetrics } from '../../types/inquiry';
 import type { Gallery } from '../../types';
 import { getInitialGalleryCover, handleCoverImageError } from '@/utils/coverImageUtils';
+import { getPortfolioShareUrl } from '@/utils/domain';
+import { TableRowSkeleton } from '../../components/common/LoadingSkeleton';
+import { ErrorState } from '../../components/common/ErrorState';
 import { UpgradePlanModal } from '../../components/common/UpgradePlanModal';
 import { useToast } from '../../components/ui/Toast';
 import {
@@ -31,8 +34,16 @@ import {
 export const OverviewPage: React.FC = () => {
   const { photographer, user } = useAuth();
   const planQuota = usePlanQuota();
-  const { data: apiGalleries } = useGalleries();
-  const { data: apiInquiriesData } = useInquiries();
+  const {
+    data: apiGalleries,
+    isLoading: isLoadingGalleries,
+    isError: isGalleriesError,
+    refetch: refetchGalleries,
+  } = useGalleries();
+  const {
+    data: apiInquiriesData,
+    isLoading: isLoadingInquiries,
+  } = useInquiries();
   const { data: apiInquiriesAnalytics } = useInquiriesAnalytics();
   const { showToast } = useToast();
   const navigate = useNavigate();
@@ -128,7 +139,7 @@ export const OverviewPage: React.FC = () => {
 
   // Photographer handle for public portfolio
   const portfolioId = user?.username || photographer.id || 'studio';
-  const portfolioUrl = `${window.location.origin}/portfolio/${portfolioId}`;
+  const portfolioUrl = getPortfolioShareUrl(portfolioId);
 
   const handleCopyPortfolioLink = () => {
     navigator.clipboard.writeText(portfolioUrl);
@@ -498,63 +509,80 @@ export const OverviewPage: React.FC = () => {
           </div>
 
           <div className="space-y-3">
-            {topGalleries.map((gallery, index) => (
-              <div
-                key={gallery.id}
-                className="p-3.5 rounded-2xl bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-200/80 dark:border-neutral-800 hover:border-amber-400/40 dark:hover:border-amber-400/40 transition-all flex items-center justify-between gap-4 group"
-              >
-                {/* Cover & Gallery Details */}
-                <div className="flex items-center gap-3.5 min-w-0">
-                  <div className="relative w-12 h-12 rounded-xl overflow-hidden shrink-0 border border-neutral-200 dark:border-neutral-800">
-                    <img
-                      src={gallery.coverImage || gallery.media[0]?.url || getInitialGalleryCover(gallery.templateId)}
-                      alt=""
-                      loading="lazy"
-                      onError={(e) => handleCoverImageError(e, getInitialGalleryCover(gallery.templateId))}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
-                    <span className="absolute top-1 left-1 w-4 h-4 rounded-md bg-black/70 backdrop-blur-xs text-[10px] text-white font-mono flex items-center justify-center font-bold">
-                      {index + 1}
-                    </span>
-                  </div>
-                  <div className="min-w-0">
-                    <Link
-                      to={`/dashboard/gallery/${gallery.id}`}
-                      className="text-sm font-bold text-neutral-900 dark:text-white hover:text-amber-500 truncate block transition-colors"
-                    >
-                      {gallery.title}
-                    </Link>
-                    <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate mt-0.5">
-                      Client: {gallery.clientName} • Template: <span className="capitalize font-medium text-neutral-700 dark:text-neutral-300">{gallery.templateId}</span>
-                    </p>
-                  </div>
-                </div>
-
-                {/* Metrics & Link Action */}
-                <div className="flex items-center gap-4 shrink-0">
-                  <div className="hidden sm:flex items-center gap-3 text-xs font-mono text-neutral-500">
-                    <span className="flex items-center gap-1" title="Views">
-                      <Eye className="w-3.5 h-3.5 text-neutral-400" />
-                      {gallery.viewsCount}
-                    </span>
-                    <span className="flex items-center gap-1" title="Downloads">
-                      <Download className="w-3.5 h-3.5 text-neutral-400" />
-                      {gallery.downloadsCount}
-                    </span>
-                  </div>
-
-                  <Link
-                    to={`/gallery/${gallery.slug}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="p-2 rounded-xl hover:bg-neutral-200 dark:hover:bg-neutral-800 text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors"
-                    title="Open live client gallery"
-                  >
-                    <ArrowUpRight className="w-4 h-4" />
-                  </Link>
-                </div>
+            {isLoadingGalleries && galleries.length === 0 ? (
+              <TableRowSkeleton rows={3} />
+            ) : isGalleriesError && galleries.length === 0 ? (
+              <ErrorState compact message="Failed to load galleries from server." onRetry={refetchGalleries} />
+            ) : topGalleries.length === 0 ? (
+              <div className="p-6 rounded-2xl bg-neutral-50 dark:bg-neutral-900/40 border border-dashed border-neutral-200 dark:border-neutral-800 text-center space-y-2">
+                <p className="text-xs text-neutral-500">No client galleries created yet.</p>
+                <Link
+                  to="/dashboard/gallery"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-400 text-neutral-950 font-bold text-xs hover:bg-amber-300 transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Create Your First Gallery</span>
+                </Link>
               </div>
-            ))}
+            ) : (
+              topGalleries.map((gallery, index) => (
+                <div
+                  key={gallery.id}
+                  className="p-3.5 rounded-2xl bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-200/80 dark:border-neutral-800 hover:border-amber-400/40 dark:hover:border-amber-400/40 transition-all flex items-center justify-between gap-4 group"
+                >
+                  {/* Cover & Gallery Details */}
+                  <div className="flex items-center gap-3.5 min-w-0">
+                    <div className="relative w-12 h-12 rounded-xl overflow-hidden shrink-0 border border-neutral-200 dark:border-neutral-800">
+                      <img
+                        src={gallery.coverImage || gallery.media[0]?.url || getInitialGalleryCover(gallery.templateId)}
+                        alt=""
+                        loading="lazy"
+                        onError={(e) => handleCoverImageError(e, getInitialGalleryCover(gallery.templateId))}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                      <span className="absolute top-1 left-1 w-4 h-4 rounded-md bg-black/70 backdrop-blur-xs text-[10px] text-white font-mono flex items-center justify-center font-bold">
+                        {index + 1}
+                      </span>
+                    </div>
+                    <div className="min-w-0">
+                      <Link
+                        to={`/dashboard/gallery/${gallery.id}`}
+                        className="text-sm font-bold text-neutral-900 dark:text-white hover:text-amber-500 truncate block transition-colors"
+                      >
+                        {gallery.title}
+                      </Link>
+                      <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate mt-0.5">
+                        Client: {gallery.clientName} • Template: <span className="capitalize font-medium text-neutral-700 dark:text-neutral-300">{gallery.templateId}</span>
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Metrics & Link Action */}
+                  <div className="flex items-center gap-4 shrink-0">
+                    <div className="hidden sm:flex items-center gap-3 text-xs font-mono text-neutral-500">
+                      <span className="flex items-center gap-1" title="Views">
+                        <Eye className="w-3.5 h-3.5 text-neutral-400" />
+                        {gallery.viewsCount}
+                      </span>
+                      <span className="flex items-center gap-1" title="Downloads">
+                        <Download className="w-3.5 h-3.5 text-neutral-400" />
+                        {gallery.downloadsCount}
+                      </span>
+                    </div>
+
+                    <Link
+                      to={`/gallery/${gallery.slug}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-2 rounded-xl hover:bg-neutral-200 dark:hover:bg-neutral-800 text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors"
+                      title="Open live client gallery"
+                    >
+                      <ArrowUpRight className="w-4 h-4" />
+                    </Link>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
 
@@ -581,7 +609,9 @@ export const OverviewPage: React.FC = () => {
             </div>
 
             <div className="space-y-3">
-              {recentInquiries.length === 0 ? (
+              {isLoadingInquiries && inquiries.length === 0 ? (
+                <TableRowSkeleton rows={3} />
+              ) : recentInquiries.length === 0 ? (
                 <div className="text-center py-8 text-neutral-400 text-xs">
                   No inquiries received yet. Share your portfolio link to start receiving client bookings!
                 </div>

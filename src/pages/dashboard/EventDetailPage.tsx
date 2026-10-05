@@ -1,43 +1,47 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useLiveIngestion } from '@/hooks/useLiveIngestion';
 import {
-  ArrowLeft,
-  Camera,
-  Upload,
-  QrCode,
-  Layers,
-  Sparkles,
-  MapPin,
-  CheckCircle2,
-  Trash2,
-  Image as ImageIcon,
-  ExternalLink,
-  Printer,
-  Copy,
-  Check,
-  Zap,
-  Pause,
-} from 'lucide-react';
-import { useEventDetail, useTetherPhotoUpload } from '@/hooks/useAtelierQueries';
+  useEventDetail,
+  useDeleteEventMedia,
+  useBulkDeleteEventMedia,
+  useUpdateEvent,
+} from '@/hooks/useAtelierQueries';
+import { normalizeServerEvent } from '@/utils/eventNormalizer';
+import { GetEventDetailApi } from '@/service/events/EventApi';
 import { ErrorState } from '@/components/common/ErrorState';
 import { EventListSkeleton } from '@/components/common/LoadingSkeleton';
-import { useEvent } from '../../context/EventContext';
-import { useToast } from '../../components/ui/Toast';
-import { EventQRCodeModal } from '../../components/events/EventQRCodeModal';
-import { EventPrintStandModal } from '../../components/events/EventPrintStandModal';
-import { ChangeBannerModal } from '../../components/events/ChangeBannerModal';
-import { MoveToGalleryModal } from '../../components/events/MoveToGalleryModal';
+import { useToast } from '@/components/ui/Toast';
+import {
+  EventDetailHeader,
+  EventHeroBanner,
+  EventAnalyticsGrid,
+  EventIngestionHub,
+  EventQRCard,
+  EventMediaStream,
+  EventBulkToolbar,
+  EventDeleteMediaModal,
+} from '@/components/events/detail';
+import {
+  EventQRCodeModal,
+  EventPrintStandModal,
+  ChangeBannerModal,
+  MoveToGalleryModal,
+  LiveCameraCaptureModal,
+  EventUploadMediaModal,
+  EditEventModal,
+} from '@/components/events';
+import { LightboxModal } from '@/components/gallery/LightboxModal';
+import { ConfirmDeleteModal } from '@/components/common/ConfirmDeleteModal';
+import { downloadSingleImage, downloadMultipleAsZip } from '@/utils/downloadUtils';
+import { Lock, Sparkles } from 'lucide-react';
+import { usePlanQuota } from '@/hooks/usePlanQuota';
+import { UpgradePlanModal } from '@/components/common/UpgradePlanModal';
+import { LockedPageScreen } from '@/components/common/ExpiredPlanLock';
 
 export const EventDetailPage: React.FC = () => {
   const { eventId } = useParams<{ eventId: string }>();
   const navigate = useNavigate();
-  const {
-    getEventByIdOrSlug,
-    addMediaToEvent,
-    removeMediaFromEvent,
-    simulateTetherShot,
-    toggleAutoSync,
-  } = useEvent();
   const { showToast } = useToast();
 
   const {
@@ -46,98 +50,302 @@ export const EventDetailPage: React.FC = () => {
     refetch: refetchEvent,
   } = useEventDetail(eventId || '');
 
-  const { mutateAsync: uploadTetherPhoto } = useTetherPhotoUpload(eventId || '');
+  const { mutateAsync: deleteMediaMutation, isPending: isDeletingMedia } = useDeleteEventMedia(
+    eventId || ''
+  );
+  const { mutateAsync: bulkDeleteMutation, isPending: isBulkDeleting } = useBulkDeleteEventMedia(
+    eventId || ''
+  );
+  const { mutateAsync: updateEventMutation } = useUpdateEvent();
 
-  const localEvent = getEventByIdOrSlug(eventId || '');
+  // Normalize server live event strictly from API response — zero dummy fallbacks
   const event = useMemo(() => {
     if (apiEvent && (apiEvent as any).id) {
-      const e = apiEvent as any;
-      return {
-        id: String(e.id),
-        slug: e.slug || String(e.id),
-        title: e.title || localEvent?.title || 'Live Shoot',
-        clientName: e.client_name || e.clientName || localEvent?.clientName || 'Client',
-        eventType: e.event_type || e.eventType || localEvent?.eventType || 'wedding',
-        status: e.status || localEvent?.status || 'live',
-        bannerUrl: e.banner_url || e.bannerUrl || localEvent?.bannerUrl || 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1200&q=80',
-        eventDate: e.event_date || e.eventDate || localEvent?.eventDate || new Date().toISOString().split('T')[0],
-        eventTime: e.event_time || localEvent?.eventTime,
-        venue: e.venue || localEvent?.venue || 'Studio Ballroom',
-        city: e.city || localEvent?.city,
-        qrSettings: {
-          validFrom: e.qr_settings?.valid_from || localEvent?.qrSettings?.validFrom || new Date().toISOString(),
-          expiresAt: e.qr_settings?.expires_at || localEvent?.qrSettings?.expiresAt || new Date(Date.now() + 86400000).toISOString(),
-          durationHours: e.qr_settings?.duration_hours || localEvent?.qrSettings?.durationHours || 24,
-          isActive: Boolean(e.qr_settings?.is_active ?? localEvent?.qrSettings?.isActive ?? true),
-          pinCode: e.qr_settings?.pin_code || localEvent?.qrSettings?.pinCode,
-          allowGuestUploads: Boolean(e.qr_settings?.allow_guest_uploads ?? localEvent?.qrSettings?.allowGuestUploads),
-        },
-        media: (e.media && e.media.length > 0)
-          ? e.media.map((m: any) => ({
-              id: String(m.id),
-              galleryId: String(e.id),
-              type: m.type || 'photo',
-              url: m.file_url || m.url || '',
-              thumbnailUrl: m.thumbnail_url || m.thumbnailUrl || m.file_url || '',
-              title: m.title || m.original_filename || 'Shot',
-              sectionTitle: m.section_title || m.sectionTitle || 'LIVE STREAM',
-              aspectRatio: m.aspect_ratio || m.aspectRatio || 1.5,
-              sizeMB: m.sizeMB || 3.5,
-              isFavorite: Boolean(m.is_favorite ?? m.isFavorite),
-              isCover: Boolean(m.is_cover ?? m.isCover),
-              dateAdded: m.created_at || m.dateAdded || new Date().toISOString(),
-            }))
-          : (localEvent?.media || []),
-        stats: {
-          views: e.guest_views || e.stats?.views || localEvent?.stats?.views || 0,
-          qrScans: e.qr_scans || e.stats?.qrScans || localEvent?.stats?.qrScans || 0,
-          aiSearches: e.ai_searches || e.stats?.aiSearches || localEvent?.stats?.aiSearches || 0,
-          matchesFound: e.matches_found || e.stats?.matchesFound || localEvent?.stats?.matchesFound || 0,
-          downloadsCount: e.downloads_count || e.stats?.downloadsCount || localEvent?.stats?.downloadsCount || 0,
-        },
-        autoSyncEnabled: Boolean(e.auto_sync_enabled ?? localEvent?.autoSyncEnabled ?? false),
-        tetherCount: e.tether_count || localEvent?.tetherCount || 0,
-        createdAt: e.created_at || localEvent?.createdAt || new Date().toISOString(),
-        updatedAt: e.updated_at || localEvent?.updatedAt || new Date().toISOString(),
-      };
+      return normalizeServerEvent(apiEvent);
     }
-    return localEvent;
-  }, [apiEvent, localEvent]);
+    return null;
+  }, [apiEvent]);
 
   // Modals state
+  const [isCameraStationOpen, setIsCameraStationOpen] = useState(false);
   const [isQRModalOpen, setIsQRModalOpen] = useState(false);
   const [isPrintStandOpen, setIsPrintStandOpen] = useState(false);
   const [isBannerModalOpen, setIsBannerModalOpen] = useState(false);
   const [isMoveToGalleryOpen, setIsMoveToGalleryOpen] = useState(false);
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
+  const [cameraStationTab, setCameraStationTab] = useState<'camera' | 'folder' | 'manual'>('camera');
+  const planQuota = usePlanQuota();
 
-  // Link copy state
-  const [copied, setCopied] = useState(false);
+  // Unified live camera shutter and hot-folder watcher session controller
+  const ingestion = useLiveIngestion({
+    eventId: eventId || '',
+    eventSlug: event?.slug,
+    onPhotoUploaded: () => refetchEvent(),
+  });
 
-  // File upload state
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [isUploading, setIsUploading] = useState(false);
+  // Single Photo Lightbox & Infinite Scroll State
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [visibleCount, setVisibleCount] = useState(24);
+  const [selectedSectionFilter, setSelectedSectionFilter] = useState<string>('all');
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
-  // Auto-sync tethering simulation interval
-  useEffect(() => {
-    if (!event || !event.autoSyncEnabled || event.status !== 'live') return;
+  // Single photo deletion confirmation
+  const [mediaToDelete, setMediaToDelete] = useState<{ id: string; title: string } | null>(null);
 
-    const interval = setInterval(() => {
-      const newMedia = simulateTetherShot(event.id);
-      if (newMedia) {
+  // Multi-selection & Bulk Delete State
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
+  const [isDownloadingBulk, setIsDownloadingBulk] = useState(false);
+  const [bulkDownloadProgress, setBulkDownloadProgress] = useState(0);
+
+  const handleDownloadSelected = async () => {
+    if (!event || selectedIds.length === 0) return;
+    const selectedMediaList = event.media.filter((m) => selectedIds.includes(m.id));
+    if (selectedMediaList.length === 0) return;
+
+    setIsDownloadingBulk(true);
+    setBulkDownloadProgress(5);
+
+    try {
+      if (selectedMediaList.length === 1) {
+        const item = selectedMediaList[0];
+        const downloadUrl = item.url || item.thumbnailUrl;
+        if (!downloadUrl) return;
+        const filename = item.title || `${event.slug}-photo.jpg`;
+        showToast('Downloading Photo', `Saving "${filename}"...`, 'info');
+        const success = await downloadSingleImage(downloadUrl, filename);
+        if (success) {
+          showToast('Photo Saved', `"${filename}" saved to downloads.`, 'success');
+        }
+        return;
+      }
+
+      showToast(
+        'Packaging Selected',
+        `Bundling ${selectedMediaList.length} selected photographs into a ZIP file...`,
+        'info'
+      );
+
+      const items = selectedMediaList
+        .map((m, idx) => ({
+          url: (m.url || m.thumbnailUrl || '') as string,
+          title: m.title || `${event.slug}-selected-${idx + 1}`,
+        }))
+        .filter((item) => Boolean(item.url));
+
+      await downloadMultipleAsZip({
+        items,
+        zipFilename: `${event.slug}-selected-${selectedMediaList.length}-photos.zip`,
+        onProgress: (percent) => setBulkDownloadProgress(percent),
+      });
+
+      showToast(
+        'Archive Downloaded',
+        `Downloaded ${selectedMediaList.length} selected photographs.`,
+        'success'
+      );
+    } catch {
+      showToast('Download Failed', 'Could not generate ZIP archive.', 'error');
+    } finally {
+      setIsDownloadingBulk(false);
+      setBulkDownloadProgress(0);
+    }
+  };
+
+  // Section categorization & infinite scroll filtering
+  const availableSections = useMemo(() => {
+    if (!event?.media) return [];
+    const set = new Set<string>();
+    event.media.forEach((m) => {
+      if (m.sectionTitle && m.sectionTitle.trim()) {
+        set.add(m.sectionTitle.trim().toUpperCase());
+      }
+    });
+    return Array.from(set);
+  }, [event?.media]);
+
+  const filteredMedia = useMemo(() => {
+    if (!event?.media) return [];
+    if (selectedSectionFilter === 'all') return event.media;
+    return event.media.filter(
+      (m) => (m.sectionTitle || '').trim().toUpperCase() === selectedSectionFilter.toUpperCase()
+    );
+  }, [event?.media, selectedSectionFilter]);
+
+  const visibleMedia = useMemo(() => {
+    return filteredMedia.slice(0, visibleCount);
+  }, [filteredMedia, visibleCount]);
+
+  const selectedMediaItems = useMemo(() => {
+    if (!event?.media) return [];
+    const idSet = new Set(selectedIds);
+    return event.media.filter((m) => idSet.has(m.id));
+  }, [event?.media, selectedIds]);
+
+  const toggleSelect = (id: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  // True total matching media count in this section / filter (across entire server database, not just loaded slice)
+  const totalMatchingCount = useMemo(() => {
+    if (!event) return 0;
+    if (selectedSectionFilter === 'all') {
+      return (
+        event.totalMediaCount ||
+        (event.photosCount !== undefined ? event.photosCount + (event.videosCount || 0) : undefined) ||
+        event.media.length
+      );
+    }
+    const secKey = selectedSectionFilter.toUpperCase();
+    const countFromRecord =
+      event.sectionCounts?.[selectedSectionFilter] ??
+      event.sectionCounts?.[secKey];
+    if (countFromRecord !== undefined) {
+      return countFromRecord;
+    }
+    return filteredMedia.length;
+  }, [event, selectedSectionFilter, filteredMedia.length]);
+
+  const isAllSelected = totalMatchingCount > 0 && selectedIds.length >= totalMatchingCount;
+
+  const [isSelectingAll, setIsSelectingAll] = useState(false);
+
+  const selectAll = async () => {
+    if (!event) return;
+
+    if (isAllSelected) {
+      setSelectedIds([]);
+      return;
+    }
+
+    const currentLoadedIds = filteredMedia.map((m) => m.id);
+    if (totalMatchingCount <= currentLoadedIds.length) {
+      setSelectedIds(currentLoadedIds);
+      return;
+    }
+
+    // Select currently loaded items immediately
+    setSelectedIds(currentLoadedIds);
+    setIsSelectingAll(true);
+    showToast(
+      'Selecting All Media',
+      `Loading all ${totalMatchingCount} items across this event...`,
+      'info'
+    );
+
+    try {
+      const fullEvent = await GetEventDetailApi(event.id, {
+        all_media: true,
+        section: selectedSectionFilter,
+      });
+
+      const normalizedFull = normalizeServerEvent(fullEvent);
+      const allItemIds = normalizedFull.media
+        .filter((m) => {
+          if (selectedSectionFilter === 'all') return true;
+          return (m.sectionTitle || '').trim().toUpperCase() === selectedSectionFilter.toUpperCase();
+        })
+        .map((m) => m.id);
+
+      if (allItemIds.length > 0) {
+        setSelectedIds(Array.from(new Set([...currentLoadedIds, ...allItemIds])));
         showToast(
-          'Live Tether Shot Received',
-          `${newMedia.title} automatically synced from camera buffer.`,
-          'info'
+          'All Media Selected',
+          `Selected all ${allItemIds.length} items in this event view.`,
+          'success'
         );
       }
-    }, 10000); // every 10 seconds a new shot lands when tethering is active
+    } catch (err) {
+      console.warn('Failed to fetch full media list for event select-all:', err);
+    } finally {
+      setIsSelectingAll(false);
+    }
+  };
 
-    return () => clearInterval(interval);
-  }, [event?.autoSyncEnabled, event?.status, event?.id, simulateTetherShot, showToast]);
+  const deselectAll = () => {
+    setSelectedIds([]);
+  };
+
+  const hasMoreMedia = visibleCount < filteredMedia.length;
+
+  useEffect(() => {
+    if (!hasMoreMedia) return;
+    const target = loadMoreRef.current;
+    if (!target) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMoreMedia) {
+          setVisibleCount((prev) => Math.min(prev + 16, filteredMedia.length));
+        }
+      },
+      { rootMargin: '350px', threshold: 0.05 }
+    );
+
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [hasMoreMedia, filteredMedia.length]);
+
+  const handleStartLiveShoot = async () => {
+    if (!event) return;
+    try {
+      await updateEventMutation({
+        id: event.id,
+        updates: { status: 'live' },
+      });
+      showToast('Live Mode Started!', `"${event.title}" is now active and ready for live shooting.`, 'success');
+      refetchEvent();
+    } catch (err: any) {
+      showToast('Update Failed', err?.message || 'Could not start live shoot.', 'error');
+    }
+  };
+
+  const handleConfirmDeleteMedia = async () => {
+    if (!mediaToDelete) return;
+    try {
+      await deleteMediaMutation(mediaToDelete.id);
+      showToast('Photo Deleted', `Removed "${mediaToDelete.title}" from event stream.`, 'info');
+      setMediaToDelete(null);
+      refetchEvent();
+    } catch (err: any) {
+      showToast('Delete Failed', err?.message || 'Failed to remove photo.', 'error');
+    }
+  };
+
+  const handleConfirmBulkDelete = async () => {
+    if (!event || selectedIds.length === 0 || isBulkDeleting) return;
+    const count = selectedIds.length;
+    const idsToDelete = [...selectedIds];
+    const isAllMatching = isAllSelected || count >= totalMatchingCount;
+
+    try {
+      await bulkDeleteMutation({
+        mediaIds: idsToDelete,
+        deleteAll: isAllMatching,
+        section: selectedSectionFilter,
+      });
+      showToast('Photos Deleted', `Successfully removed ${count} items from event.`, 'success');
+      setSelectedIds([]);
+      setIsBulkDeleteOpen(false);
+      refetchEvent();
+    } catch (err: any) {
+      showToast('Bulk Delete Failed', err?.message || 'Failed to remove selected items.', 'error');
+    }
+  };
+
+  const handleOpenStation = (tab: 'camera' | 'folder' | 'manual') => {
+    setCameraStationTab(tab);
+    setIsCameraStationOpen(true);
+  };
 
   if (isLoadingEvent && !event) {
     return (
-      <div className="p-8 max-w-5xl mx-auto">
+      <div className="dashboard-container p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
         <EventListSkeleton count={2} />
       </div>
     );
@@ -148,7 +356,7 @@ export const EventDetailPage: React.FC = () => {
       <div className="min-h-[70vh] flex flex-col items-center justify-center p-6 text-center max-w-md mx-auto">
         <ErrorState
           title="Event Not Found"
-          message="The requested event could not be located in your studio workspace."
+          message="The requested event could not be located on the server, or may have been deleted."
           onRetry={() => refetchEvent()}
           actionLabel="Return to Events"
           onAction={() => navigate('/dashboard/events')}
@@ -157,506 +365,195 @@ export const EventDetailPage: React.FC = () => {
     );
   }
 
-  const guestUrl = `${window.location.origin}/events/${event.id}`;
-  const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(
-    guestUrl
-  )}&margin=8`;
-
-  const totalSizeMB = event.media.reduce((acc: number, m: any) => acc + (m.sizeMB || 3.5), 0).toFixed(1);
-  const matchRate =
-    event.stats.aiSearches > 0
-      ? Math.min(100, Math.round((event.stats.matchesFound / event.stats.aiSearches) * 100))
-      : 94;
-
-  const handleCopyGuestLink = () => {
-    navigator.clipboard.writeText(guestUrl);
-    setCopied(true);
-    showToast('Guest Link Copied', 'Share with attendees or venue coordinators.', 'success');
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const handleManualTetherShot = () => {
-    const shot = simulateTetherShot(event.id);
-    if (shot) {
-      showToast('Camera Shot Synced', `Added ${shot.title} to live stream.`, 'success');
-    }
-  };
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-
-    setIsUploading(true);
-    const newItems: Array<{
-      type: 'photo';
-      url: string;
-      thumbnailUrl?: string;
-      title: string;
-      caption?: string;
-      sectionTitle?: string;
-      aspectRatio: number;
-      width: number;
-      height: number;
-      sizeMB: number;
-    }> = [];
-
-    let processed = 0;
-    Array.from(files).forEach((file) => {
-      // Async upload to backend tethering endpoint
-      uploadTetherPhoto(file).catch(() => {
-        // Fallback to local
-      });
-
-      const reader = new FileReader();
-      reader.onload = () => {
-        const dataUrl = reader.result as string;
-        newItems.push({
-          type: 'photo',
-          url: dataUrl,
-          thumbnailUrl: dataUrl,
-          title: file.name.replace(/\.[^/.]+$/, ''),
-          caption: 'Uploaded live during event',
-          sectionTitle: 'CEREMONY',
-          aspectRatio: 1.5,
-          width: 2400,
-          height: 1600,
-          sizeMB: Number((file.size / (1024 * 1024)).toFixed(1)),
-        });
-        processed++;
-        if (processed === files.length) {
-          addMediaToEvent(event.id, newItems);
-          setIsUploading(false);
-          showToast(
-            'Live Photos Uploaded',
-            `Added ${newItems.length} photograph(s) instantly into event stream.`,
-            'success'
-          );
-        }
-      };
-      reader.readAsDataURL(file);
-    });
-  };
+  if (planQuota.isExpired) {
+    return (
+      <div className="dashboard-container p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
+        <LockedPageScreen
+          resourceType="event"
+          resourceTitle={event?.title}
+          onRenew={() => setIsUpgradeModalOpen(true)}
+          onBack={() => navigate('/dashboard/events')}
+        />
+        <UpgradePlanModal
+          isOpen={isUpgradeModalOpen}
+          onClose={() => setIsUpgradeModalOpen(false)}
+          errorCode="PLAN_EXPIRED"
+          lockedFeature="Live Events"
+          errorMessage={`Your studio plan has expired. Renew your plan to unlock and manage ${event?.title || 'this live event'}.`}
+        />
+      </div>
+    );
+  }
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-300">
-      {/* ─── Back Navigation & Actions ─── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <Link
-            to="/dashboard/events"
-            className="p-2.5 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-300 hover:text-neutral-950 dark:hover:text-white transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </Link>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-mono uppercase tracking-widest text-amber-500 font-bold">
-                Event Command Center
-              </span>
-              {event.status === 'live' && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  LIVE
-                </span>
-              )}
+    <div className="dashboard-container p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-300">
+      {/* ─── Studio Plan Expired Warning Banner ─── */}
+      {planQuota.isExpired && (
+        <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-rose-950/80 via-rose-900/50 to-neutral-900/80 border border-rose-500/40 text-rose-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xl backdrop-blur-xl animate-in fade-in duration-300">
+          <div className="flex items-start sm:items-center gap-3.5">
+            <div className="p-2.5 rounded-xl bg-rose-500/20 text-rose-400 border border-rose-500/30 shrink-0">
+              <Lock className="w-5 h-5 stroke-[2]" />
             </div>
-            <h1 className="text-xl sm:text-2xl font-serif font-bold text-neutral-900 dark:text-white tracking-tight">
-              {event.title}
-            </h1>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {/* Guest View Link */}
-          <Link
-            to={`/events/${event.id}`}
-            target="_blank"
-            className="py-2 px-3.5 rounded-xl bg-neutral-100 dark:bg-neutral-900 hover:bg-neutral-200 dark:hover:bg-neutral-800 text-neutral-800 dark:text-neutral-200 text-xs font-mono font-bold border border-neutral-300 dark:border-neutral-800 flex items-center gap-2 transition-colors"
-          >
-            <span>Guest QR View</span>
-            <ExternalLink className="w-3.5 h-3.5" />
-          </Link>
-
-          {/* Move to Gallery Button */}
-          <button
-            onClick={() => setIsMoveToGalleryOpen(true)}
-            className="py-2 px-4 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 text-xs font-mono font-bold flex items-center gap-2 transition-all hover:scale-[1.02] shadow-md shadow-amber-400/20 cursor-pointer"
-          >
-            <Layers className="w-4 h-4" />
-            <span>Move to Gallery</span>
-          </button>
-        </div>
-      </div>
-
-      {/* ─── Hero Banner Preview & Quick Controls ─── */}
-      <div className="relative rounded-3xl overflow-hidden border border-neutral-200 dark:border-neutral-800 shadow-xl group">
-        <div className="relative h-64 sm:h-72 w-full bg-neutral-900">
-          <img
-            src={event.bannerUrl}
-            alt={event.title}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/30 pointer-events-none" />
-
-          {/* Change Banner Button Overlay */}
-          <button
-            onClick={() => setIsBannerModalOpen(true)}
-            className="absolute top-4 right-4 py-2 px-3.5 rounded-xl bg-black/60 hover:bg-black/90 text-white backdrop-blur-md text-xs font-mono font-bold flex items-center gap-2 border border-white/20 transition-all cursor-pointer shadow-lg"
-          >
-            <ImageIcon className="w-4 h-4 text-amber-400" />
-            <span>Change Editorial Banner</span>
-          </button>
-
-          {/* Event Metadata Overlay */}
-          <div className="absolute bottom-5 left-5 right-5 text-white flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-            <div className="space-y-1 max-w-xl">
-              <span className="text-[11px] font-mono tracking-widest uppercase text-amber-300 block font-semibold">
-                {event.eventType} • {event.eventDate} {event.eventTime && `at ${event.eventTime}`}
-              </span>
-              <h2 className="text-2xl sm:text-3xl font-serif font-bold text-white drop-shadow-md">
-                {event.title}
-              </h2>
-              <div className="flex items-center gap-2 text-xs font-mono text-neutral-300">
-                <MapPin className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                <span>{event.venue} {event.city && `• ${event.city}`}</span>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 text-xs font-mono text-neutral-200 bg-black/50 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-white/15 shrink-0">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="font-semibold text-white">Live Event Engine Active</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ─── Animated Event Performance & Live Metrics ─── */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-            <h3 className="text-xs font-mono uppercase tracking-widest text-neutral-600 dark:text-neutral-400 font-bold">
-              Live Event Performance & Analytics
-            </h3>
-          </div>
-          <span className="text-[11px] font-mono text-neutral-400 dark:text-neutral-500">
-            Updated in real-time
-          </span>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Card 1: Cloud Photos */}
-          <div className="group relative p-5 rounded-3xl bg-white dark:bg-[#101117] border border-neutral-200 dark:border-neutral-800/80 shadow-xs hover:shadow-xl hover:border-amber-400/50 hover:-translate-y-1 transition-all duration-300">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-mono uppercase tracking-wider font-semibold text-neutral-500 dark:text-neutral-400">
-                Live Cloud Photos
-              </span>
-              <div className="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500 flex items-center justify-center group-hover:scale-110 transition-transform">
-                <Camera className="w-4 h-4" />
-              </div>
-            </div>
-            <div className="mt-3 flex items-baseline gap-2">
-              <span className="text-3xl font-sans font-bold tabular-nums text-neutral-900 dark:text-white">
-                {event.media.length}
-              </span>
-              <span className="text-xs font-mono text-neutral-400 dark:text-neutral-500">
-                ({totalSizeMB} MB)
-              </span>
-            </div>
-            <div className="mt-2 flex items-center gap-1.5 text-[11px] font-mono">
-              {event.autoSyncEnabled ? (
-                <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1 font-medium">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
-                  Auto-sync tethered
-                </span>
-              ) : (
-                <span className="text-neutral-500 dark:text-neutral-400">
-                  Ready for live upload
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* Card 2: Guest QR Scans */}
-          <div className="group relative p-5 rounded-3xl bg-white dark:bg-[#101117] border border-neutral-200 dark:border-neutral-800/80 shadow-xs hover:shadow-xl hover:border-amber-400/50 hover:-translate-y-1 transition-all duration-300">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-mono uppercase tracking-wider font-semibold text-neutral-500 dark:text-neutral-400">
-                Guest QR Scans
-              </span>
-              <div className="w-8 h-8 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-500 flex items-center justify-center group-hover:scale-110 transition-transform">
-                <QrCode className="w-4 h-4" />
-              </div>
-            </div>
-            <div className="mt-3 flex items-baseline gap-2">
-              <span className="text-3xl font-sans font-bold tabular-nums text-neutral-900 dark:text-white">
-                {event.stats.qrScans}
-              </span>
-              <span className="text-xs font-mono text-emerald-600 dark:text-emerald-400 font-semibold">
-                +12% live
-              </span>
-            </div>
-            <div className="mt-2 flex items-center gap-1.5 text-[11px] font-mono text-neutral-500 dark:text-neutral-400">
-              <span>At table stands & cards</span>
-            </div>
-          </div>
-
-          {/* Card 3: AI Face Searches */}
-          <div className="group relative p-5 rounded-3xl bg-white dark:bg-[#101117] border border-neutral-200 dark:border-neutral-800/80 shadow-xs hover:shadow-xl hover:border-amber-400/50 hover:-translate-y-1 transition-all duration-300">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-mono uppercase tracking-wider font-semibold text-neutral-500 dark:text-neutral-400">
-                AI Face Searches
-              </span>
-              <div className="w-8 h-8 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-500 flex items-center justify-center group-hover:scale-110 transition-transform">
-                <Sparkles className="w-4 h-4" />
-              </div>
-            </div>
-            <div className="mt-3 flex items-baseline gap-2">
-              <span className="text-3xl font-sans font-bold tabular-nums text-neutral-900 dark:text-white">
-                {event.stats.aiSearches}
-              </span>
-              <span className="text-xs font-mono text-purple-600 dark:text-purple-400 font-medium">
-                Selfies processed
-              </span>
-            </div>
-            <div className="mt-2 flex items-center gap-1.5 text-[11px] font-mono text-neutral-500 dark:text-neutral-400">
-              <span>Instant guest discovery</span>
-            </div>
-          </div>
-
-          {/* Card 4: Selfie Matches Delivered */}
-          <div className="group relative p-5 rounded-3xl bg-white dark:bg-[#101117] border border-neutral-200 dark:border-neutral-800/80 shadow-xs hover:shadow-xl hover:border-amber-400/50 hover:-translate-y-1 transition-all duration-300">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-mono uppercase tracking-wider font-semibold text-neutral-500 dark:text-neutral-400">
-                Delivered Matches
-              </span>
-              <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 flex items-center justify-center group-hover:scale-110 transition-transform">
-                <CheckCircle2 className="w-4 h-4" />
-              </div>
-            </div>
-            <div className="mt-3 flex items-baseline gap-2">
-              <span className="text-3xl font-sans font-bold tabular-nums text-neutral-900 dark:text-white">
-                {event.stats.matchesFound}
-              </span>
-              <span className="text-xs font-mono text-emerald-600 dark:text-emerald-400 font-bold">
-                {matchRate}% match
-              </span>
-            </div>
-            <div className="mt-2 flex items-center gap-1.5 text-[11px] font-mono text-neutral-500 dark:text-neutral-400">
-              <span>High-res downloads enabled</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ─── Control Grid: 1. Live Tethering & Upload | 2. QR Code & Expiry ─── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left Column: Live Tethering Simulator & Quick Upload (7 cols) */}
-        <div className="lg:col-span-7 space-y-6">
-          {/* Tethering & Auto-Sync Widget */}
-          <div className="p-5 sm:p-6 rounded-3xl bg-white dark:bg-[#101117] border border-neutral-200 dark:border-neutral-800/80 shadow-xs space-y-5">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-500 flex items-center justify-center">
-                  <Zap className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-serif font-bold text-neutral-900 dark:text-white">
-                    Live Camera Tethering & Instant Upload
-                  </h3>
-                  <p className="text-[11px] text-neutral-500 dark:text-neutral-400 font-mono">
-                    Automatically syncs photos from your camera straight into this event.
-                  </p>
-                </div>
-              </div>
-
-              {/* Auto Sync Toggle */}
-              <button
-                type="button"
-                onClick={() => toggleAutoSync(event.id)}
-                className={`py-1.5 px-3 rounded-full text-xs font-mono font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-                  event.autoSyncEnabled
-                    ? 'bg-emerald-500 text-neutral-950 shadow-md shadow-emerald-500/20'
-                    : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-400 border border-neutral-200 dark:border-transparent'
-                }`}
-              >
-                {event.autoSyncEnabled ? (
-                  <>
-                    <span className="w-2 h-2 rounded-full bg-neutral-950 animate-ping" />
-                    <span>Auto-Sync ON</span>
-                  </>
-                ) : (
-                  <>
-                    <Pause className="w-3 h-3" />
-                    <span>Auto-Sync OFF</span>
-                  </>
-                )}
-              </button>
-            </div>
-
-            {/* Quick Actions Bar */}
-            <div className="flex flex-wrap items-center gap-3 pt-1">
-              {/* Trigger Single Simulated Shot */}
-              <button
-                type="button"
-                onClick={handleManualTetherShot}
-                className="py-2.5 px-4 rounded-xl bg-neutral-100 dark:bg-neutral-900 hover:bg-neutral-200 dark:hover:bg-neutral-800 text-neutral-800 dark:text-neutral-200 text-xs font-mono font-bold border border-neutral-300 dark:border-neutral-800 flex items-center gap-2 transition-all cursor-pointer"
-              >
-                <Camera className="w-4 h-4 text-amber-500" />
-                <span>Simulate 1 Live Shot</span>
-              </button>
-
-              {/* Dropzone File Upload */}
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isUploading}
-                className="py-2.5 px-4 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 text-xs font-mono font-bold flex items-center gap-2 transition-all cursor-pointer"
-              >
-                <Upload className="w-4 h-4" />
-                <span>{isUploading ? 'Uploading...' : 'Upload Photos / Camera'}</span>
-              </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                accept="image/*"
-                onChange={handleFileUpload}
-                className="hidden"
-              />
-            </div>
-
-            {event.autoSyncEnabled && (
-              <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs font-mono flex items-center gap-2 animate-in fade-in">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-                <span>
-                  <strong>Camera Tether Active:</strong> New shots taken on your camera land in
-                  the guest stream in real time.
-                </span>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Right Column: QR Code & Time Validity Summary (5 cols) */}
-        <div className="lg:col-span-5">
-          <div className="p-5 sm:p-6 rounded-3xl bg-white dark:bg-[#101117] border border-neutral-200 dark:border-neutral-800/80 shadow-xs space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="space-y-0.5 text-xs">
               <div className="flex items-center gap-2">
-                <QrCode className="w-4 h-4 text-amber-500" />
-                <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-neutral-900 dark:text-white">
-                  Event QR Code & Expiry
-                </h3>
+                <span className="font-mono text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                  Guest Link Suspended
+                </span>
+                <span className="font-bold text-white text-sm">Studio Plan Expired</span>
               </div>
-              <button
-                onClick={() => setIsQRModalOpen(true)}
-                className="text-xs font-mono text-amber-600 dark:text-amber-500 hover:underline cursor-pointer"
-              >
-                Change Expiry
-              </button>
-            </div>
-
-            <div className="flex items-center gap-4 bg-neutral-50 dark:bg-neutral-950/70 border border-neutral-200 dark:border-neutral-800/80 rounded-2xl p-4">
-              <div className="p-2 bg-white rounded-xl border border-neutral-200 shrink-0 shadow-xs">
-                <img src={qrApiUrl} alt="QR Code" className="w-24 h-24 object-contain" />
-              </div>
-              <div className="space-y-1.5 text-xs font-mono text-neutral-600 dark:text-neutral-400">
-                <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-500 font-bold">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span>Valid for Guests</span>
-                </div>
-                <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
-                  Expires: {new Date(event.qrSettings.expiresAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ({event.qrSettings.durationHours}h preset)
-                </p>
-                <div className="pt-1 flex items-center gap-2">
-                  <button
-                    onClick={handleCopyGuestLink}
-                    className="p-1.5 rounded-lg bg-neutral-200 dark:bg-neutral-800 hover:bg-neutral-300 dark:hover:bg-neutral-700 text-neutral-800 dark:text-white text-[11px] font-mono flex items-center gap-1 cursor-pointer transition-colors border border-neutral-300/60 dark:border-transparent"
-                  >
-                    {copied ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
-                    <span>{copied ? 'Copied' : 'Copy Link'}</span>
-                  </button>
-                  <button
-                    onClick={() => setIsPrintStandOpen(true)}
-                    className="p-1.5 rounded-lg bg-amber-400/10 hover:bg-amber-400/20 text-amber-600 dark:text-amber-500 border border-amber-500/30 text-[11px] font-mono flex items-center gap-1 cursor-pointer transition-colors"
-                  >
-                    <Printer className="w-3 h-3" />
-                    <span>Print Stand</span>
-                  </button>
-                </div>
-              </div>
+              <p className="text-neutral-300">
+                Public guest QR codes, live event streaming, and AI face search downloads for this event are temporarily locked until your plan is renewed.
+              </p>
             </div>
           </div>
+          <button
+            type="button"
+            onClick={() => setIsUpgradeModalOpen(true)}
+            className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 hover:from-amber-300 hover:to-amber-300 text-neutral-950 font-bold text-xs uppercase tracking-wider transition-all hover:scale-[1.02] shadow-lg shadow-amber-500/20 shrink-0 flex items-center gap-1.5 cursor-pointer"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Renew Membership</span>
+          </button>
+        </div>
+      )}
+
+      {/* ─── Back Navigation & Primary Actions ─── */}
+      <EventDetailHeader
+        event={event}
+        onStartLiveShoot={handleStartLiveShoot}
+        onOpenEditModal={() => setIsEditModalOpen(true)}
+        onOpenMoveToGallery={() => setIsMoveToGalleryOpen(true)}
+      />
+
+      {/* ─── Hero Banner & Metadata ─── */}
+      <EventHeroBanner
+        event={event}
+        onOpenBannerModal={() => setIsBannerModalOpen(true)}
+      />
+
+      {/* ─── Real-Time Live Analytics & Performance Metrics ─── */}
+      <EventAnalyticsGrid event={event} />
+
+      {/* ─── Ingestion Command Bar & QR Code Summary ─── */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className="lg:col-span-7">
+          <EventIngestionHub
+            ingestion={ingestion}
+            onOpenStation={handleOpenStation}
+            onOpenUploadModal={() => setIsUploadModalOpen(true)}
+          />
+        </div>
+
+        <div className="lg:col-span-5">
+          <EventQRCard
+            event={event}
+            onOpenQRModal={() => setIsQRModalOpen(true)}
+            onOpenPrintStand={() => setIsPrintStandOpen(true)}
+          />
         </div>
       </div>
 
       {/* ─── Live Event Photo Stream ─── */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between border-b border-neutral-200 dark:border-neutral-800 pb-3">
-          <div className="flex items-center gap-2">
-            <Camera className="w-4 h-4 text-amber-500" />
-            <h3 className="text-base font-serif font-bold text-neutral-900 dark:text-white">
-              Live Photos Stream ({event.media.length})
-            </h3>
-          </div>
-          <span className="text-xs font-mono text-neutral-500 dark:text-neutral-400">
-            Instant AI Face Search is active for all photos
-          </span>
-        </div>
+      <EventMediaStream
+        media={visibleMedia}
+        allMedia={event.media}
+        totalCount={
+          event.totalMediaCount ||
+          (event.photosCount !== undefined ? event.photosCount + (event.videosCount || 0) : undefined) ||
+          event.media.length
+        }
+        sectionCounts={event.sectionCounts}
+        availableSections={availableSections}
+        selectedSectionFilter={selectedSectionFilter}
+        onSelectSection={(sec) => {
+          setSelectedSectionFilter(sec);
+          setVisibleCount(24);
+        }}
+        selectedIds={selectedIds}
+        isAllSelected={isAllSelected}
+        onSelectAll={selectAll}
+        onDeselectAll={deselectAll}
+        onOpenBulkDelete={() => setIsBulkDeleteOpen(true)}
+        onToggleSelect={toggleSelect}
+        onOpenLightbox={(idx) => setLightboxIndex(idx)}
+        onDeleteSingleMedia={(m) => setMediaToDelete(m)}
+        onOpenUploadModal={() => setIsUploadModalOpen(true)}
+        onOpenStation={() => setIsCameraStationOpen(true)}
+        hasMoreMedia={hasMoreMedia}
+        loadMoreRef={loadMoreRef}
+        visibleCount={visibleMedia.length}
+        filteredCount={totalMatchingCount}
+      />
 
-        {event.media.length === 0 ? (
-          <div className="py-16 text-center bg-white dark:bg-[#101117] border border-neutral-200 dark:border-neutral-800 rounded-3xl p-8 max-w-md mx-auto space-y-3">
-            <Camera className="w-8 h-8 text-neutral-400 mx-auto stroke-1" />
-            <p className="font-serif italic text-neutral-700 dark:text-neutral-300 text-base">
-              No photos uploaded to this event yet
-            </p>
-            <p className="text-xs text-neutral-500 dark:text-neutral-400 font-mono">
-              Click "Upload Photos" above or simulate a live camera shot.
-            </p>
-          </div>
-        ) : (
-          <div className="columns-2 sm:columns-3 lg:columns-4 gap-3">
-            {event.media.map((item: any) => (
-              <div
-                key={item.id}
-                className="group relative break-inside-avoid mb-3 rounded-2xl overflow-hidden bg-neutral-900 border border-neutral-200/40 dark:border-neutral-800/80 shadow-xs"
-              >
-                <img
-                  src={item.url}
-                  alt={item.title}
-                  loading="lazy"
-                  className="w-full h-auto block object-cover group-hover:scale-105 transition-transform duration-500"
-                />
-
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-
-                {/* Section title pill */}
-                {item.sectionTitle && (
-                  <span className="absolute top-2 left-2 z-10 px-2 py-0.5 rounded-md bg-black/60 backdrop-blur-md text-[10px] font-mono text-amber-300 uppercase font-bold border border-amber-400/20">
-                    {item.sectionTitle}
-                  </span>
-                )}
-
-                {/* Delete button */}
-                <button
-                  type="button"
-                  onClick={() => removeMediaFromEvent(event.id, item.id)}
-                  className="absolute top-2 right-2 z-10 p-1.5 rounded-lg bg-black/60 hover:bg-rose-950/80 text-white hover:text-rose-300 opacity-0 group-hover:opacity-100 transition-all cursor-pointer"
-                  title="Remove photo from event"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-
-                {/* Title & Caption */}
-                <div className="absolute bottom-2 left-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity text-white">
-                  <p className="text-xs font-serif italic line-clamp-1">{item.title}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      {/* ─── Floating Bulk Toolbar ─── */}
+      <EventBulkToolbar
+        selectedCount={selectedIds.length}
+        totalCount={totalMatchingCount}
+        isAllSelected={isAllSelected}
+        isSelectingAll={isSelectingAll}
+        onSelectAll={selectAll}
+        onDeselectAll={deselectAll}
+        onOpenBulkDelete={() => setIsBulkDeleteOpen(true)}
+        onDownloadSelected={handleDownloadSelected}
+        isDownloading={isDownloadingBulk}
+        downloadProgress={bulkDownloadProgress}
+      />
 
       {/* ─── Modals ─── */}
+      <EventDeleteMediaModal
+        isOpen={Boolean(mediaToDelete)}
+        mediaTitle={mediaToDelete?.title || 'Photo'}
+        isDeleting={isDeletingMedia}
+        onClose={() => setMediaToDelete(null)}
+        onConfirm={handleConfirmDeleteMedia}
+      />
+
+      <ConfirmDeleteModal
+        isOpen={isBulkDeleteOpen}
+        onClose={() => !isBulkDeleting && setIsBulkDeleteOpen(false)}
+        onConfirm={handleConfirmBulkDelete}
+        isDeleting={isBulkDeleting}
+        title={`Delete ${selectedIds.length} Event Items`}
+        description={`Are you sure you want to delete ${selectedIds.length} selected photos/videos? This will permanently remove them from the live event and update studio storage.`}
+        confirmLabel={`Delete ${selectedIds.length} Items`}
+        items={selectedMediaItems}
+        itemCount={selectedIds.length}
+      />
+
+      <EventUploadMediaModal
+        isOpen={isUploadModalOpen}
+        onClose={() => setIsUploadModalOpen(false)}
+        event={event}
+        onUploadComplete={refetchEvent}
+      />
+
+      {lightboxIndex !== null && (
+        <LightboxModal
+          isOpen={lightboxIndex !== null}
+          onClose={() => setLightboxIndex(null)}
+          mediaList={event.media}
+          currentIndex={lightboxIndex}
+          onNavigate={(idx) => setLightboxIndex(idx)}
+          onDelete={async (mediaId) => {
+            await deleteMediaMutation(mediaId);
+            refetchEvent();
+            setLightboxIndex(null);
+          }}
+          allowDownloads={true}
+          galleryTitle={event.title}
+          gallerySlug={event.slug || event.id}
+        />
+      )}
+
+      <LiveCameraCaptureModal
+        isOpen={isCameraStationOpen}
+        onClose={() => setIsCameraStationOpen(false)}
+        event={event}
+        onPhotoUploaded={refetchEvent}
+        ingestion={ingestion}
+        defaultTab={cameraStationTab}
+      />
+
       <EventQRCodeModal
         isOpen={isQRModalOpen}
         onClose={() => setIsQRModalOpen(false)}
@@ -665,6 +562,7 @@ export const EventDetailPage: React.FC = () => {
           setIsQRModalOpen(false);
           setIsPrintStandOpen(true);
         }}
+        onUpdated={refetchEvent}
       />
 
       <EventPrintStandModal
@@ -677,12 +575,25 @@ export const EventDetailPage: React.FC = () => {
         isOpen={isBannerModalOpen}
         onClose={() => setIsBannerModalOpen(false)}
         event={event}
+        onUpdated={refetchEvent}
       />
 
       <MoveToGalleryModal
         isOpen={isMoveToGalleryOpen}
         onClose={() => setIsMoveToGalleryOpen(false)}
         event={event}
+      />
+
+      <EditEventModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        event={event}
+        onUpdated={refetchEvent}
+      />
+
+      <UpgradePlanModal
+        isOpen={isUpgradeModalOpen}
+        onClose={() => setIsUpgradeModalOpen(false)}
       />
     </div>
   );

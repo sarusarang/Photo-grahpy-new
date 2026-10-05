@@ -15,7 +15,7 @@ interface ProtectedRouteProps {
  * - Renders protected child components or <Outlet /> once verified.
  */
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, photographer } = useAuth();
   const location = useLocation();
 
   // 1. Session verification in progress (cold load / cookie validation)
@@ -33,7 +33,12 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  // 3. Authenticated: Render protected child routes
+  // 3. Authenticated but not yet onboarded: Redirect to profile onboarding
+  if (!photographer.isOnboarded) {
+    return <Navigate to="/onboarding" replace />;
+  }
+
+  // 4. Authenticated & onboarded: Render protected child routes
   return children ? <>{children}</> : <Outlet />;
 };
 

@@ -4,7 +4,8 @@
 
 export type PlanTier = 'standard' | 'premium' | 'custom';
 export type BillingCycle = 'quarterly' | 'annual' | 'monthly';
-export type GalleryTemplateId = 'editorial' | 'masonry' | 'cinematic' | 'minimal';
+import type { GalleryTemplateId } from './template';
+export type { GalleryTemplateId };
 export type GalleryStatus = 'active' | 'delivered' | 'draft' | 'archived';
 export type MediaType = 'photo' | 'video';
 export type InquiryStatus = 'new' | 'contacted' | 'booked' | 'archived';
@@ -37,6 +38,7 @@ export interface StudioPlan {
   max_galleries: number; // 0 = unlimited
   gallery_expiry_days: number; // 0 = permanent
   face_search_enabled: boolean;
+  watermark_enabled?: boolean;
   max_events: number;
   allowed_templates: GalleryTemplateId[];
   allowed_portfolio_templates: string[];
@@ -73,6 +75,7 @@ export interface CurrentSubscription {
     max_galleries?: number;
     allowed_templates?: GalleryTemplateId[];
     face_search_enabled?: boolean;
+    watermark_enabled?: boolean;
     gallery_expiry_days?: number;
     max_events?: number;
     max_portfolio_posts?: number;
@@ -204,6 +207,14 @@ export interface Gallery {
   allowDownloads?: boolean;
   allow_favorites: boolean;
   allowFavorites?: boolean;
+  face_search_enabled?: boolean;
+  faceSearchEnabled?: boolean;
+  watermark_enabled?: boolean;
+  watermarkEnabled?: boolean;
+  watermark_text?: string;
+  watermark_opacity?: number;
+  watermark_position?: 'bottom-right' | 'bottom-left' | 'top-right' | 'center' | 'tiled' | string;
+  watermark_image?: string | null;
   expires_at: string | null;
   expiresAt?: string | null;
   is_expired?: boolean;
@@ -231,6 +242,8 @@ export interface Gallery {
   hasMore?: boolean;
   total_media_count?: number;
   totalMediaCount?: number;
+  section_counts?: Record<string, number>;
+  sectionCounts?: Record<string, number>;
 }
 
 // ---------------------------------------------------------------------------
@@ -262,6 +275,14 @@ export interface LiveEvent {
   matchesFound?: number;
   downloads_count?: number;
   downloadsCount?: number;
+  photos_count?: number;
+  photosCount?: number;
+  videos_count?: number;
+  videosCount?: number;
+  total_media_count?: number;
+  totalMediaCount?: number;
+  section_counts?: Record<string, number>;
+  sectionCounts?: Record<string, number>;
   banner_url?: string;
   qr_settings: {
     duration_hours: number | string;
@@ -299,13 +320,13 @@ export interface PortfolioInquiry {
 // ---------------------------------------------------------------------------
 export interface PlanEnforcementError {
   error_code:
-    | 'NO_ACTIVE_SUBSCRIPTION'
-    | 'GALLERY_LIMIT_EXCEEDED'
-    | 'TEMPLATE_TIER_LOCKED'
-    | 'FACE_SEARCH_LOCKED'
-    | 'EVENT_LIMIT_EXCEEDED'
-    | 'STORAGE_LIMIT_EXCEEDED'
-    | 'STORAGE_UPGRADE_LIMIT_EXCEEDED';
+  | 'NO_ACTIVE_SUBSCRIPTION'
+  | 'GALLERY_LIMIT_EXCEEDED'
+  | 'TEMPLATE_TIER_LOCKED'
+  | 'FACE_SEARCH_LOCKED'
+  | 'EVENT_LIMIT_EXCEEDED'
+  | 'STORAGE_LIMIT_EXCEEDED'
+  | 'STORAGE_UPGRADE_LIMIT_EXCEEDED';
   message: string;
   upgrade_required: boolean;
 }

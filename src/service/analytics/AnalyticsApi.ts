@@ -1,5 +1,11 @@
 import { CommonApi } from '@/lib/CommonApi';
 import type { GalleryAnalyticsData } from '@/types/atelier';
+import type {
+  TrackGalleryActivityPayload,
+  TrackGalleryActivityResponse,
+} from './type';
+
+export * from './type';
 
 /**
  * 1. Retrieve 30-Day Gallery Analytics & Telemetry
@@ -26,12 +32,8 @@ export const GetGalleryAnalyticsApi = async (
  */
 export const TrackGalleryActivityApi = async (
   galleryId: string,
-  payload: {
-    type: 'view' | 'download' | 'favorite' | 'share';
-    device?: string;
-    details?: string;
-  }
-): Promise<{ success: boolean }> => {
+  payload: TrackGalleryActivityPayload
+): Promise<TrackGalleryActivityResponse> => {
   try {
     return await CommonApi('POST', `/api/public/galleries/${galleryId}/track-activity/`, payload);
   } catch {

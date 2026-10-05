@@ -3,7 +3,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import type { PhotographerProfile } from '@/types';
 import type { AuthUser, AuthContextType } from '@/types/auth';
 import { useCheckLogin, useLogout, AUTH_QUERY_KEYS } from '@/service/auth';
-import { INITIAL_PHOTOGRAPHER } from '@/data/demoData';
 
 // Re-export type contract for backward compatibility
 export type { AuthContextType };
@@ -15,21 +14,35 @@ export type { AuthContextType };
 const buildPhotographerProfile = (
   user?: Partial<AuthUser> | null,
   override?: Partial<PhotographerProfile> | null
-): PhotographerProfile => ({
-  id: user?.id?.toString() || override?.id || '',
-  studioName: user?.fullname ? `${user.fullname} Studio` : override?.studioName || 'Studio',
-  fullName: user?.fullname || user?.username || override?.fullName || '',
-  email: user?.email || override?.email || '',
-  phone: user?.phone || override?.phone || '',
-  location: override?.location || '',
-  bio: override?.bio || '',
-  avatarUrl: user?.avatar_url || override?.avatarUrl || '',
-  websiteUrl: override?.websiteUrl || '',
-  instagramHandle: override?.instagramHandle || '',
-  watermarkText: override?.watermarkText || '© EX SHARE',
-  enableWatermark: override?.enableWatermark ?? false,
-  isOnboarded: override?.isOnboarded ?? Boolean(user?.id),
-});
+): PhotographerProfile => {
+  const hasCompletedProfile = Boolean(
+    user?.fullname &&
+      user.fullname.trim().length > 0 &&
+      (user?.phone || user?.occupation)
+  );
+
+  const isOnboarded =
+    override?.isOnboarded ??
+    user?.is_onboarded ??
+    hasCompletedProfile;
+
+  return {
+    id: user?.id?.toString() || override?.id || '',
+    studioName: user?.fullname ? `${user.fullname} Studio` : override?.studioName || 'Studio',
+    fullName: user?.fullname || user?.username || override?.fullName || '',
+    email: user?.email || override?.email || '',
+    phone: user?.phone || override?.phone || '',
+    location: override?.location || '',
+    occupation: user?.occupation || override?.occupation || '',
+    bio: override?.bio || '',
+    avatarUrl: user?.avatar_url || override?.avatarUrl || '',
+    websiteUrl: override?.websiteUrl || '',
+    instagramHandle: override?.instagramHandle || '',
+    watermarkText: override?.watermarkText || '© EX SHARE',
+    enableWatermark: override?.enableWatermark ?? false,
+    isOnboarded,
+  };
+};
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -67,11 +80,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return null;
   }, [checkLoginData]);
 
+const DEFAULT_EMPTY_PROFILE: PhotographerProfile = {
+  id: '',
+  studioName: 'Studio',
+  fullName: '',
+  email: '',
+  phone: '',
+  location: '',
+  bio: '',
+  avatarUrl: '',
+  websiteUrl: '',
+  instagramHandle: '',
+  watermarkText: '© EX SHARE',
+  enableWatermark: false,
+  isOnboarded: false,
+};
+
   const photographer = useMemo<PhotographerProfile>(() => {
     if (user) {
       return buildPhotographerProfile(user, profileOverride);
     }
-    return INITIAL_PHOTOGRAPHER;
+    return DEFAULT_EMPTY_PROFILE;
   }, [user, profileOverride]);
 
   // 4. Session expired listener (triggered by Axios 401 refresh failure)
@@ -83,6 +112,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
       queryClient.invalidateQueries({ queryKey: AUTH_QUERY_KEYS.checkLogin });
       setProfileOverride(null);
+      try {
+        sessionStorage.removeItem('exshare_studio_subscription_cache');
+      } catch {
+        // Non-fatal
+      }
     };
 
     window.addEventListener('auth:session-expired', handleSessionExpired);
@@ -118,6 +152,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         message: 'Logged out',
       });
       queryClient.clear();
+      try {
+        sessionStorage.removeItem('exshare_studio_subscription_cache');
+      } catch {
+        // Non-fatal
+      }
     }
   }, [logoutMutation, queryClient]);
 

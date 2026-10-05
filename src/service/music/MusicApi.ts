@@ -1,5 +1,7 @@
 import { CommonApi } from '@/lib/CommonApi';
-import type { MusicTrack } from '@/types/atelier';
+import type { MusicTrack } from './type';
+
+export * from './type';
 
 /**
  * 1. Retrieve Curated Ambient Soundtrack Library

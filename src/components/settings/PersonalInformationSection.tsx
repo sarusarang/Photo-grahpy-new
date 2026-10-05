@@ -54,20 +54,22 @@ export const FormInput = React.forwardRef<HTMLInputElement, FormInputProps>(
   ({ label, required, error, icon, className = '', ...props }, ref) => {
     return (
       <div className="flex flex-col gap-1.5">
-        <label className="text-xs font-semibold text-neutral-700 dark:text-neutral-300 flex items-center gap-1">
-          <span>{label}</span>
-          {required && <span className="text-amber-500">*</span>}
+        <label className="atelier-label mb-0">
+          <span className="flex items-center gap-1 font-semibold">
+            <span>{label}</span>
+            {required && <span className="text-amber-500">*</span>}
+          </span>
         </label>
-        <div className="relative">
-          <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400 dark:text-neutral-500 pointer-events-none">
+        <div className="atelier-input-wrapper">
+          <div className="atelier-input-icon">
             {icon}
           </div>
           <input
             ref={ref}
-            className={`w-full pl-10 pr-4 py-2.5 rounded-xl bg-neutral-50 dark:bg-neutral-950/80 border text-neutral-900 dark:text-white text-xs placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none transition-colors ${
+            className={`atelier-input atelier-input-with-icon text-xs ${
               error
-                ? 'border-rose-500 focus:border-rose-500 ring-1 ring-rose-500/30'
-                : 'border-neutral-200 dark:border-neutral-800 focus:border-amber-400'
+                ? '!border-rose-500 !ring-rose-500/30 focus:!border-rose-500'
+                : ''
             } ${className}`}
             {...props}
           />
@@ -106,9 +108,11 @@ export const FormPhoneInput: React.FC<FormPhoneInputProps> = ({
 }) => {
   return (
     <div className="flex flex-col gap-1.5">
-      <label className="text-xs font-semibold text-neutral-700 dark:text-neutral-300 flex items-center gap-1">
-        <span>{label}</span>
-        {required && <span className="text-amber-500">*</span>}
+      <label className="atelier-label mb-0">
+        <span className="flex items-center gap-1 font-semibold">
+          <span>{label}</span>
+          {required && <span className="text-amber-500">*</span>}
+        </span>
       </label>
       <div className="relative">
         <PhoneInput

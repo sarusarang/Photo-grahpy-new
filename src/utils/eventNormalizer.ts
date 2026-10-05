@@ -17,6 +17,55 @@ export const normalizeServerEvent = (e: any): LiveEvent => {
 
   const rawQr = e.qr_settings || e.qrSettings || {};
 
+  // Resolve total storage metrics directly from DRF backend response with resilient fallback
+  const rawSizeBytes =
+    typeof e.total_size_bytes === 'number'
+      ? e.total_size_bytes
+      : typeof e.totalSizeBytes === 'number'
+        ? e.totalSizeBytes
+        : undefined;
+
+  const rawSizeMB =
+    typeof e.total_size_mb === 'number'
+      ? e.total_size_mb
+      : typeof e.totalSizeMB === 'number'
+        ? e.totalSizeMB
+        : undefined;
+
+  const rawSizeFormatted = e.total_size_formatted || e.totalSizeFormatted;
+
+  // Fallback calculation from loaded media if backend hasn't populated aggregate yet
+  const computedBytes = mediaList.reduce((acc, m) => {
+    const b = (m as any).size_bytes || (m as any).sizeBytes || (m.sizeMB ? m.sizeMB * 1024 * 1024 : 0);
+    return acc + b;
+  }, 0);
+
+  const totalSizeBytes = rawSizeBytes !== undefined ? rawSizeBytes : (computedBytes > 0 ? computedBytes : undefined);
+  const totalSizeMB =
+    rawSizeMB !== undefined
+      ? rawSizeMB
+      : totalSizeBytes !== undefined
+        ? Number((totalSizeBytes / (1024 * 1024)).toFixed(1))
+        : undefined;
+
+  const totalSizeFormatted =
+    rawSizeFormatted ||
+    (totalSizeBytes !== undefined
+      ? totalSizeBytes > 1024 * 1024 * 1024
+        ? `${(totalSizeBytes / (1024 * 1024 * 1024)).toFixed(2)} GB`
+        : `${(totalSizeBytes / (1024 * 1024)).toFixed(1)} MB`
+      : undefined);
+
+  const photosCount =
+    e.photos_count ??
+    e.photosCount ??
+    e.total_photos ??
+    e.totalPhotos ??
+    e.media_count ??
+    e.mediaCount ??
+    mediaList.filter((m) => m.type !== 'video').length;
+  const videosCount = e.videos_count ?? e.videosCount ?? mediaList.filter((m) => m.type === 'video').length;
+
   return {
     id: eventId,
     slug: e.slug || eventId,
@@ -54,6 +103,31 @@ export const normalizeServerEvent = (e: any): LiveEvent => {
       matchesFound: e.stats?.matchesFound ?? e.matches_found ?? 0,
       downloadsCount: e.stats?.downloadsCount ?? e.downloads_count ?? 0,
     },
+    totalSizeBytes,
+    totalSizeMB,
+    totalSizeFormatted,
+    photographerName:
+      e.photographer_name ||
+      e.photographer_full_name ||
+      e.photographerName ||
+      e.photographer?.fullName ||
+      e.photographer?.name ||
+      undefined,
+    studioName:
+      e.studio_name ||
+      e.studioName ||
+      e.photographer?.studioName ||
+      undefined,
+    photosCount,
+    videosCount,
+    totalMediaCount:
+      e.total_media_count ??
+      e.totalMediaCount ??
+      e.total_photos ??
+      e.totalPhotos ??
+      e.media_count ??
+      (photosCount + videosCount > 0 ? photosCount + videosCount : mediaList.length),
+    sectionCounts: e.section_counts || e.sectionCounts || undefined,
     createdAt: e.created_at || e.createdAt || new Date().toISOString(),
     updatedAt: e.updated_at || e.updatedAt || new Date().toISOString(),
   };

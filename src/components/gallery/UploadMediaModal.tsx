@@ -1,6 +1,7 @@
 import React, { useState, useRef, useMemo, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { useGallery } from '../../context/GalleryContext';
 import { useToast } from '../ui/Toast';
 import { usePlanQuota } from '@/hooks/usePlanQuota';
@@ -8,6 +9,7 @@ import { useBulkUploadGalleryMedia, useAddGallerySection, useGalleryDetail } fro
 import { normalizeServerMediaItem, normalizeServerGallery } from '@/utils/galleryNormalizer';
 import { SetGalleryCoverImageApi, SetGalleryTemplateBannerApi } from '@/service/galleries/GalleryApi';
 import { PlanUpgradeModal } from '../billing/PlanUpgradeModal';
+import { useUploadGuard } from '@/hooks/useUploadGuard';
 import {
   X,
   UploadCloud,
@@ -26,6 +28,7 @@ import {
   Maximize2,
   CheckCircle2,
   ExternalLink,
+  AlertOctagon,
 } from 'lucide-react';
 
 export interface UploadMediaModalProps {
@@ -82,6 +85,24 @@ export const UploadMediaModal: React.FC<UploadMediaModalProps> = ({
   const { showToast } = useToast();
   const planQuota = usePlanQuota();
   const { data: serverGallery } = useGalleryDetail(galleryId);
+  const queryClient = useQueryClient();
+
+  const syncGalleryStateImmediately = useCallback(async () => {
+    try {
+      await Promise.allSettled([
+        queryClient.invalidateQueries({ queryKey: ['gallery', galleryId], exact: false }),
+        queryClient.invalidateQueries({ queryKey: ['gallery'], exact: false }),
+        queryClient.invalidateQueries({ queryKey: ['galleries'], exact: false }),
+        queryClient.refetchQueries({ queryKey: ['gallery', galleryId], exact: false }),
+        queryClient.invalidateQueries({ queryKey: ['current-subscription'], exact: false }),
+        queryClient.invalidateQueries({ queryKey: ['subscription'], exact: false }),
+        queryClient.invalidateQueries({ queryKey: ['profile'], exact: false }),
+      ]);
+    } catch (e) {
+      console.warn('Failed to sync gallery state:', e);
+    }
+  }, [queryClient, galleryId]);
+
   const gallery = useMemo(() => {
     if (serverGallery && (serverGallery as any).id) {
       return normalizeServerGallery(serverGallery);
@@ -204,6 +225,17 @@ export const UploadMediaModal: React.FC<UploadMediaModalProps> = ({
   const isStorageFull = !isUnlimited && availableStorageBytes <= 0;
   const wouldExceedLimit = !isUnlimited && !isStorageFull && currentBatchBytes > availableStorageBytes;
 
+  // Guard against page reloads while uploading to gallery
+  useUploadGuard({
+    id: `gallery-upload-${galleryId}`,
+    source: 'gallery',
+    title: gallery?.title ? `Gallery: ${gallery.title}` : (galleryTitle ? `Gallery: ${galleryTitle}` : 'Gallery Media Upload'),
+    details: uploadStatusText || (uploadProgress > 0 ? `${uploadProgress}% uploaded` : 'Uploading media...'),
+    count: currentQueuedList.length,
+    progress: uploadProgress,
+    isActive: isUploading,
+  });
+
   // ── 3. Cancel Active Upload Handler ───────────────────────────
   const handleCancelUpload = () => {
     if (abortControllerRef.current) {
@@ -243,21 +275,30 @@ export const UploadMediaModal: React.FC<UploadMediaModalProps> = ({
     setUploadError(null);
     if (!files || files.length === 0) return;
 
-    // Check if storage is already exhausted
-    if (isStorageFull) {
-      showToast('Storage Quota Full', `Your studio storage limit (${storageLimitGB} GB) is full. Upgrade to upload photos.`, 'error');
+    const incomingValidFiles = Array.from(files).filter((file) => file.type.startsWith('image/'));
+    if (incomingValidFiles.length === 0) {
+      showToast('Invalid Files', 'Please select valid image files (JPG, PNG, WebP, TIFF).', 'warning');
+      return;
+    }
+
+    // Pre-Upload Storage Validation: Check if incoming files exceed remaining storage quota
+    const validation = planQuota.validateStorageQuota(incomingValidFiles, currentBatchBytes);
+    if (!validation.valid) {
+      showToast(
+        validation.errorTitle || 'Storage Limit Exceeded',
+        validation.errorMessage || 'Storage limit reached.',
+        'error'
+      );
       setQuotaError({
         code: 'STORAGE_LIMIT_EXCEEDED',
-        message: `Your storage limit of ${storageLimitGB} GB is completely used. Upgrade your plan to continue.`,
+        message: validation.errorMessage || 'Storage limit reached. Please upgrade your plan.',
       });
       return;
     }
 
     const newQueued: QueuedFile[] = [];
 
-    Array.from(files).forEach((file, index) => {
-      if (!file.type.startsWith('image/')) return;
-
+    incomingValidFiles.forEach((file, index) => {
       const previewUrl = URL.createObjectURL(file);
       const cleanTitle = file.name.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ').trim();
 
@@ -273,18 +314,7 @@ export const UploadMediaModal: React.FC<UploadMediaModalProps> = ({
       });
     });
 
-    if (newQueued.length === 0) {
-      showToast('Invalid Files', 'Please select valid image files (JPG, PNG, WebP, TIFF).', 'warning');
-      return;
-    }
-
-    // Storage notification
-    if (isStorageFull) {
-      showToast('Storage Limit Reached', `Your studio storage limit (${storageLimitGB} GB) is full. Upgrade to upload photos.`, 'error');
-    } else {
-      showToast('Photos Queued', `Added ${newQueued.length} photos ready for "${selectedSection}".`, 'info');
-    }
-
+    showToast('Photos Queued', `Added ${newQueued.length} photos ready for "${selectedSection}".`, 'info');
     setQueuedPhotos((prev) => [...prev, ...newQueued]);
   };
 
@@ -294,22 +324,34 @@ export const UploadMediaModal: React.FC<UploadMediaModalProps> = ({
     setUploadError(null);
     if (!files || files.length === 0) return;
 
-    // Check if storage is already exhausted
-    if (isStorageFull) {
-      showToast('Storage Quota Full', `Your studio storage limit (${storageLimitGB} GB) is full. Upgrade to upload videos.`, 'error');
+    const validVideoExt = /\.(mp4|mov|webm|mkv|avi|m4v|3gp)$/i;
+    const incomingValidVideos = Array.from(files).filter((file) =>
+      file.type.startsWith('video/') || validVideoExt.test(file.name)
+    );
+
+    if (incomingValidVideos.length === 0) {
+      showToast('Invalid Files', 'Please select valid video files (MP4, MOV, WebM, MKV).', 'warning');
+      return;
+    }
+
+    // Pre-Upload Storage Validation: Check if incoming videos exceed remaining storage quota
+    const validation = planQuota.validateStorageQuota(incomingValidVideos, currentBatchBytes);
+    if (!validation.valid) {
+      showToast(
+        validation.errorTitle || 'Storage Limit Exceeded',
+        validation.errorMessage || 'Storage limit reached.',
+        'error'
+      );
       setQuotaError({
         code: 'STORAGE_LIMIT_EXCEEDED',
-        message: `Your storage limit of ${storageLimitGB} GB is completely used. Upgrade your plan to continue.`,
+        message: validation.errorMessage || 'Storage limit reached. Please upgrade your plan.',
       });
       return;
     }
 
     const newQueued: QueuedFile[] = [];
 
-    Array.from(files).forEach((file, index) => {
-      const isVideo = file.type.startsWith('video/') ||
-        /\.(mp4|mov|webm|mkv|avi|m4v|3gp)$/i.test(file.name);
-      if (!isVideo) return;
+    incomingValidVideos.forEach((file, index) => {
       const previewUrl = URL.createObjectURL(file);
       const cleanTitle = file.name.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ').trim();
 
@@ -325,18 +367,7 @@ export const UploadMediaModal: React.FC<UploadMediaModalProps> = ({
       });
     });
 
-    if (newQueued.length === 0) {
-      showToast('Invalid Files', 'Please select valid video files (MP4, MOV, WebM, MKV).', 'warning');
-      return;
-    }
-
-    // Storage notification
-    if (isStorageFull) {
-      showToast('Storage Limit Reached', `Your studio storage limit (${storageLimitGB} GB) is full. Upgrade to upload videos.`, 'error');
-    } else {
-      showToast('Videos Queued', `Added ${newQueued.length} video(s) ready for "${selectedSection}".`, 'info');
-    }
-
+    showToast('Videos Queued', `Added ${newQueued.length} video(s) ready for "${selectedSection}".`, 'info');
     setQueuedVideos((prev) => [...prev, ...newQueued]);
   };
 
@@ -375,18 +406,23 @@ export const UploadMediaModal: React.FC<UploadMediaModalProps> = ({
   const handlePhotoBatchUpload = async () => {
     if (isUploading || queuedPhotos.length === 0) return;
 
-    if (isStorageFull) {
-      showToast('Storage Limit Exceeded', `Your studio storage limit (${storageLimitGB} GB) is full. Upgrade to upload photos.`, 'error');
-      setQuotaError({
-        code: 'STORAGE_LIMIT_EXCEEDED',
-        message: `Your storage limit of ${storageLimitGB} GB is completely used. Upgrade your plan to continue.`,
-      });
-      return;
-    }
-
     const nativeFiles = queuedPhotos.map((q) => q.file).filter((f): f is File => Boolean(f));
     if (nativeFiles.length === 0) {
       showToast('No Files', 'No valid image files available to upload.', 'warning');
+      return;
+    }
+
+    const validation = planQuota.validateStorageQuota(nativeFiles, 0);
+    if (!validation.valid) {
+      showToast(
+        validation.errorTitle || 'Storage Limit Exceeded',
+        validation.errorMessage || 'Storage limit reached.',
+        'error'
+      );
+      setQuotaError({
+        code: 'STORAGE_LIMIT_EXCEEDED',
+        message: validation.errorMessage || 'Storage limit reached. Upgrade your plan to continue.',
+      });
       return;
     }
 
@@ -448,10 +484,11 @@ export const UploadMediaModal: React.FC<UploadMediaModalProps> = ({
       clearAllPhotos();
       setMinimizedState(false);
       setIsWidgetDismissed(false);
+      await syncGalleryStateImmediately();
       onUploadComplete?.();
       onClose();
     } catch (err: any) {
-      onUploadComplete?.();
+      await syncGalleryStateImmediately();
       if (err?.name === 'AbortError' || err?.name === 'CanceledError' || err?.code === 'ERR_CANCELED') {
         if (err?.uploadedMedia && err.uploadedMedia.length > 0) {
           const mappedItems = err.uploadedMedia.map((m: any) => normalizeServerMediaItem(m, galleryId));
@@ -497,6 +534,8 @@ export const UploadMediaModal: React.FC<UploadMediaModalProps> = ({
     } finally {
       setIsUploading(false);
       abortControllerRef.current = null;
+      await syncGalleryStateImmediately();
+      onUploadComplete?.();
     }
   };
 
@@ -504,18 +543,23 @@ export const UploadMediaModal: React.FC<UploadMediaModalProps> = ({
   const handleVideoBatchUpload = async () => {
     if (isUploading || queuedVideos.length === 0) return;
 
-    if (isStorageFull) {
-      showToast('Storage Limit Exceeded', `Your studio storage limit (${storageLimitGB} GB) is full. Upgrade to upload videos.`, 'error');
-      setQuotaError({
-        code: 'STORAGE_LIMIT_EXCEEDED',
-        message: `Your storage limit of ${storageLimitGB} GB is completely used. Upgrade your plan to continue.`,
-      });
-      return;
-    }
-
     const nativeVideos = queuedVideos.map((q) => q.file).filter((f): f is File => Boolean(f));
     if (nativeVideos.length === 0) {
       showToast('No Files', 'No valid video files available to upload.', 'warning');
+      return;
+    }
+
+    const validation = planQuota.validateStorageQuota(nativeVideos, 0);
+    if (!validation.valid) {
+      showToast(
+        validation.errorTitle || 'Storage Limit Exceeded',
+        validation.errorMessage || 'Storage limit reached.',
+        'error'
+      );
+      setQuotaError({
+        code: 'STORAGE_LIMIT_EXCEEDED',
+        message: validation.errorMessage || 'Storage limit reached. Upgrade your plan to continue.',
+      });
       return;
     }
 
@@ -577,10 +621,11 @@ export const UploadMediaModal: React.FC<UploadMediaModalProps> = ({
       clearAllVideos();
       setMinimizedState(false);
       setIsWidgetDismissed(false);
+      await syncGalleryStateImmediately();
       onUploadComplete?.();
       onClose();
     } catch (err: any) {
-      onUploadComplete?.();
+      await syncGalleryStateImmediately();
       if (err?.name === 'AbortError' || err?.name === 'CanceledError' || err?.code === 'ERR_CANCELED') {
         if (err?.uploadedMedia && err.uploadedMedia.length > 0) {
           const mappedItems = err.uploadedMedia.map((m: any) => normalizeServerMediaItem(m, galleryId));
@@ -625,6 +670,8 @@ export const UploadMediaModal: React.FC<UploadMediaModalProps> = ({
     } finally {
       setIsUploading(false);
       abortControllerRef.current = null;
+      await syncGalleryStateImmediately();
+      onUploadComplete?.();
     }
   };
 
@@ -802,8 +849,27 @@ export const UploadMediaModal: React.FC<UploadMediaModalProps> = ({
             </div>
           )}
 
-          {/* Warning Banner if Full or Batch Exceeds Quota */}
-          {isStorageFull ? (
+          {/* Warning Banner if Expired, Full or Batch Exceeds Quota */}
+          {planQuota.isExpired ? (
+            <div className="mt-2.5 flex items-center justify-between gap-2 p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs">
+              <div className="flex items-center gap-2">
+                <AlertOctagon className="w-4 h-4 shrink-0" />
+                <span className="font-medium text-[11px]">
+                  Studio membership expired. File uploads are disabled until plan is renewed.
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setQuotaError({
+                  code: 'PLAN_EXPIRED',
+                  message: `Your subscription to "${planQuota.planName}" has expired. Please renew your plan to upload new media files.`,
+                })}
+                className="shrink-0 px-2.5 py-1 rounded-lg bg-gradient-to-r from-rose-500 to-amber-500 hover:from-rose-400 hover:to-amber-400 text-white font-bold text-[10px] uppercase tracking-wider transition-colors cursor-pointer"
+              >
+                Renew Plan
+              </button>
+            </div>
+          ) : isStorageFull ? (
             <div className="mt-2.5 flex items-center justify-between gap-2 p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs">
               <div className="flex items-center gap-2">
                 <ZapOff className="w-4 h-4 shrink-0" />
@@ -1055,7 +1121,10 @@ export const UploadMediaModal: React.FC<UploadMediaModalProps> = ({
               multiple
               accept="image/*"
               className="hidden"
-              onChange={(e) => handlePhotoFiles(e.target.files)}
+              onChange={(e) => {
+                handlePhotoFiles(e.target.files);
+                e.target.value = '';
+              }}
             />
 
             {/* Drag and Drop Zone */}
@@ -1195,7 +1264,10 @@ export const UploadMediaModal: React.FC<UploadMediaModalProps> = ({
               multiple
               accept="video/*,.mp4,.mov,.webm,.mkv,.avi,.m4v,.3gp"
               className="hidden"
-              onChange={(e) => handleVideoFiles(e.target.files)}
+              onChange={(e) => {
+                handleVideoFiles(e.target.files);
+                e.target.value = '';
+              }}
             />
 
             {/* Video Drag and Drop Zone */}

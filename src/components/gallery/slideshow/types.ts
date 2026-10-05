@@ -14,4 +14,9 @@ export interface SlideshowModalProps {
   clientName?: string;
   selectedTrack?: Track | null;
   onChangeTrack?: () => void;
+  watermarkEnabled?: boolean;
+  watermarkText?: string;
+  watermarkOpacity?: number;
+  watermarkPosition?: string;
+  watermarkImage?: string | null;
 }

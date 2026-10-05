@@ -46,9 +46,13 @@ import {
   CreateEventApi,
   UpdateEventApi,
   DeleteEventApi,
+  RestoreEventApi,
+  DeleteEventMediaApi,
+  BulkDeleteEventMediaApi,
   UpdateEventQRExpiryApi,
   MoveEventToGalleryApi,
   TetherPhotoUploadApi,
+  BulkUploadEventMediaApi,
   GetPublicEventDetailApi,
   type CreateEventPayload,
   type MoveEventToGalleryPayload,
@@ -96,6 +100,24 @@ import type { Gallery, InquiryStatus, GalleryTemplateId } from '@/types/atelier'
 // 1. Studio Subscription & Quota Queries
 // ===========================================================================
 
+// Helper to check if current page is an unauthenticated or public guest page
+export const isPublicGuestPage = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  const p = window.location.pathname;
+  return (
+    p.startsWith('/gallery/') ||
+    p.startsWith('/events/') ||
+    p.startsWith('/e/') ||
+    p.startsWith('/portfolio/') ||
+    p.startsWith('/guest/') ||
+    p === '/' ||
+    p === '/login' ||
+    p === '/signup' ||
+    p === '/register' ||
+    p === '/onboarding'
+  );
+};
+
 export const useStudioPlans = () => {
   return useQuery({
     queryKey: ['studio-plans'],
@@ -104,11 +126,43 @@ export const useStudioPlans = () => {
   });
 };
 
-export const useCurrentSubscription = () => {
+const SUBSCRIPTION_CACHE_KEY = 'exshare_studio_subscription_cache';
+
+const getCachedSubscription = () => {
+  if (typeof window === 'undefined') return undefined;
+  try {
+    const raw = sessionStorage.getItem(SUBSCRIPTION_CACHE_KEY);
+    return raw ? JSON.parse(raw) : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+const setCachedSubscription = (data: unknown) => {
+  if (typeof window === 'undefined') return;
+  try {
+    if (data) {
+      sessionStorage.setItem(SUBSCRIPTION_CACHE_KEY, JSON.stringify(data));
+    } else if (data === null) {
+      sessionStorage.removeItem(SUBSCRIPTION_CACHE_KEY);
+    }
+  } catch {
+    // Non-fatal if storage unavailable
+  }
+};
+
+export const useCurrentSubscription = (enabled?: boolean) => {
+  const isEnabled = enabled !== undefined ? enabled : !isPublicGuestPage();
   return useQuery({
     queryKey: ['current-subscription'],
-    queryFn: GetCurrentSubscriptionApi,
+    queryFn: async () => {
+      const res = await GetCurrentSubscriptionApi();
+      setCachedSubscription(res);
+      return res;
+    },
+    initialData: getCachedSubscription,
     staleTime: 1000 * 60 * 5, // 5 mins
+    enabled: isEnabled,
   });
 };
 
@@ -164,11 +218,13 @@ export const useAddStorageAddon = () => {
 // 2. Photographer Profile & Branding
 // ===========================================================================
 
-export const usePhotographerProfile = () => {
+export const usePhotographerProfile = (enabled?: boolean) => {
+  const isEnabled = enabled !== undefined ? enabled : !isPublicGuestPage();
   return useQuery({
     queryKey: ['profile', 'me'],
     queryFn: GetPhotographerProfileApi,
     staleTime: 1000 * 60 * 5,
+    enabled: isEnabled,
   });
 };
 
@@ -241,11 +297,13 @@ export const useCompleteOnboarding = () => {
 // 3. Galleries & Cloud Drive
 // ===========================================================================
 
-export const useGalleries = (filters?: GalleryFilterParams) => {
+export const useGalleries = (filters?: GalleryFilterParams, enabled?: boolean) => {
+  const isEnabled = enabled !== undefined ? enabled : !isPublicGuestPage();
   return useQuery({
     queryKey: ['galleries', filters],
     queryFn: () => GetGalleriesApi(filters),
     staleTime: 1000 * 30, // 30s
+    enabled: isEnabled,
   });
 };
 
@@ -455,8 +513,10 @@ export const useDeleteGalleryMedia = () => {
         queryClient.invalidateQueries({ queryKey: ['gallery', vars.galleryId] });
       }
       queryClient.invalidateQueries({ queryKey: ['galleries'] });
+      queryClient.invalidateQueries({ queryKey: ['current-subscription'] });
       queryClient.invalidateQueries({ queryKey: ['subscription', 'current'] });
       queryClient.invalidateQueries({ queryKey: ['profile', 'me'] });
+      queryClient.invalidateQueries({ queryKey: ['photographer-profile'] });
     },
   });
 };
@@ -464,15 +524,27 @@ export const useDeleteGalleryMedia = () => {
 export const useBulkDeleteGalleryMedia = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ mediaIds }: { mediaIds: string[]; galleryId?: string }) =>
-      BulkDeleteGalleryMediaApi(mediaIds),
+    mutationFn: ({
+      mediaIds,
+      galleryId,
+      deleteAll,
+      section,
+    }: {
+      mediaIds: string[];
+      galleryId?: string;
+      deleteAll?: boolean;
+      section?: string;
+    }) => BulkDeleteGalleryMediaApi(mediaIds, galleryId, { deleteAll, section }),
     onSuccess: (_, vars) => {
       if (vars.galleryId) {
         queryClient.invalidateQueries({ queryKey: ['gallery', vars.galleryId] });
       }
+      queryClient.invalidateQueries({ queryKey: ['gallery'] });
       queryClient.invalidateQueries({ queryKey: ['galleries'] });
+      queryClient.invalidateQueries({ queryKey: ['current-subscription'] });
       queryClient.invalidateQueries({ queryKey: ['subscription', 'current'] });
       queryClient.invalidateQueries({ queryKey: ['profile', 'me'] });
+      queryClient.invalidateQueries({ queryKey: ['photographer-profile'] });
     },
   });
 };
@@ -718,10 +790,16 @@ export const useTrackPublicGalleryFavorite = () => {
 // 4. Live Events, Tethering & Guest QR
 // ===========================================================================
 
-export const useEvents = () => {
+export const useEvents = (
+  params?: { status?: string; search?: string },
+  options?: { enabled?: boolean }
+) => {
+  const isEnabled = options?.enabled !== undefined ? options.enabled : !isPublicGuestPage();
+
   return useQuery({
-    queryKey: ['events'],
-    queryFn: GetEventsApi,
+    queryKey: ['events', params],
+    queryFn: () => GetEventsApi(params),
+    enabled: isEnabled,
   });
 };
 
@@ -752,6 +830,8 @@ export const useUpdateEvent = () => {
     onSuccess: (_, vars) => {
       queryClient.invalidateQueries({ queryKey: ['event', vars.id] });
       queryClient.invalidateQueries({ queryKey: ['events'] });
+      queryClient.invalidateQueries({ queryKey: ['public-event'] });
+      queryClient.invalidateQueries({ queryKey: ['public-event', vars.id] });
     },
   });
 };
@@ -759,9 +839,60 @@ export const useUpdateEvent = () => {
 export const useDeleteEvent = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => DeleteEventApi(id),
+    mutationFn: (param: string | { id: string; permanent?: boolean }) => {
+      const id = typeof param === 'string' ? param : param.id;
+      const permanent = typeof param === 'string' ? false : Boolean(param.permanent);
+      return DeleteEventApi(id, permanent);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['events'] });
+      queryClient.invalidateQueries({ queryKey: ['subscription', 'current'] });
+    },
+  });
+};
+
+export const useRestoreEvent = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, targetStatus }: { id: string; targetStatus?: 'live' | 'upcoming' }) =>
+      RestoreEventApi(id, targetStatus),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['events'] });
+    },
+  });
+};
+
+export const useDeleteEventMedia = (eventId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (mediaId: string) => DeleteEventMediaApi(eventId, mediaId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['event', eventId] });
+      queryClient.invalidateQueries({ queryKey: ['events'] });
+      queryClient.invalidateQueries({ queryKey: ['current-subscription'] });
+      queryClient.invalidateQueries({ queryKey: ['subscription', 'current'] });
+      queryClient.invalidateQueries({ queryKey: ['profile', 'me'] });
+      queryClient.invalidateQueries({ queryKey: ['photographer-profile'] });
+    },
+  });
+};
+
+export const useBulkDeleteEventMedia = (eventId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (args: string[] | { mediaIds: string[]; deleteAll?: boolean; section?: string }) => {
+      const mediaIds = Array.isArray(args) ? args : args.mediaIds;
+      const deleteAll = Array.isArray(args) ? undefined : args.deleteAll;
+      const section = Array.isArray(args) ? undefined : args.section;
+      return BulkDeleteEventMediaApi(eventId, mediaIds, { deleteAll, section });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['event', eventId] });
+      queryClient.invalidateQueries({ queryKey: ['events'] });
+      queryClient.invalidateQueries({ queryKey: ['current-subscription'] });
+      queryClient.invalidateQueries({ queryKey: ['subscription', 'current'] });
+      queryClient.invalidateQueries({ queryKey: ['profile', 'me'] });
+      queryClient.invalidateQueries({ queryKey: ['photographer-profile'] });
     },
   });
 };
@@ -806,7 +937,10 @@ export const useMoveEventToGallery = (eventId?: string) => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['events'] });
       queryClient.invalidateQueries({ queryKey: ['galleries'] });
+      queryClient.invalidateQueries({ queryKey: ['current-subscription'] });
       queryClient.invalidateQueries({ queryKey: ['subscription', 'current'] });
+      queryClient.invalidateQueries({ queryKey: ['profile', 'me'] });
+      queryClient.invalidateQueries({ queryKey: ['photographer-profile'] });
     },
   });
 };
@@ -817,6 +951,38 @@ export const useTetherPhotoUpload = (eventId: string) => {
     mutationFn: (file: File) => TetherPhotoUploadApi(eventId, file),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['event', eventId] });
+      queryClient.invalidateQueries({ queryKey: ['events'] });
+      queryClient.invalidateQueries({ queryKey: ['current-subscription'] });
+      queryClient.invalidateQueries({ queryKey: ['subscription', 'current'] });
+      queryClient.invalidateQueries({ queryKey: ['profile', 'me'] });
+      queryClient.invalidateQueries({ queryKey: ['photographer-profile'] });
+    },
+  });
+};
+
+export const useBulkUploadEventMedia = (eventId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      files,
+      sectionTitle,
+      type,
+      onProgress,
+      signal,
+    }: {
+      files: File[];
+      sectionTitle?: string;
+      type?: 'photo' | 'video';
+      onProgress?: (percent: number, statusText?: string) => void;
+      signal?: AbortSignal;
+    }) => BulkUploadEventMediaApi(eventId, files, sectionTitle, type, onProgress, signal),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['event', eventId] });
+      queryClient.invalidateQueries({ queryKey: ['events'] });
+      queryClient.invalidateQueries({ queryKey: ['current-subscription'] });
+      queryClient.invalidateQueries({ queryKey: ['subscription', 'current'] });
+      queryClient.invalidateQueries({ queryKey: ['profile', 'me'] });
+      queryClient.invalidateQueries({ queryKey: ['photographer-profile'] });
     },
   });
 };

@@ -1,9 +1,14 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   CheckSquare,
   Square,
   ArrowUp,
   ArrowDown,
+  ChevronsUp,
+  ChevronsDown,
+  Hash,
+  X,
+  GripVertical,
   Film,
   Heart,
   FolderInput,
@@ -23,9 +28,15 @@ interface GalleryMediaCardProps {
   isSettingBanner?: boolean;
   isFavoriting?: boolean;
   currentTemplateName?: string;
+  isDropTarget?: boolean;
   onToggleSelect: (id: string) => void;
   onOpenLightbox: (idx: number) => void;
-  onMoveSequence: (idx: number, direction: 'up' | 'down') => void;
+  onMoveSequence: (idx: number, direction: 'up' | 'down' | 'top' | 'bottom') => void;
+  onMoveToPosition?: (fromIdx: number, targetPosition1Based: number) => void;
+  onDragStartItem?: (idx: number, e: React.DragEvent) => void;
+  onDragOverItem?: (idx: number, e: React.DragEvent) => void;
+  onDropItem?: (idx: number, e: React.DragEvent) => void;
+  onDragEndItem?: () => void;
   onToggleFavorite: (id: string) => void;
   onOpenMoveSingle: (item: MediaItem) => void;
   onSetBanner: (item: MediaItem) => void;
@@ -42,19 +53,63 @@ export const GalleryMediaCard: React.FC<GalleryMediaCardProps> = ({
   isSettingBanner = false,
   isFavoriting = false,
   currentTemplateName,
+  isDropTarget = false,
   onToggleSelect,
   onOpenLightbox,
   onMoveSequence,
+  onMoveToPosition,
+  onDragStartItem,
+  onDragOverItem,
+  onDropItem,
+  onDragEndItem,
   onToggleFavorite,
   onOpenMoveSingle,
   onSetBanner,
   onDeleteSingle,
 }) => {
   const isHeroBanner = Boolean(isBanner || isCover);
+  const [isPositionPopoverOpen, setIsPositionPopoverOpen] = useState(false);
+  const [customPositionInput, setCustomPositionInput] = useState<string>('');
+  const popoverRef = useRef<HTMLDivElement>(null);
+
+  // Close popover when clicking outside
+  useEffect(() => {
+    if (!isPositionPopoverOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
+        setIsPositionPopoverOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isPositionPopoverOpen]);
+
+  const handleConfirmCustomPosition = () => {
+    const val = parseInt(customPositionInput, 10);
+    if (!isNaN(val) && val >= 1 && val <= totalCount) {
+      if (onMoveToPosition) {
+        onMoveToPosition(idx, val);
+      } else {
+        // Fallback using direction steps
+        if (val === 1) onMoveSequence(idx, 'top');
+        else if (val === totalCount) onMoveSequence(idx, 'bottom');
+      }
+    }
+    setIsPositionPopoverOpen(false);
+    setCustomPositionInput('');
+  };
+
   return (
     <div
+      draggable={Boolean(onDragStartItem)}
+      onDragStart={(e) => onDragStartItem?.(idx, e)}
+      onDragOver={(e) => onDragOverItem?.(idx, e)}
+      onDrop={(e) => onDropItem?.(idx, e)}
+      onDragEnd={() => onDragEndItem?.()}
       className={`group relative rounded-xl sm:rounded-2xl bg-white dark:bg-[#121319] border overflow-hidden card-lift fade-up transition-all duration-200 ${
-        isSelected
+        isDropTarget
+          ? 'ring-2 ring-amber-400 border-amber-400 scale-[1.02] shadow-xl shadow-amber-500/20'
+          : isSelected
           ? 'ring-2 ring-amber-400 dark:ring-amber-400 border-transparent shadow-xl shadow-amber-500/10 dark:shadow-amber-400/20 scale-[1.01]'
           : 'border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700 shadow-sm'
       }`}
@@ -79,29 +134,54 @@ export const GalleryMediaCard: React.FC<GalleryMediaCardProps> = ({
 
         {/* Top Action Row — Always visible on touch, hoverable on desktop */}
         <div className="absolute top-2 inset-x-2 flex items-center justify-between pointer-events-none z-10">
-          {/* Select Checkbox */}
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggleSelect(item.id);
-            }}
-            className={`pointer-events-auto p-1.5 rounded-lg backdrop-blur-md transition-all cursor-pointer ${
-              isSelected
-                ? 'bg-amber-400 text-neutral-950 opacity-100 shadow-md shadow-amber-400/30'
-                : 'bg-black/50 text-white/90 hover:bg-black/70 opacity-90 sm:opacity-0 sm:group-hover:opacity-100'
-            }`}
-            title={isSelected ? 'Deselect photo' : 'Select photo'}
-          >
-            {isSelected ? (
-              <CheckSquare className="w-4 h-4 stroke-[2.5]" />
-            ) : (
-              <Square className="w-4 h-4 text-white/90" />
-            )}
-          </button>
+          {/* Select Checkbox & Position Badge */}
+          <div className="flex items-center gap-1.5 pointer-events-auto">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleSelect(item.id);
+              }}
+              className={`p-1.5 rounded-lg backdrop-blur-md transition-all cursor-pointer ${
+                isSelected
+                  ? 'bg-amber-400 text-neutral-950 opacity-100 shadow-md shadow-amber-400/30'
+                  : 'bg-black/60 text-white/90 hover:bg-black/80 opacity-90 sm:opacity-0 sm:group-hover:opacity-100'
+              }`}
+              title={isSelected ? 'Deselect photo' : 'Select photo'}
+            >
+              {isSelected ? (
+                <CheckSquare className="w-4 h-4 stroke-[2.5]" />
+              ) : (
+                <Square className="w-4 h-4 text-white/90" />
+              )}
+            </button>
 
-          {/* Quick Sequence Reordering Arrows */}
-          <div className="pointer-events-auto opacity-0 group-hover:opacity-100 flex items-center gap-0.5 bg-black/60 backdrop-blur-md rounded-lg p-0.5 transition-opacity">
+            {/* Sequence Position Badge (hover or touch) */}
+            <span
+              className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md bg-black/60 backdrop-blur-md text-amber-300 border border-white/10 opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity select-none"
+              title={`Sequence Position #${idx + 1} of ${totalCount}`}
+            >
+              #{idx + 1}
+            </span>
+          </div>
+
+          {/* Quick Sequence Reordering Toolbar */}
+          <div className="pointer-events-auto relative opacity-90 sm:opacity-0 sm:group-hover:opacity-100 flex items-center gap-0.5 bg-black/75 backdrop-blur-md rounded-lg p-0.5 border border-white/10 shadow-lg transition-opacity">
+            {/* 1-Click Move to Top */}
+            <button
+              type="button"
+              disabled={idx === 0}
+              onClick={(e) => {
+                e.stopPropagation();
+                onMoveSequence(idx, 'top');
+              }}
+              className="p-1 text-white hover:text-amber-400 disabled:opacity-25 transition-colors cursor-pointer"
+              title="Move directly to top (#1)"
+            >
+              <ChevronsUp className="w-3.5 h-3.5" />
+            </button>
+
+            {/* Step Up */}
             <button
               type="button"
               disabled={idx === 0}
@@ -109,11 +189,13 @@ export const GalleryMediaCard: React.FC<GalleryMediaCardProps> = ({
                 e.stopPropagation();
                 onMoveSequence(idx, 'up');
               }}
-              className="p-1 text-white hover:text-amber-400 disabled:opacity-30 transition-colors cursor-pointer"
-              title="Move left/up"
+              className="p-1 text-white hover:text-amber-400 disabled:opacity-25 transition-colors cursor-pointer"
+              title="Move left/up 1 position"
             >
               <ArrowUp className="w-3.5 h-3.5" />
             </button>
+
+            {/* Step Down */}
             <button
               type="button"
               disabled={idx === totalCount - 1}
@@ -121,11 +203,107 @@ export const GalleryMediaCard: React.FC<GalleryMediaCardProps> = ({
                 e.stopPropagation();
                 onMoveSequence(idx, 'down');
               }}
-              className="p-1 text-white hover:text-amber-400 disabled:opacity-30 transition-colors cursor-pointer"
-              title="Move right/down"
+              className="p-1 text-white hover:text-amber-400 disabled:opacity-25 transition-colors cursor-pointer"
+              title="Move right/down 1 position"
             >
               <ArrowDown className="w-3.5 h-3.5" />
             </button>
+
+            {/* 1-Click Move to Bottom */}
+            <button
+              type="button"
+              disabled={idx === totalCount - 1}
+              onClick={(e) => {
+                e.stopPropagation();
+                onMoveSequence(idx, 'bottom');
+              }}
+              className="p-1 text-white hover:text-amber-400 disabled:opacity-25 transition-colors cursor-pointer"
+              title="Move directly to bottom"
+            >
+              <ChevronsDown className="w-3.5 h-3.5" />
+            </button>
+
+            {/* Move to Custom Position button */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsPositionPopoverOpen((prev) => !prev);
+                setCustomPositionInput(String(idx + 1));
+              }}
+              className={`p-1 transition-colors cursor-pointer ${
+                isPositionPopoverOpen ? 'text-amber-400 bg-white/20 rounded' : 'text-neutral-300 hover:text-amber-400'
+              }`}
+              title="Jump to specific position..."
+            >
+              <Hash className="w-3.5 h-3.5" />
+            </button>
+
+            {/* Inline Position Jump Popover */}
+            {isPositionPopoverOpen && (
+              <div
+                ref={popoverRef}
+                onClick={(e) => e.stopPropagation()}
+                className="absolute top-8 right-0 z-30 w-44 p-2.5 rounded-xl bg-neutral-950/95 backdrop-blur-xl border border-neutral-700 shadow-2xl text-white text-xs animate-in fade-in zoom-in-95"
+              >
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="font-semibold text-[11px] text-neutral-300">Move to position:</span>
+                  <button
+                    type="button"
+                    onClick={() => setIsPositionPopoverOpen(false)}
+                    className="text-neutral-400 hover:text-white p-0.5 cursor-pointer"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+                <div className="flex items-center gap-1.5 mb-2">
+                  <input
+                    type="number"
+                    min={1}
+                    max={totalCount}
+                    value={customPositionInput}
+                    onChange={(e) => setCustomPositionInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        handleConfirmCustomPosition();
+                      }
+                    }}
+                    placeholder={`1-${totalCount}`}
+                    className="w-full px-2 py-1 bg-black/80 border border-neutral-700 focus:border-amber-400 rounded-lg text-white font-mono text-xs focus:outline-none"
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={handleConfirmCustomPosition}
+                    className="px-2.5 py-1 bg-amber-400 hover:bg-amber-300 text-neutral-950 font-bold rounded-lg text-xs transition-colors shrink-0 cursor-pointer"
+                  >
+                    Go
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-1 pt-1 border-t border-neutral-800 text-[10px]">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onMoveSequence(idx, 'top');
+                      setIsPositionPopoverOpen(false);
+                    }}
+                    className="px-2 py-1 rounded bg-white/5 hover:bg-white/10 text-neutral-300 hover:text-amber-300 text-center cursor-pointer transition-colors"
+                  >
+                    Top (#1)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onMoveSequence(idx, 'bottom');
+                      setIsPositionPopoverOpen(false);
+                    }}
+                    className="px-2 py-1 rounded bg-white/5 hover:bg-white/10 text-neutral-300 hover:text-amber-300 text-center cursor-pointer transition-colors"
+                  >
+                    Bottom (#{totalCount})
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

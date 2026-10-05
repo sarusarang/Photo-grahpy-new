@@ -4,13 +4,13 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useCreateGallery } from '@/hooks/useAtelierQueries';
 import { useToast } from '../ui/Toast';
-import { GALLERY_TEMPLATES } from '../../data/demoData';
+import { GALLERY_TEMPLATES } from '@/components/gallery/templates';
 import { getInitialGalleryCover } from '@/utils/coverImageUtils';
 import type { GalleryTemplateId, Gallery, GalleryTemplate } from '../../types';
 import { createGallerySchema, type CreateGalleryFormData } from '@/schemas/atelierSchemas';
 import { PlanUpgradeModal } from '@/components/billing/PlanUpgradeModal';
 import { usePlanQuota } from '@/hooks/usePlanQuota';
-import { X, FolderPlus, Sparkles, Lock, Calendar, User, Loader2, AlertTriangle } from 'lucide-react';
+import { X, FolderPlus, Sparkles, Lock, Calendar, User, Loader2, AlertTriangle, AlertOctagon, Stamp } from 'lucide-react';
 
 interface CreateGalleryModalProps {
   isOpen: boolean;
@@ -110,6 +110,7 @@ export const CreateGalleryModal: React.FC<CreateGalleryModalProps> = ({
       allow_downloads: true,
       allow_favorites: true,
       face_search_enabled: planQuota.faceSearchEnabled,
+      watermark_enabled: planQuota.watermarkEnabled,
     },
   });
 
@@ -141,6 +142,7 @@ export const CreateGalleryModal: React.FC<CreateGalleryModalProps> = ({
         allow_downloads: data.allow_downloads,
         allow_favorites: data.allow_favorites,
         face_search_enabled: data.face_search_enabled,
+        watermark_enabled: data.watermark_enabled,
         cover_image: initialCover,
       });
 
@@ -205,13 +207,25 @@ export const CreateGalleryModal: React.FC<CreateGalleryModalProps> = ({
 
           <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-6">
             {/* Plan Quota Badge */}
-            <div className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs">
-              <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300 font-medium">
-                <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                <span>Studio Plan: <strong className="font-semibold">{planQuota.planName}</strong></span>
+            <div className={`flex items-center justify-between px-4 py-2.5 rounded-xl border text-xs ${
+              planQuota.isExpired
+                ? 'bg-rose-500/10 border-rose-500/25 text-rose-300'
+                : 'bg-amber-500/10 border-amber-500/20 text-amber-800 dark:text-amber-300'
+            }`}>
+              <div className="flex items-center gap-2 font-medium">
+                {planQuota.isExpired ? (
+                  <AlertOctagon className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                ) : (
+                  <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                )}
+                <span>Studio Plan: <strong className="font-semibold text-neutral-900 dark:text-white">{planQuota.planName}</strong></span>
               </div>
               <div className="text-[11px] font-mono font-semibold">
-                {planQuota.isUnlimitedGalleries ? (
+                {planQuota.isExpired ? (
+                  <span className="text-rose-500 font-bold uppercase tracking-wider">
+                    MEMBERSHIP EXPIRED
+                  </span>
+                ) : planQuota.isUnlimitedGalleries ? (
                   <span className="text-emerald-600 dark:text-emerald-400">Unlimited Galleries</span>
                 ) : (
                   <span className="text-neutral-600 dark:text-neutral-400">
@@ -221,15 +235,19 @@ export const CreateGalleryModal: React.FC<CreateGalleryModalProps> = ({
               </div>
             </div>
 
-            {/* Quota Exceeded Warning */}
+            {/* Quota Exceeded or Plan Expired Warning */}
             {!planQuota.canCreateGallery && (
               <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-700 dark:text-rose-300 text-xs flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5">
                   <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0" />
                   <div>
-                    <p className="font-bold">Gallery Limit Reached ({planQuota.galleriesUsed}/{planQuota.maxGalleries})</p>
+                    <p className="font-bold">
+                      {planQuota.isExpired ? 'Studio Membership Expired' : `Gallery Limit Reached (${planQuota.galleriesUsed}/${planQuota.maxGalleries})`}
+                    </p>
                     <p className="text-[11px] text-neutral-600 dark:text-neutral-400">
-                      Your current plan allows up to {planQuota.maxGalleries} client galleries.
+                      {planQuota.isExpired
+                        ? 'Your subscription period has ended. Renew or select any plan to resume creating galleries.'
+                        : `Your current plan allows up to ${planQuota.maxGalleries} client galleries.`}
                     </p>
                   </div>
                 </div>
@@ -237,32 +255,38 @@ export const CreateGalleryModal: React.FC<CreateGalleryModalProps> = ({
                   type="button"
                   onClick={() => setUpgradeModal({
                     isOpen: true,
-                    errorCode: 'GALLERY_LIMIT_EXCEEDED',
-                    errorMessage: `Your ${planQuota.planName} gallery quota of ${planQuota.maxGalleries} has been reached. Upgrade to unlock more client galleries.`,
+                    errorCode: planQuota.isExpired ? 'PLAN_EXPIRED' : 'GALLERY_LIMIT_EXCEEDED',
+                    errorMessage: planQuota.isExpired
+                      ? `Your subscription to "${planQuota.planName}" has expired. Please renew or upgrade to provision new client galleries.`
+                      : `Your ${planQuota.planName} gallery quota of ${planQuota.maxGalleries} has been reached. Upgrade to unlock more client galleries.`,
                     lockedFeature: 'Client Galleries',
                   })}
                   className="px-3.5 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 font-bold text-xs shrink-0 transition-colors shadow-sm cursor-pointer"
                 >
-                  Upgrade Plan
+                  {planQuota.isExpired ? 'Renew Plan' : 'Upgrade Plan'}
                 </button>
               </div>
             )}
 
             {/* Gallery Title */}
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-700 dark:text-neutral-300 mb-2">
-                Gallery Name / Title *
+              <label className="atelier-label">
+                <span className="flex items-center gap-1.5 font-semibold">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                  <span>Gallery Name / Title</span>
+                  <span className="text-amber-500">*</span>
+                </span>
               </label>
-              <input
-                type="text"
-                placeholder="e.g. Villa Balbiano Wedding"
-                {...register('title')}
-                className={`w-full px-4 py-2.5 rounded-xl bg-neutral-50 dark:bg-neutral-900 border text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 text-sm focus:outline-none transition-colors ${
-                  errors.title
-                    ? 'border-rose-500 focus:border-rose-500'
-                    : 'border-neutral-200 dark:border-neutral-800 focus:border-amber-400'
-                }`}
-              />
+              <div className="atelier-input-wrapper">
+                <input
+                  type="text"
+                  placeholder="e.g. Villa Balbiano Wedding"
+                  {...register('title')}
+                  className={`atelier-input font-medium ${
+                    errors.title ? '!border-rose-500 !ring-rose-500/20' : ''
+                  }`}
+                />
+              </div>
               {errors.title && (
                 <p className="text-[11px] text-rose-500 mt-1 font-medium">{errors.title.message}</p>
               )}
@@ -271,38 +295,43 @@ export const CreateGalleryModal: React.FC<CreateGalleryModalProps> = ({
             {/* Client Name & Shoot Date */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-700 dark:text-neutral-300 mb-2">
-                  Client Name(s)
+                <label className="atelier-label">
+                  <span className="flex items-center gap-1.5">
+                    <User className="w-3.5 h-3.5 text-amber-500" />
+                    <span>Client Name(s)</span>
+                  </span>
                 </label>
-                <div className="relative">
+                <div className="atelier-input-wrapper">
+                  <User className="atelier-input-icon w-4 h-4" />
                   <input
                     type="text"
                     placeholder="e.g. Elena & Julian Rossi"
                     {...register('client_name')}
-                    className="w-full px-4 py-2.5 rounded-xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 text-sm focus:outline-none focus:border-amber-400 transition-colors pl-10"
+                    className="atelier-input atelier-input-with-icon"
                   />
-                  <User className="w-4 h-4 text-neutral-400 dark:text-neutral-500 absolute left-3.5 top-3 pointer-events-none" />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-700 dark:text-neutral-300 mb-2">
-                  Shoot / Event Date *
+                <label className="atelier-label">
+                  <span className="flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-amber-500" />
+                    <span>Shoot / Event Date</span>
+                    <span className="text-amber-500">*</span>
+                  </span>
                 </label>
-                <div className="relative">
+                <div className="atelier-input-wrapper">
+                  <Calendar className="atelier-input-icon w-4 h-4" />
                   <input
                     type="date"
                     {...register('event_date')}
-                    className={`w-full px-4 py-2.5 rounded-xl bg-neutral-50 dark:bg-neutral-900 border text-neutral-900 dark:text-white text-sm focus:outline-none transition-colors ${
-                      errors.event_date
-                        ? 'border-rose-500'
-                        : 'border-neutral-200 dark:border-neutral-800 focus:border-amber-400'
+                    className={`atelier-input atelier-input-with-icon font-mono text-xs sm:text-sm ${
+                      errors.event_date ? '!border-rose-500' : ''
                     }`}
                   />
-                  <Calendar className="w-4 h-4 text-neutral-400 dark:text-neutral-500 absolute right-3.5 top-3 pointer-events-none" />
                 </div>
                 {errors.event_date && (
-                  <p className="text-[11px] text-rose-500 mt-1">{errors.event_date.message}</p>
+                  <p className="text-[11px] text-rose-500 mt-1 font-medium">{errors.event_date.message}</p>
                 )}
               </div>
             </div>
@@ -325,7 +354,7 @@ export const CreateGalleryModal: React.FC<CreateGalleryModalProps> = ({
                     template={tpl}
                     isSelected={selectedTemplate === tpl.id}
                     isAllowed={planQuota.isTemplateAllowed(tpl.id)}
-                    onSelect={(id) => setValue('template_id', id)}
+                    onSelect={(id) => setValue('template_id', id as any)}
                     onLockedClick={(name) =>
                       setUpgradeModal({
                         isOpen: true,
@@ -385,6 +414,45 @@ export const CreateGalleryModal: React.FC<CreateGalleryModalProps> = ({
               </div>
             </div>
 
+            {/* Watermark Protection Option */}
+            <div className="p-4 rounded-2xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800/80">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <Stamp className="w-4 h-4 text-amber-500 shrink-0" />
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="text-xs font-semibold text-neutral-900 dark:text-white">Watermark Gallery Photos</p>
+                      {!planQuota.watermarkEnabled && (
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-600 dark:text-amber-400 border border-amber-400/30">
+                          Upgrade Required
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                      Brand all photos in this gallery with your studio watermark when shared with clients
+                    </p>
+                  </div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={watch('watermark_enabled')}
+                  onChange={(e) => {
+                    if (!planQuota.watermarkEnabled) {
+                      setUpgradeModal({
+                        isOpen: true,
+                        errorCode: 'WATERMARK_LOCKED',
+                        errorMessage: `Studio Watermarking Suite is not included in your current studio plan (${planQuota.planName}). Upgrade your plan to brand client galleries with your custom copyright watermarks.`,
+                        lockedFeature: 'Custom Studio Watermark Suite',
+                      });
+                      return;
+                    }
+                    setValue('watermark_enabled', e.target.checked);
+                  }}
+                  className="w-4 h-4 accent-amber-500 rounded cursor-pointer"
+                />
+              </div>
+            </div>
+
             {/* Security & Password */}
             <div className="p-4 rounded-2xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800/80">
               <div className="flex items-center justify-between">
@@ -437,7 +505,7 @@ export const CreateGalleryModal: React.FC<CreateGalleryModalProps> = ({
                     <Loader2 className="w-4 h-4 animate-spin" /> Provisioning...
                   </>
                 ) : !planQuota.canCreateGallery ? (
-                  <>Limit Reached</>
+                  <>{planQuota.isExpired ? 'Plan Expired' : 'Limit Reached'}</>
                 ) : (
                   <>
                     <FolderPlus className="w-4 h-4 stroke-[2.2]" /> Create Gallery

@@ -7,7 +7,7 @@ import {
   LayoutDashboard,
   Images,
   Calendar,
-  MessageSquare,
+  GraduationCap,
   Globe,
   Settings as SettingsIcon,
   Cloud,
@@ -15,6 +15,9 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   ArrowUpRight,
+  AlertCircle,
+  AlertOctagon,
+  Sparkles,
 } from 'lucide-react';
 
 
@@ -84,6 +87,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const daysRemaining = planQuota.daysRemaining;
   const expiryDisplay = planQuota.expiryDate ? planQuota.expiryDate.split('T')[0] : '';
   const planName = planQuota.planName;
+  const isExpired = planQuota.isExpired;
 
   const liveEventsCount = apiEvents?.filter((e: any) => e.status === 'live').length ?? activeLiveEvents.length;
   const upcomingEventsCount = apiEvents?.filter((e: any) => e.status === 'upcoming').length ?? upcomingEvents.length;
@@ -119,9 +123,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
           : undefined,
     },
     {
+      to: '/dashboard/culling',
+      label: 'AI Smart Cull',
+      icon: Sparkles,
+      badge: 'AI',
+    },
+    {
       to: '/dashboard/inquiries',
-      label: 'Inquiries',
-      icon: MessageSquare,
+      label: 'Workshop',
+      icon: GraduationCap,
       badge: newInquiriesCount > 0 ? `${newInquiriesCount} New` : undefined,
     },
     {
@@ -287,68 +297,114 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Storage & Plan Widget */}
       <div className={effectiveCollapsed ? 'p-2.5' : 'p-3'}>
         {!effectiveCollapsed ? (
-          <div className="p-4 rounded-2xl bg-neutral-50 dark:bg-[#111319] border border-neutral-200/90 dark:border-neutral-800/90 shadow-sm space-y-3 transition-all duration-300">
+          <div className={`p-4 rounded-2xl border shadow-sm space-y-3 transition-all duration-300 ${
+            isExpired
+              ? 'bg-rose-500/5 dark:bg-[#1a0f12] border-rose-500/30'
+              : 'bg-neutral-50 dark:bg-[#111319] border-neutral-200/90 dark:border-neutral-800/90'
+          }`}>
             {/* Cloud Storage Header */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-xs font-bold text-neutral-900 dark:text-white">
-                <Cloud className="w-4 h-4 text-amber-500" />
+                {isExpired ? (
+                  <AlertOctagon className="w-4 h-4 text-rose-500" />
+                ) : (
+                  <Cloud className="w-4 h-4 text-amber-500" />
+                )}
                 <span>
-                  <strong>{storageUsed} GB</strong> of {storageLimit} GB
+                  {isExpired ? (
+                    <strong className="text-rose-500 font-bold">Storage Locked</strong>
+                  ) : (
+                    <>
+                      <strong>{storageUsed} GB</strong> of {storageLimit} GB
+                    </>
+                  )}
                 </span>
               </div>
+              {isExpired && (
+                <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-500">
+                  EXPIRED
+                </span>
+              )}
             </div>
 
             {/* Progress Bar with Percentage */}
             <div className="flex items-center gap-2.5">
               <div className="flex-1 h-1.5 bg-neutral-200 dark:bg-neutral-800 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-amber-400 rounded-full progress-animate"
+                  className={`h-full rounded-full progress-animate ${
+                    isExpired ? 'bg-rose-500' : 'bg-amber-400'
+                  }`}
                   style={{ width: `${percentageUsed}%` }}
                 />
               </div>
-              <span className="text-[11px] font-mono font-bold text-neutral-700 dark:text-neutral-400">
+              <span className={`text-[11px] font-mono font-bold ${
+                isExpired ? 'text-rose-500' : 'text-neutral-700 dark:text-neutral-400'
+              }`}>
                 {percentageUsed}%
               </span>
             </div>
 
-            {/* Upgrade Plan Button */}
+            {/* Upgrade / Renew Plan Button */}
             <button
               onClick={onOpenUpgradeModal}
-              className="w-full py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-md shadow-amber-500/10 active:scale-[0.98] cursor-pointer"
+              className={`w-full py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-md active:scale-[0.98] cursor-pointer ${
+                isExpired
+                  ? 'bg-gradient-to-r from-rose-500 to-amber-500 hover:from-rose-400 hover:to-amber-400 text-white shadow-rose-500/20'
+                  : 'bg-amber-400 hover:bg-amber-300 text-neutral-950 shadow-amber-500/10'
+              }`}
             >
               <Zap className="w-3.5 h-3.5 fill-current" />
-              <span>Upgrade Plan</span>
+              <span>{isExpired ? 'Renew Membership' : 'Upgrade Plan'}</span>
             </button>
 
             {/* Billing Cycle Details */}
             <div className="text-[11px] pt-1 space-y-0.5">
               <p className="font-semibold text-neutral-600 dark:text-neutral-400 truncate">{planName}</p>
-              <p className="text-amber-600 dark:text-amber-400 font-bold">
-                {daysRemaining} days remaining
-              </p>
-              <p className="text-[10px] text-neutral-500 dark:text-neutral-400 font-mono">
-                Expires {expiryDisplay}
-              </p>
+              {isExpired ? (
+                <p className="text-rose-500 dark:text-rose-400 font-bold flex items-center gap-1">
+                  <AlertCircle className="w-3.5 h-3.5" />
+                  <span>Plan Expired ({expiryDisplay || 'Lapsed'})</span>
+                </p>
+              ) : (
+                <>
+                  <p className="text-amber-600 dark:text-amber-400 font-bold">
+                    {daysRemaining} days remaining
+                  </p>
+                  <p className="text-[10px] text-neutral-500 dark:text-neutral-400 font-mono">
+                    Expires {expiryDisplay}
+                  </p>
+                </>
+              )}
             </div>
           </div>
         ) : (
           <div className="flex flex-col items-center">
             <button
               onClick={onOpenUpgradeModal}
-              title="Storage & Plan (Click to upgrade)"
-              className="group relative w-12 h-12 rounded-2xl bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 flex items-center justify-center text-amber-500 hover:border-amber-400/60 hover:scale-105 active:scale-95 transition-all cursor-pointer shadow-xs"
+              title={isExpired ? "Plan Expired - Click to Renew" : "Storage & Plan (Click to upgrade)"}
+              className={`group relative w-12 h-12 rounded-2xl border flex items-center justify-center hover:scale-105 active:scale-95 transition-all cursor-pointer shadow-xs ${
+                isExpired
+                  ? 'bg-rose-500/10 border-rose-500/40 text-rose-500'
+                  : 'bg-neutral-100 dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 text-amber-500 hover:border-amber-400/60'
+              }`}
             >
-              <Cloud className="w-[22px] h-[22px] text-amber-500 stroke-[2]" />
+              {isExpired ? (
+                <AlertOctagon className="w-[22px] h-[22px] text-rose-500 stroke-[2]" />
+              ) : (
+                <Cloud className="w-[22px] h-[22px] text-amber-500 stroke-[2]" />
+              )}
               <div className="hidden group-hover:flex flex-col absolute left-full ml-3 p-3 bg-neutral-900 text-white text-xs rounded-2xl shadow-2xl border border-neutral-800 whitespace-nowrap z-50 gap-1.5 animate-in fade-in zoom-in-95 duration-150">
-                <span className="font-bold text-neutral-200">Storage Usage</span>
+                <span className={`font-bold ${isExpired ? 'text-rose-400' : 'text-neutral-200'}`}>
+                  {isExpired ? 'Plan Expired' : 'Storage Usage'}
+                </span>
                 <span className="text-amber-400 font-mono font-semibold">
                   {storageUsed} GB / {storageLimit} GB ({percentageUsed}%)
                 </span>
                 <span className="text-[10px] text-neutral-400">
-                  {daysRemaining} days remaining
+                  {isExpired ? `Expired on ${expiryDisplay}` : `${daysRemaining} days remaining`}
                 </span>
-                <span className="text-[10px] text-amber-400 font-bold mt-1">
-                  Click to Upgrade Plan
+                <span className={`text-[10px] font-bold mt-1 ${isExpired ? 'text-rose-400' : 'text-amber-400'}`}>
+                  {isExpired ? 'Click to Renew Plan' : 'Click to Upgrade Plan'}
                 </span>
               </div>
             </button>

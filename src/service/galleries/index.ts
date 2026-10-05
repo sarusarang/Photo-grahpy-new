@@ -3,5 +3,6 @@
  * Clean, structured access to all authenticated and public gallery APIs.
  */
 
+export * from './type';
 export * from './GalleryApi';
 export * from './PublicGalleryApi';

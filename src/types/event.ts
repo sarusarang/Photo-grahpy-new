@@ -12,7 +12,13 @@ export type EventType =
   | 'anniversary'
   | 'other';
 
-export type EventStatus = 'live' | 'upcoming' | 'completed' | 'moved_to_gallery';
+export type EventStatus =
+  | 'live'
+  | 'upcoming'
+  | 'completed'
+  | 'moved_to_gallery'
+  | 'trash'
+  | 'archived';
 
 export interface EventQRSettings {
   validFrom: string; // ISO String
@@ -51,6 +57,15 @@ export interface LiveEvent {
   autoSyncEnabled?: boolean;
   tetherCount?: number;
   stats: EventStats;
+  totalSizeBytes?: number;
+  totalSizeMB?: number;
+  totalSizeFormatted?: string;
+  photographerName?: string;
+  studioName?: string;
+  photosCount?: number;
+  videosCount?: number;
+  totalMediaCount?: number;
+  sectionCounts?: Record<string, number>;
   createdAt: string;
   updatedAt: string;
 }

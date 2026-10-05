@@ -10,9 +10,10 @@ import { MusicPickerModal } from '../../components/gallery/MusicPickerModal';
 import { CURATED_TRACKS, type Track } from '../../services/musicService';
 import { SelectionBar } from '../../components/gallery/SelectionBar';
 import { MediaShareModal } from '../../components/gallery/MediaShareModal';
+import { StoryVideoCreatorModal } from '../../components/gallery/StoryVideoCreatorModal';
 import { ClientGalleryNavbar } from '../../components/gallery/ClientGalleryNavbar';
 import { SmoothScrollProvider, useLenisScroll } from '../../components/common/SmoothScroll';
-import { Lock, Clock, AlertTriangle, Mail, Loader2, Archive, RotateCcw } from 'lucide-react';
+import { Lock, Clock, AlertTriangle, Mail, Loader2, Archive, RotateCcw, Sparkles } from 'lucide-react';
 import { isGalleryExpired, getExpiryStatus } from '../../utils/expiryUtils';
 import { normalizeServerGallery } from '../../utils/galleryNormalizer';
 import {
@@ -23,8 +24,10 @@ import {
 } from '@/hooks/useAtelierQueries';
 import { GetGalleryDownloadZipUrl } from '@/service/galleries/PublicGalleryApi';
 import { GalleryDetailSkeleton } from '@/components/common/LoadingSkeleton';
-import { updatePageSeo } from '@/utils/seo';
+import { useGallerySeo } from '@/hooks/useSeo';
+import type { GalleryGridDesign } from '../../components/gallery/UniversalPhotoGrid';
 import { getInitialGalleryCover, handleCoverImageError } from '@/utils/coverImageUtils';
+import { downloadSingleImage, downloadMultipleAsZip, getGalleryWatermarkOptions } from '@/utils/downloadUtils';
 
 const ClientGalleryContent: React.FC = () => {
   const { galleryId } = useParams<{ galleryId: string }>();
@@ -47,11 +50,49 @@ const ClientGalleryContent: React.FC = () => {
   // Local overrides for optimistic favorites & loading
   const [localFavoritesOverride, setLocalFavoritesOverride] = useState<Record<string, boolean>>({});
   const [favoritingMediaIds, setFavoritingMediaIds] = useState<Set<string>>(new Set());
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
-  // Normalize server gallery
+  // User's active grid layout design across all templates with localStorage persistence
+  const [gridDesign, setGridDesign] = useState<GalleryGridDesign>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('ex_share_gallery_grid_design') as GalleryGridDesign | null;
+        if (saved && ['default', 'masonry', 'collage', 'grid', 'large'].includes(saved)) {
+          return saved;
+        }
+      } catch {}
+    }
+    return 'default';
+  });
+
+  const handleSelectGridDesign = (design: GalleryGridDesign) => {
+    setGridDesign(design);
+    try {
+      localStorage.setItem('ex_share_gallery_grid_design', design);
+    } catch {}
+  };
+
+  // Normalize server gallery with resilient demo fallback
   const gallery = useMemo<Gallery | null>(() => {
-    if (!apiGallery) return null;
-    const base = normalizeServerGallery(apiGallery);
+    // If backend reported studio plan expired, DO NOT fallback to demo data
+    const isPlanExpiredError =
+      (galleryError as any)?.data?.code === 'studio_plan_expired' ||
+      (galleryError as any)?.data?.code === 'STUDIO_PLAN_EXPIRED' ||
+      (galleryError as any)?.response?.data?.code === 'studio_plan_expired' ||
+      (galleryError as any)?.response?.data?.code === 'STUDIO_PLAN_EXPIRED' ||
+      (galleryError as any)?.data?.plan_expired === true ||
+      (galleryError as any)?.response?.data?.plan_expired === true ||
+      ((galleryError as any)?.status === 403 &&
+        String((galleryError as any)?.data?.detail || '').toLowerCase().includes('plan')) ||
+      ((galleryError as any)?.response?.status === 403 &&
+        String((galleryError as any)?.response?.data?.detail || '').toLowerCase().includes('plan'));
+    if (isPlanExpiredError) return null;
+
+    let base: Gallery | null = null;
+    if (apiGallery) {
+      base = normalizeServerGallery(apiGallery);
+    }
+    if (!base) return null;
     if (Object.keys(localFavoritesOverride).length > 0) {
       return {
         ...base,
@@ -63,7 +104,7 @@ const ClientGalleryContent: React.FC = () => {
       };
     }
     return base;
-  }, [apiGallery, localFavoritesOverride]);
+  }, [apiGallery, galleryId, localFavoritesOverride, galleryError]);
 
   // Track gallery view once on mount when gallery is loaded
   const hasTrackedViewRef = useRef(false);
@@ -77,17 +118,14 @@ const ClientGalleryContent: React.FC = () => {
     }
   }, [gallery?.id, trackViewMutation]);
 
-  // Dynamic SEO & OpenGraph Social Graph
-  useEffect(() => {
-    if (gallery) {
-      updatePageSeo({
-        title: `${gallery.title} — Photography Collection`,
-        description: `View the curated photography collection "${gallery.title}" for ${gallery.clientName} on EX SHARE.`,
-        image: gallery.coverImage || 'https://exshare.ai/ex-share-white-logo.png',
-        url: `https://exshare.ai/gallery/${encodeURIComponent(gallery.slug || gallery.id)}`,
-      });
-    }
-  }, [gallery?.title, gallery?.clientName, gallery?.coverImage]);
+  // Dynamic SEO & OpenGraph Social Graph: updates page title and hero banner image dynamically
+  const activePhotoId =
+    searchParams.get('photo') ||
+    (lightboxIndex !== null && gallery?.media[lightboxIndex]
+      ? gallery.media[lightboxIndex].id
+      : undefined);
+
+  useGallerySeo(gallery, activePhotoId, photographer?.studioName || photographer?.fullName);
 
   // Preview Template Security: Strictly restricted to authenticated dashboard studio users
   const rawQueryTemplate = searchParams.get('previewTemplate') as GalleryTemplateId | null;
@@ -114,12 +152,25 @@ const ClientGalleryContent: React.FC = () => {
     setSearchParams(nextParams, { replace: true });
   };
 
-  // Lightbox state
-  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
-
   // Multi-Selection state
   const [selectedMediaIds, setSelectedMediaIds] = useState<Set<string>>(new Set());
   const [isShareSelectedOpen, setIsShareSelectedOpen] = useState(false);
+
+  // Story & Reel Video Creator state
+  const [isStoryVideoModalOpen, setIsStoryVideoModalOpen] = useState(false);
+  const [storyVideoInitialItems, setStoryVideoInitialItems] = useState<any[]>([]);
+
+  const handleOpenStoryVideoCreator = (customItems?: any[]) => {
+    if (customItems && customItems.length > 0) {
+      setStoryVideoInitialItems(customItems);
+    } else if (selectedMediaIds.size > 0 && gallery?.media) {
+      setStoryVideoInitialItems(gallery.media.filter((m) => selectedMediaIds.has(m.id)));
+    } else if (gallery?.media) {
+      const favs = gallery.media.filter((m) => m.isFavorite);
+      setStoryVideoInitialItems(favs.length >= 3 ? favs.slice(0, 12) : gallery.media.slice(0, 8));
+    }
+    setIsStoryVideoModalOpen(true);
+  };
 
   // Slideshow & Soundtrack state
   const [isSlideshowOpen, setIsSlideshowOpen] = useState(false);
@@ -132,11 +183,20 @@ const ClientGalleryContent: React.FC = () => {
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState(false);
 
-  // Top navbar visibility: only when scrolling down with smooth Lenis scroll listener
-  const [showNavbar, setShowNavbar] = useState(false);
+  // Top navbar scroll tracking: only display navbar when user starts to scroll down
+  const [isScrolled, setIsScrolled] = useState(false);
   useLenisScroll((scroll) => {
-    setShowNavbar(scroll > 80);
+    setIsScrolled(scroll > 25);
   });
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 25);
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll();
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   // Bulk ZIP download states
   const [isPreparingZip, setIsPreparingZip] = useState(false);
@@ -154,15 +214,130 @@ const ClientGalleryContent: React.FC = () => {
     );
   }
 
+  // 1. Check if the Host Studio's Subscription is Expired (Locks entire public gallery & shared link)
+  const isStudioPlanExpired = Boolean(
+    (apiGallery as any)?.is_studio_plan_expired ||
+    (apiGallery as any)?.studio_plan_status === 'expired' ||
+    (gallery as any)?.is_studio_plan_expired ||
+    (galleryError as any)?.data?.code === 'studio_plan_expired' ||
+    (galleryError as any)?.data?.code === 'STUDIO_PLAN_EXPIRED' ||
+    (galleryError as any)?.response?.data?.code === 'studio_plan_expired' ||
+    (galleryError as any)?.response?.data?.code === 'STUDIO_PLAN_EXPIRED' ||
+    (galleryError as any)?.data?.plan_expired === true ||
+    (galleryError as any)?.response?.data?.plan_expired === true ||
+    ((galleryError as any)?.status === 403 &&
+      String((galleryError as any)?.data?.detail || (galleryError as any)?.response?.data?.detail || '').toLowerCase().includes('plan')) ||
+    ((galleryError as any)?.response?.status === 403 &&
+      String((galleryError as any)?.response?.data?.detail || '').toLowerCase().includes('plan'))
+  );
+
+  if (isStudioPlanExpired) {
+    const errorData = (galleryError as any)?.data || (galleryError as any)?.response?.data;
+    const galleryTitle = gallery?.title || errorData?.title || 'Private Collection';
+    const clientName = gallery?.clientName || errorData?.client_name || '';
+    const studioName =
+      photographer?.studioName ||
+      (apiGallery as any)?.studio_name ||
+      errorData?.studio_name ||
+      'Studio';
+    const studioEmail = photographer?.email || (apiGallery as any)?.studio_email || errorData?.studio_email || '';
+
+    return (
+      <div className="min-h-screen bg-[#07080b] text-white flex flex-col items-center justify-center p-4 sm:p-6 relative overflow-hidden selection:bg-rose-500 selection:text-white">
+        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-rose-500/10 rounded-full blur-[140px] pointer-events-none" />
+
+        <div className="relative z-10 max-w-lg w-full rounded-3xl bg-neutral-900/90 border border-neutral-800/90 backdrop-blur-2xl p-8 sm:p-10 shadow-2xl text-center space-y-6 animate-in zoom-in-95 duration-300">
+          <div className="w-16 h-16 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-rose-400 mx-auto flex items-center justify-center shadow-lg shadow-rose-500/10">
+            <Lock className="w-8 h-8 stroke-[1.8]" />
+          </div>
+
+          <div className="space-y-2">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 text-[10px] font-mono uppercase tracking-widest font-bold">
+              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+              <span>Studio Plan Expired</span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-serif font-bold text-white tracking-tight">
+              {galleryTitle}
+            </h1>
+            <p className="text-xs sm:text-sm text-neutral-400 font-light leading-relaxed">
+              This gallery and its shared link are temporarily offline because the host studio&apos;s EX SHARE membership has lapsed. All photographs remain securely preserved in cloud vaults.
+            </p>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-neutral-950/70 border border-neutral-800/80 text-left space-y-2.5 text-xs font-mono text-neutral-400">
+            <div className="flex items-center justify-between">
+              <span className="text-neutral-500">Collection:</span>
+              <span className="text-white font-semibold truncate max-w-[200px]">{galleryTitle}</span>
+            </div>
+            {clientName && (
+              <div className="flex items-center justify-between">
+                <span className="text-neutral-500">Client:</span>
+                <span className="text-neutral-200">{clientName}</span>
+              </div>
+            )}
+            <div className="flex items-center justify-between">
+              <span className="text-neutral-500">Host Studio:</span>
+              <span className="text-neutral-200">{studioName}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-neutral-500">Access Status:</span>
+              <span className="text-rose-400 font-semibold uppercase">Locked / Suspended</span>
+            </div>
+          </div>
+
+          <div className="space-y-3 pt-1">
+            {isAuthenticated ? (
+              <Link
+                to="/dashboard/settings?tab=billing"
+                className="w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 hover:from-amber-300 hover:to-amber-300 text-neutral-950 font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-amber-500/25 cursor-pointer"
+              >
+                <Sparkles className="w-4 h-4" />
+                <span>Renew Membership to Reactivate Gallery</span>
+              </Link>
+            ) : studioEmail ? (
+              <a
+                href={`mailto:${studioEmail}?subject=${encodeURIComponent(
+                  `Inquiry: Locked Gallery "${galleryTitle}"`
+                )}&body=${encodeURIComponent(
+                  `Hello ${studioName},\n\nI was attempting to view our private gallery "${galleryTitle}", but the link indicates the studio membership has expired. Could you please reactivate or renew access?\n\nThank you!`
+                )}`}
+                className="w-full py-3.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-amber-500/20 cursor-pointer"
+              >
+                <Mail className="w-4 h-4 stroke-[2.5]" />
+                <span>Contact Studio to Reactivate</span>
+              </a>
+            ) : (
+              <p className="text-xs text-neutral-400">
+                Please contact your photographer or studio directly to request reactivation of this link.
+              </p>
+            )}
+
+            {isAuthenticated && (
+              <Link
+                to="/dashboard/gallery"
+                className="inline-flex items-center justify-center gap-2 text-xs font-semibold text-neutral-400 hover:text-white transition-colors pt-2"
+              >
+                <span>Go to Studio Dashboard</span>
+              </Link>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // 1. Check if Gallery is Archived (either returned with status='archived' or blocked by backend)
   const isArchived =
     gallery?.status === 'archived' ||
+    (galleryError as any)?.data?.status === 'archived' ||
     (galleryError as any)?.response?.data?.status === 'archived' ||
+    (galleryError as any)?.data?.code === 'gallery_archived' ||
     (galleryError as any)?.response?.data?.code === 'gallery_archived' ||
+    (galleryError as any)?.data?.code === 'GALLERY_ARCHIVED' ||
     (galleryError as any)?.response?.data?.code === 'GALLERY_ARCHIVED';
 
   if (isArchived) {
-    const errorData = (galleryError as any)?.response?.data;
+    const errorData = (galleryError as any)?.data || (galleryError as any)?.response?.data;
     const galleryTitle = gallery?.title || errorData?.title || 'Private Collection';
     const clientName = gallery?.clientName || errorData?.client_name || '';
 
@@ -266,17 +441,23 @@ const ClientGalleryContent: React.FC = () => {
           </div>
 
           <div className="space-y-3 pt-2">
-            <a
-              href={`mailto:${photographer.email}?subject=${encodeURIComponent(
-                `Request Extended Access: ${errorData?.title || 'Gallery'}`
-              )}&body=${encodeURIComponent(
-                `Hello,\n\nOur client viewing link has expired. Could you please extend or renew access to our gallery?\n\nThank you!`
-              )}`}
-              className="w-full py-3.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-amber-500/20 cursor-pointer"
-            >
-              <Mail className="w-4 h-4 stroke-[2.5]" />
-              <span>Request Extended Access</span>
-            </a>
+            {photographer?.email || errorData?.studio_email || (apiGallery as any)?.studio_email ? (
+              <a
+                href={`mailto:${photographer?.email || errorData?.studio_email || (apiGallery as any)?.studio_email}?subject=${encodeURIComponent(
+                  `Request Extended Access: ${errorData?.title || 'Gallery'}`
+                )}&body=${encodeURIComponent(
+                  `Hello,\n\nOur client viewing link has expired. Could you please extend or renew access to our gallery?\n\nThank you!`
+                )}`}
+                className="w-full py-3.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-amber-500/20 cursor-pointer"
+              >
+                <Mail className="w-4 h-4 stroke-[2.5]" />
+                <span>Request Extended Access</span>
+              </a>
+            ) : (
+              <p className="text-xs text-neutral-400">
+                Please contact your photographer or studio directly to request extended access.
+              </p>
+            )}
 
             <p className="text-[11px] text-neutral-500 font-mono">
               Contact your photographer to renew access to your private photographs and film stories.
@@ -487,67 +668,155 @@ const ClientGalleryContent: React.FC = () => {
     }
   };
 
-  // Handle "Download All" action directly with backend ZIP URL
-  const handleDownloadAll = () => {
-    setIsPreparingZip(true);
-    setZipProgress(20);
+  // Resolve default photographer identity for watermarking and attribution (strictly photographer's name by default)
+  const defaultPhotographerName =
+    gallery?.photographerName ||
+    photographer?.fullName ||
+    (photographer as any)?.name ||
+    gallery?.studioName ||
+    photographer?.studioName ||
+    'PHOTOGRAPHER';
 
-    const zipUrl = GetGalleryDownloadZipUrl(gallery.slug || gallery.id);
-    const interval = setInterval(() => {
-      setZipProgress((prev) => {
-        if (prev >= 90) {
-          clearInterval(interval);
-          setTimeout(() => {
-            setIsPreparingZip(false);
-            setZipProgress(100);
-            showToast(
-              'Master ZIP Ready',
-              `Downloading all ${gallery.media.length} original full-resolution files.`,
-              'success'
-            );
-            window.location.href = zipUrl;
-          }, 300);
-          return 90;
-        }
-        return prev + 30;
+  const defaultWatermarkText =
+    gallery?.watermark_text ||
+    (defaultPhotographerName.startsWith('©') ? defaultPhotographerName : `© ${defaultPhotographerName}`);
+
+  // Handle "Download All" action directly packaging client-side ZIP with high-res files
+  const handleDownloadAll = async () => {
+    if (!gallery || !gallery.media || gallery.media.length === 0) {
+      showToast('No Media', 'There are no photos to download in this gallery.', 'warning');
+      return;
+    }
+
+    setIsPreparingZip(true);
+    setZipProgress(5);
+
+    try {
+      showToast(
+        'Packaging Master Archive',
+        `Bundling ${gallery.media.length} full-resolution photographs into a ZIP file...`,
+        'info'
+      );
+
+      const items = gallery.media
+        .map((m, idx) => ({
+          url: (m.url || m.thumbnailUrl || '') as string,
+          filename: m.title || `${gallery.slug || 'gallery'}-photo-${String(idx + 1).padStart(3, '0')}.jpg`,
+        }))
+        .filter((item) => Boolean(item.url));
+
+      const zipFilename = `${gallery.slug || 'gallery'}-full-collection.zip`;
+      const watermarkOpts = getGalleryWatermarkOptions(gallery, defaultPhotographerName);
+
+      await downloadMultipleAsZip({
+        items,
+        zipFilename,
+        onProgress: (percent) => setZipProgress(percent),
+        watermarkOptions: watermarkOpts,
       });
-    }, 200);
+
+      showToast(
+        'Master ZIP Ready',
+        `Downloaded all ${items.length} original full-resolution files.`,
+        'success'
+      );
+    } catch (err) {
+      console.error('Failed to bundle client-side ZIP:', err);
+      // Fallback: trigger backend ZIP url if client-side zip creation encounters an issue
+      const fallbackZipUrl = GetGalleryDownloadZipUrl(gallery.slug || gallery.id);
+      showToast('Fallback Download', 'Downloading gallery archive via server stream...', 'info');
+      const a = document.createElement('a');
+      a.href = fallbackZipUrl;
+      a.download = `${gallery.slug || 'gallery'}-collection.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } finally {
+      setIsPreparingZip(false);
+      setZipProgress(0);
+    }
+  };
+
+  // Handle direct single photo download from tile button
+  const handleDownloadSinglePhoto = async (e: React.MouseEvent, item: any) => {
+    e.stopPropagation();
+    const targetUrl = item.url || item.thumbnailUrl;
+    if (!targetUrl) {
+      showToast('Unavailable', 'Photo file is not available for download.', 'warning');
+      return;
+    }
+    const targetName = item.title || `${gallery?.slug || 'gallery'}-photo.jpg`;
+    showToast('Downloading Photo', `Saving "${targetName}"...`, 'info');
+    const watermarkOpts = getGalleryWatermarkOptions(gallery, defaultPhotographerName);
+    const success = await downloadSingleImage(targetUrl, targetName, watermarkOpts);
+    if (success) {
+      showToast('Photo Saved', `"${targetName}" saved successfully.`, 'success');
+    }
   };
 
   // Handle "Download Selected" action
-  const handleDownloadSelected = () => {
-    if (selectedMediaIds.size === 0) return;
+  const handleDownloadSelected = async () => {
+    if (!gallery || selectedMediaIds.size === 0) return;
+
+    const selectedList = gallery.media.filter((m) => selectedMediaIds.has(m.id));
+    if (selectedList.length === 0) return;
 
     setIsPreparingSelectedZip(true);
-    setSelectedZipProgress(25);
+    setSelectedZipProgress(5);
 
-    const interval = setInterval(() => {
-      setSelectedZipProgress((prev) => {
-        if (prev >= 90) {
-          clearInterval(interval);
-          setTimeout(() => {
-            setIsPreparingSelectedZip(false);
-            setSelectedZipProgress(100);
-            showToast(
-              'Selected Archive Ready',
-              `Downloaded ${selectedMediaIds.size} selected high-resolution photographs.`,
-              'success'
-            );
-            const firstSelected = gallery.media.find((m) => selectedMediaIds.has(m.id));
-            if (firstSelected?.url) {
-              const a = document.createElement('a');
-              a.href = firstSelected.url;
-              a.download = `${gallery.slug}-selected-${selectedMediaIds.size}-photos.jpg`;
-              document.body.appendChild(a);
-              a.click();
-              document.body.removeChild(a);
-            }
-          }, 300);
-          return 90;
+    try {
+      const watermarkOpts = getGalleryWatermarkOptions(gallery, defaultPhotographerName);
+
+      // If only 1 photo is selected, download directly without unnecessary zip overhead
+      if (selectedList.length === 1) {
+        const item = selectedList[0];
+        const targetUrl = item.url || item.thumbnailUrl;
+        if (!targetUrl) {
+          showToast('Unavailable', 'Photo file is not available for download.', 'warning');
+          return;
         }
-        return prev + 30;
+        const targetName = item.title || `${gallery.slug || 'gallery'}-photo.jpg`;
+        showToast('Downloading Photo', `Saving "${targetName}" directly to your device...`, 'info');
+        await downloadSingleImage(targetUrl, targetName, watermarkOpts);
+        showToast('Photo Saved', `Downloaded 1 photograph successfully.`, 'success');
+        return;
+      }
+
+      showToast(
+        'Packaging Selected',
+        `Bundling ${selectedList.length} selected photographs into a ZIP file...`,
+        'info'
+      );
+
+      const items = selectedList
+        .map((m, idx) => ({
+          url: (m.url || m.thumbnailUrl || '') as string,
+          filename: m.title || `${gallery.slug || 'gallery'}-selected-${String(idx + 1).padStart(3, '0')}.jpg`,
+          type: m.type,
+        }))
+        .filter((item) => Boolean(item.url));
+
+      const zipFilename = `${gallery.slug || 'gallery'}-selected-${selectedList.length}-photos.zip`;
+
+      await downloadMultipleAsZip({
+        items,
+        zipFilename,
+        onProgress: (percent) => setSelectedZipProgress(percent),
+        watermarkOptions: watermarkOpts,
       });
-    }, 200);
+
+      showToast(
+        'Archive Ready',
+        `Downloaded ${selectedList.length} selected photographs.`,
+        'success'
+      );
+    } catch (err) {
+      console.error('Failed to bundle selected photos ZIP:', err);
+      showToast('Download Error', 'Could not create ZIP archive for selected photos.', 'error');
+    } finally {
+      setIsPreparingSelectedZip(false);
+      setSelectedZipProgress(0);
+    }
   };
 
   // Start slideshow: launch Instagram-style soundtrack picker
@@ -648,10 +917,11 @@ const ClientGalleryContent: React.FC = () => {
         </aside>
       )}
 
-      {/* Floating Top Client Bar: Smooth appearance on scroll */}
+      {/* Floating Top Client Bar: Always accessible at top with Fullscreen & Layout Switcher */}
       <ClientGalleryNavbar
-        visible={showNavbar}
-        studioName={photographer.studioName}
+        isScrolled={isScrolled}
+        studioName={gallery.studioName || photographer?.studioName || 'EX SHARE'}
+        photographerName={gallery.photographerName || photographer?.fullName}
         galleryTitle={gallery.title}
         galleryId={gallery.id}
         allowDownloads={gallery.allowDownloads}
@@ -659,12 +929,15 @@ const ClientGalleryContent: React.FC = () => {
         isPreparingZip={isPreparingZip}
         zipProgress={zipProgress}
         expiryText={
-          expiryStatus.hasExpiry && !expiryStatus.isExpired
+          expiryStatus.hasExpiry && !expiryStatus.isExpired && expiryStatus.daysRemaining < 5
             ? `Access: ${expiryStatus.remainingText}`
             : undefined
         }
+        gridDesign={gridDesign}
+        onSelectGridDesign={handleSelectGridDesign}
         onStartSlideshow={() => handleStartSlideshow(0)}
         onDownloadAll={handleDownloadAll}
+        onCreateStoryVideo={() => handleOpenStoryVideoCreator()}
       />
 
       {/* Gentle Expiry Warning Banner (only if expiring in less than 48 hours) */}
@@ -681,15 +954,20 @@ const ClientGalleryContent: React.FC = () => {
       <GalleryTemplateRenderer
         template={activeTemplate}
         gallery={gallery}
+        gridDesign={gridDesign}
+        onSelectGridDesign={handleSelectGridDesign}
         onOpenLightbox={(idx) => setLightboxIndex(idx)}
         onToggleFavorite={handleToggleFavorite}
         selectedMediaIds={selectedMediaIds}
         onToggleSelectMedia={handleToggleSelectMedia}
         onStartSlideshow={handleStartSlideshow}
-        studioName={photographer.studioName || 'ATELIER PHOTOGRAPHY'}
+        studioName={gallery.studioName || photographer?.studioName || 'ATELIER PHOTOGRAPHY'}
+        photographerName={defaultPhotographerName}
+        onDownloadSingle={handleDownloadSinglePhoto}
         onShareGallery={() => {
           setIsShareSelectedOpen(true);
         }}
+        onCreateStoryVideo={() => handleOpenStoryVideoCreator()}
       />
 
       {/* Multi-Select Floating Action Toolbar */}
@@ -701,6 +979,9 @@ const ClientGalleryContent: React.FC = () => {
         onDownloadSelected={handleDownloadSelected}
         onPlaySlideshow={() => handleStartSlideshow(0)}
         onShareSelected={() => setIsShareSelectedOpen(true)}
+        onCreateStoryVideo={() =>
+          handleOpenStoryVideoCreator(gallery.media.filter((m) => selectedMediaIds.has(m.id)))
+        }
         isDownloading={isPreparingSelectedZip}
         downloadProgress={selectedZipProgress}
       />
@@ -726,6 +1007,11 @@ const ClientGalleryContent: React.FC = () => {
         clientName={gallery.clientName}
         selectedTrack={selectedTrack}
         onChangeTrack={() => setIsMusicPickerOpen(true)}
+        watermarkEnabled={Boolean(gallery.watermark_enabled ?? gallery.watermarkEnabled)}
+        watermarkText={defaultWatermarkText}
+        watermarkOpacity={gallery.watermark_opacity}
+        watermarkPosition={gallery.watermark_position}
+        watermarkImage={gallery.watermark_image}
       />
 
       {/* Lightbox Modal */}
@@ -742,10 +1028,15 @@ const ClientGalleryContent: React.FC = () => {
               ? favoritingMediaIds.has(gallery.media[lightboxIndex].id)
               : false
           }
-          studioName={photographer.studioName}
+          studioName={gallery.studioName || photographer.studioName}
           allowDownloads={gallery.allowDownloads}
           galleryTitle={gallery.title}
           gallerySlug={gallery.slug || gallery.id}
+          watermarkEnabled={Boolean(gallery.watermark_enabled ?? gallery.watermarkEnabled)}
+          watermarkText={defaultWatermarkText}
+          watermarkOpacity={gallery.watermark_opacity}
+          watermarkPosition={gallery.watermark_position}
+          watermarkImage={gallery.watermark_image}
         />
       )}
 
@@ -762,6 +1053,17 @@ const ClientGalleryContent: React.FC = () => {
         gallerySlug={gallery.slug || gallery.id}
         clientName={gallery.clientName}
       />
+
+      {/* Story & Reel Video Creator Modal */}
+      {isStoryVideoModalOpen && gallery && (
+        <StoryVideoCreatorModal
+          isOpen={isStoryVideoModalOpen}
+          onClose={() => setIsStoryVideoModalOpen(false)}
+          gallery={gallery}
+          initialMedia={storyVideoInitialItems}
+          defaultPhotographerName={defaultPhotographerName}
+        />
+      )}
     </div>
   );
 };

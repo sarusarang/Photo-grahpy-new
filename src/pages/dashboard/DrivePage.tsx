@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getInitialGalleryCover, handleCoverImageError } from '@/utils/coverImageUtils';
+import { getGalleryShareUrl, getGalleryDisplayUrl } from '@/utils/domain';
 import { useToast } from '../../components/ui/Toast';
 import type { Gallery } from '../../types';
 import { CreateGalleryModal } from '../../components/gallery/CreateGalleryModal';
@@ -25,6 +26,7 @@ import {
   Images,
   CheckCircle2,
   RotateCcw,
+  Loader2,
 } from 'lucide-react';
 import {
   useGalleries,
@@ -35,6 +37,7 @@ import {
 } from '@/hooks/useAtelierQueries';
 import { usePlanQuota } from '@/hooks/usePlanQuota';
 import { PlanUpgradeModal } from '@/components/billing/PlanUpgradeModal';
+import { LockedCardOverlay } from '@/components/common/ExpiredPlanLock';
 import { normalizeServerGallery } from '@/utils/galleryNormalizer';
 import { GalleryGridSkeleton } from '@/components/common/LoadingSkeleton';
 import { ErrorState } from '@/components/common/ErrorState';
@@ -60,12 +63,17 @@ export const GalleryPage: React.FC = () => {
   const dateDropdownRef = useRef<HTMLDivElement>(null);
   const sortDropdownRef = useRef<HTMLDivElement>(null);
 
+  const deleteGalleryMutation = useDeleteGallery();
+  const updateGalleryMutation = useUpdateGallery();
+  const archiveGalleryMutation = useArchiveGallery();
+  const restoreGalleryMutation = useRestoreGallery();
+
   // Gallery target for Delete / Archive Modal
   const [targetGalleryModal, setTargetGalleryModal] = useState<{
     gallery: Gallery;
     mode: 'archive' | 'permanent';
   } | null>(null);
-  const [isModalProcessing, setIsModalProcessing] = useState(false);
+  const isModalProcessing = archiveGalleryMutation.isPending || deleteGalleryMutation.isPending;
 
   // TanStack Query: Live Backend Galleries Sync with backend-driven filtering and sorting
   const {
@@ -86,16 +94,15 @@ export const GalleryPage: React.FC = () => {
   const { data: allUnfilteredGalleries } = useGalleries();
   const { data: archivedGalleriesData } = useGalleries({ status: 'archived' });
 
-  const { mutateAsync: deleteGalleryMutation } = useDeleteGallery();
-  const { mutateAsync: updateGalleryMutation } = useUpdateGallery();
-  const { mutateAsync: archiveGalleryMutation } = useArchiveGallery();
-  const { mutateAsync: restoreGalleryMutation } = useRestoreGallery();
-
   const handleToggleStatus = async (e: React.MouseEvent, gal: Gallery) => {
     e.stopPropagation();
+    if (planQuota.isExpired) {
+      setIsUpgradeModalOpen(true);
+      return;
+    }
     const newStatus = gal.status === 'delivered' ? 'active' : 'delivered';
     try {
-      await updateGalleryMutation({
+      await updateGalleryMutation.mutateAsync({
         id: gal.id,
         updates: { status: newStatus as any },
       });
@@ -263,7 +270,7 @@ export const GalleryPage: React.FC = () => {
   const handleRestoreGallery = async (e: React.MouseEvent, gal: Gallery) => {
     e.stopPropagation();
     try {
-      await restoreGalleryMutation({ id: gal.id, targetStatus: 'active' });
+      await restoreGalleryMutation.mutateAsync({ id: gal.id, targetStatus: 'active' });
       showToast(
         'Gallery Restored',
         `"${gal.title}" has been restored to your active galleries.`,
@@ -277,10 +284,9 @@ export const GalleryPage: React.FC = () => {
   const handleConfirmDeleteOrArchive = async () => {
     if (!targetGalleryModal) return;
     const { gallery, mode } = targetGalleryModal;
-    setIsModalProcessing(true);
     try {
       if (mode === 'archive') {
-        const res: any = await archiveGalleryMutation(gallery.id);
+        const res: any = await archiveGalleryMutation.mutateAsync(gallery.id);
         console.log('[Gallery Archive API Response]:', res);
         showToast(
           'Moved to Archive',
@@ -288,7 +294,7 @@ export const GalleryPage: React.FC = () => {
           'info'
         );
       } else {
-        const res: any = await deleteGalleryMutation({ id: gallery.id, permanent: true });
+        const res: any = await deleteGalleryMutation.mutateAsync({ id: gallery.id, permanent: true });
         console.log('[Gallery Permanent Delete API Response]:', res);
         showToast(
           'Gallery Permanently Deleted',
@@ -303,18 +309,35 @@ export const GalleryPage: React.FC = () => {
         err?.message || 'Failed to complete action.',
         'error'
       );
-    } finally {
-      setIsModalProcessing(false);
     }
   };
 
   const getGalleryStats = (gal: Gallery) => {
     const photos = gal.photosCount ?? gal.media.filter((m) => m.type === 'photo').length;
     const videos = gal.videosCount ?? gal.media.filter((m) => m.type === 'video').length;
-    const sizeMB = gal.media.length > 0
-      ? Math.round(gal.media.reduce((acc, m) => acc + (m.sizeMB || 5), 0))
-      : Math.round((photos * 4.5) + (videos * 25));
-    return { photos, videos, sizeMB };
+
+    const sizeFormatted =
+      gal.totalSizeFormatted ||
+      (typeof gal.totalSizeMB === 'number'
+        ? `${gal.totalSizeMB} MB`
+        : gal.totalSizeBytes !== undefined
+        ? gal.totalSizeBytes >= 1024 * 1024 * 1024
+          ? `${(gal.totalSizeBytes / (1024 * 1024 * 1024)).toFixed(2)} GB`
+          : `${(gal.totalSizeBytes / (1024 * 1024)).toFixed(1)} MB`
+        : gal.media.length > 0
+        ? `${Math.round(gal.media.reduce((acc, m) => acc + (m.sizeMB || ((m as any).sizeBytes ? (m as any).sizeBytes / (1024 * 1024) : 0)), 0))} MB`
+        : '0 MB');
+
+    const sizeMB =
+      typeof gal.totalSizeMB === 'number'
+        ? Math.round(gal.totalSizeMB)
+        : gal.totalSizeBytes !== undefined
+        ? Math.round(gal.totalSizeBytes / (1024 * 1024))
+        : gal.media.length > 0
+        ? Math.round(gal.media.reduce((acc, m) => acc + (m.sizeMB || ((m as any).sizeBytes ? (m as any).sizeBytes / (1024 * 1024) : 0)), 0))
+        : 0;
+
+    return { photos, videos, sizeMB, sizeFormatted };
   };
 
   return (
@@ -789,14 +812,30 @@ export const GalleryPage: React.FC = () => {
       ) : viewMode === 'grid' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6 stagger">
           {filteredGalleries.map((gal) => {
-            const { photos, videos, sizeMB } = getGalleryStats(gal);
+            const { photos, videos, sizeMB, sizeFormatted } = getGalleryStats(gal);
 
             return (
               <div
                 key={gal.id}
-                onClick={() => navigate(`/dashboard/gallery/${gal.id}`)}
-                className="group relative rounded-3xl bg-white dark:bg-[#121319] border border-neutral-200 dark:border-neutral-800/80 hover:border-neutral-300 dark:hover:border-neutral-700 shadow-sm dark:shadow-xl overflow-hidden cursor-pointer flex flex-col justify-between card-lift fade-up"
+                onClick={() => {
+                  if (planQuota.isExpired) {
+                    setIsUpgradeModalOpen(true);
+                    return;
+                  }
+                  navigate(`/dashboard/gallery/${gal.id}`);
+                }}
+                className={`group relative rounded-3xl bg-white dark:bg-[#121319] border border-neutral-200 dark:border-neutral-800/80 hover:border-neutral-300 dark:hover:border-neutral-700 shadow-sm dark:shadow-xl overflow-hidden cursor-pointer flex flex-col justify-between card-lift fade-up ${
+                  planQuota.isExpired ? 'ring-1 ring-rose-500/30' : ''
+                }`}
               >
+                {/* Locked Card Overlay when plan is expired */}
+                {planQuota.isExpired && (
+                  <LockedCardOverlay
+                    title="Gallery Access Locked"
+                    subtitle="Renew membership to enter & manage this gallery"
+                    onRenew={() => setIsUpgradeModalOpen(true)}
+                  />
+                )}
                 {/* Cover Image Header — Proportionate height for 3-card layout */}
                 <div className="relative h-48 sm:h-52 w-full overflow-hidden bg-neutral-900">
                   <img
@@ -829,7 +868,8 @@ export const GalleryPage: React.FC = () => {
                         <button
                           type="button"
                           onClick={(e) => handleToggleStatus(e, gal)}
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider backdrop-blur-md border cursor-pointer transition-all shadow-xs hover:scale-105 active:scale-95 ${
+                          disabled={updateGalleryMutation.isPending}
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider backdrop-blur-md border cursor-pointer transition-all shadow-xs hover:scale-105 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed ${
                             gal.status === 'delivered'
                               ? 'bg-emerald-600/90 hover:bg-emerald-500 text-white border-emerald-400/60 shadow-emerald-900/30'
                               : 'bg-neutral-900/90 hover:bg-neutral-900 text-amber-300 border-amber-400/40 shadow-amber-900/20'
@@ -912,7 +952,7 @@ export const GalleryPage: React.FC = () => {
                         SIZE
                       </span>
                       <span className="text-xs sm:text-sm font-bold text-amber-600 dark:text-amber-400">
-                        {sizeMB} MB
+                        {sizeFormatted}
                       </span>
                     </div>
                   </div>
@@ -937,10 +977,15 @@ export const GalleryPage: React.FC = () => {
                           <button
                             type="button"
                             onClick={(e) => handleRestoreGallery(e, gal)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-amber-400/15 hover:bg-amber-400 text-amber-700 dark:text-amber-300 hover:text-neutral-950 border border-amber-400/30 text-[11px] font-bold transition-all cursor-pointer shadow-xs active:scale-95"
+                            disabled={restoreGalleryMutation.isPending}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-amber-400/15 hover:bg-amber-400 text-amber-700 dark:text-amber-300 hover:text-neutral-950 border border-amber-400/30 text-[11px] font-bold transition-all cursor-pointer shadow-xs active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
                             title="Restore gallery to Active Galleries"
                           >
-                            <RotateCcw className="w-3 h-3" />
+                            {restoreGalleryMutation.isPending ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <RotateCcw className="w-3 h-3" />
+                            )}
                             <span>Restore</span>
                           </button>
 
@@ -958,7 +1003,8 @@ export const GalleryPage: React.FC = () => {
                         <>
                           <button
                             onClick={(e) => handleToggleStatus(e, gal)}
-                            className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                            disabled={updateGalleryMutation.isPending}
+                            className={`p-1.5 rounded-lg transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed ${
                               gal.status === 'delivered'
                                 ? 'text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10'
                                 : 'text-neutral-500 dark:text-neutral-400 hover:text-amber-500 hover:bg-amber-500/10'
@@ -980,12 +1026,12 @@ export const GalleryPage: React.FC = () => {
                           </button>
 
                           <a
-                            href={`https://exshare.ai/gallery/${encodeURIComponent(gal.slug || gal.id)}`}
+                            href={getGalleryShareUrl(gal.slug || gal.id)}
                             target="_blank"
                             rel="noopener noreferrer"
                             onClick={(e) => e.stopPropagation()}
                             className="p-1.5 rounded-lg text-neutral-500 dark:text-neutral-400 hover:text-black dark:hover:text-amber-400 hover:bg-neutral-100 dark:hover:bg-neutral-800/60 transition-colors"
-                            title="Client View Preview (https://exshare.ai)"
+                            title="Client View Preview"
                           >
                             <ExternalLink className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                           </a>
@@ -1025,12 +1071,20 @@ export const GalleryPage: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800/60">
               {filteredGalleries.map((gal) => {
-                const { photos, videos, sizeMB } = getGalleryStats(gal);
+                const { photos, videos, sizeMB, sizeFormatted } = getGalleryStats(gal);
                 return (
                   <tr
                     key={gal.id}
-                    onClick={() => navigate(`/dashboard/gallery/${gal.id}`)}
-                    className="group hover:bg-neutral-100/80 dark:hover:bg-[#1a1c24] cursor-pointer transition-all duration-200"
+                    onClick={() => {
+                      if (planQuota.isExpired) {
+                        setIsUpgradeModalOpen(true);
+                        return;
+                      }
+                      navigate(`/dashboard/gallery/${gal.id}`);
+                    }}
+                    className={`group hover:bg-neutral-100/80 dark:hover:bg-[#1a1c24] cursor-pointer transition-all duration-200 ${
+                      planQuota.isExpired ? 'opacity-70 bg-rose-500/[0.02]' : ''
+                    }`}
                   >
                     <td className="py-4 px-6 flex items-center gap-3">
                       <div className="relative overflow-hidden rounded-lg w-12 h-9 shrink-0 ring-1 ring-neutral-200 dark:ring-neutral-700/80 group-hover:ring-amber-400/50 transition-all bg-neutral-900">
@@ -1047,7 +1101,7 @@ export const GalleryPage: React.FC = () => {
                           {gal.title}
                         </p>
                         <p className="text-[11px] text-neutral-500 dark:text-neutral-400 font-mono truncate">
-                          exshare.ai/gallery/{gal.slug || gal.id}
+                          {getGalleryDisplayUrl(gal.slug || gal.id)}
                         </p>
                       </div>
                     </td>
@@ -1061,7 +1115,7 @@ export const GalleryPage: React.FC = () => {
                       {photos} photos, {videos} videos
                     </td>
                     <td className="py-4 px-4 font-mono text-amber-600 dark:text-amber-400 group-hover:text-amber-500 font-bold text-xs transition-colors">
-                      {sizeMB} MB
+                      {sizeFormatted}
                     </td>
                     <td className="py-4 px-4 text-xs">
                       <button
@@ -1117,70 +1171,84 @@ export const GalleryPage: React.FC = () => {
                       )}
                     </td>
                     <td className="py-4 px-6 text-right">
-                      <div className="inline-flex items-center gap-1.5">
-                        {gal.status === 'archived' ? (
-                          <>
-                            <button
-                              type="button"
-                              onClick={(e) => handleRestoreGallery(e, gal)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-amber-400/15 hover:bg-amber-400 text-amber-700 dark:text-amber-300 hover:text-neutral-950 border border-amber-400/30 text-xs font-bold transition-all cursor-pointer"
-                              title="Restore gallery to Active Galleries"
-                            >
-                              <RotateCcw className="w-3.5 h-3.5" />
-                              <span>Restore</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(e) => handleOpenPermanentDeleteModal(e, gal)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-rose-500/15 hover:bg-rose-600 text-rose-600 dark:text-rose-400 hover:text-white border border-rose-500/30 text-xs font-bold transition-all cursor-pointer"
-                              title="Permanently Delete"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                              <span>Delete Forever</span>
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                navigate(`/dashboard/gallery/${gal.id}?tab=analytics`);
-                              }}
-                              className="p-1.5 rounded-lg text-neutral-400 group-hover:text-neutral-600 dark:text-neutral-500 dark:group-hover:text-neutral-300 hover:!text-amber-500 dark:hover:!text-amber-400 hover:bg-neutral-200/60 dark:hover:bg-neutral-700/60 transition-colors cursor-pointer"
-                              title="Gallery Analytics"
-                            >
-                              <BarChart3 className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setShareGallery(gal);
-                              }}
-                              className="p-1.5 rounded-lg text-neutral-400 group-hover:text-neutral-600 dark:text-neutral-500 dark:group-hover:text-neutral-300 hover:!text-amber-500 dark:hover:!text-amber-400 hover:bg-neutral-200/60 dark:hover:bg-neutral-700/60 transition-colors cursor-pointer"
-                              title="Share Link"
-                            >
-                              <Share2 className="w-4 h-4" />
-                            </button>
-                            <a
-                              href={`https://exshare.ai/gallery/${encodeURIComponent(gal.slug || gal.id)}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              onClick={(e) => e.stopPropagation()}
-                              className="p-1.5 rounded-lg text-neutral-400 group-hover:text-neutral-600 dark:text-neutral-500 dark:group-hover:text-neutral-300 hover:!text-black dark:hover:!text-white hover:bg-neutral-200/60 dark:hover:bg-neutral-700/60 transition-colors cursor-pointer"
-                              title="Client View (https://exshare.ai)"
-                            >
-                              <ExternalLink className="w-4 h-4" />
-                            </a>
-                            <button
-                              onClick={(e) => handleOpenArchiveModal(e, gal)}
-                              className="p-1.5 rounded-lg text-neutral-400 group-hover:text-neutral-600 dark:text-neutral-500 dark:group-hover:text-neutral-300 hover:!text-rose-600 dark:hover:!text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
-                              title="Move to Archive / Trash"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </>
-                        )}
-                      </div>
+                      {planQuota.isExpired ? (
+                        <div className="flex justify-end">
+                          <LockedCardOverlay
+                            badgeOnly
+                            onRenew={() => setIsUpgradeModalOpen(true)}
+                          />
+                        </div>
+                      ) : (
+                        <div className="inline-flex items-center gap-1.5">
+                          {gal.status === 'archived' ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={(e) => handleRestoreGallery(e, gal)}
+                                disabled={restoreGalleryMutation.isPending}
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-amber-400/15 hover:bg-amber-400 text-amber-700 dark:text-amber-300 hover:text-neutral-950 border border-amber-400/30 text-xs font-bold transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                                title="Restore gallery to Active Galleries"
+                              >
+                                {restoreGalleryMutation.isPending ? (
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                ) : (
+                                  <RotateCcw className="w-3.5 h-3.5" />
+                                )}
+                                <span>Restore</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => handleOpenPermanentDeleteModal(e, gal)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-rose-500/15 hover:bg-rose-600 text-rose-600 dark:text-rose-400 hover:text-white border border-rose-500/30 text-xs font-bold transition-all cursor-pointer"
+                                title="Permanently Delete"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                <span>Delete Forever</span>
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigate(`/dashboard/gallery/${gal.id}?tab=analytics`);
+                                }}
+                                className="p-1.5 rounded-lg text-neutral-400 group-hover:text-neutral-600 dark:text-neutral-500 dark:group-hover:text-neutral-300 hover:!text-amber-500 dark:hover:!text-amber-400 hover:bg-neutral-200/60 dark:hover:bg-neutral-700/60 transition-colors cursor-pointer"
+                                title="Gallery Analytics"
+                              >
+                                <BarChart3 className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setShareGallery(gal);
+                                }}
+                                className="p-1.5 rounded-lg text-neutral-400 group-hover:text-neutral-600 dark:text-neutral-500 dark:group-hover:text-neutral-300 hover:!text-amber-500 dark:hover:!text-amber-400 hover:bg-neutral-200/60 dark:hover:bg-neutral-700/60 transition-colors cursor-pointer"
+                                title="Share Link"
+                              >
+                                <Share2 className="w-4 h-4" />
+                              </button>
+                              <a
+                                href={getGalleryShareUrl(gal.slug || gal.id)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="p-1.5 rounded-lg text-neutral-400 group-hover:text-neutral-600 dark:text-neutral-500 dark:group-hover:text-neutral-300 hover:!text-black dark:hover:!text-white hover:bg-neutral-200/60 dark:hover:bg-neutral-700/60 transition-colors cursor-pointer"
+                                title="Client View"
+                              >
+                                <ExternalLink className="w-4 h-4" />
+                              </a>
+                              <button
+                                onClick={(e) => handleOpenArchiveModal(e, gal)}
+                                className="p-1.5 rounded-lg text-neutral-400 group-hover:text-neutral-600 dark:text-neutral-500 dark:group-hover:text-neutral-300 hover:!text-rose-600 dark:hover:!text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
+                                title="Move to Archive / Trash"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      )}
                     </td>
                   </tr>
                 );
@@ -1212,9 +1280,13 @@ export const GalleryPage: React.FC = () => {
       <PlanUpgradeModal
         isOpen={isUpgradeModalOpen}
         onClose={() => setIsUpgradeModalOpen(false)}
-        errorCode="GALLERY_LIMIT_EXCEEDED"
+        errorCode={planQuota.isExpired ? 'PLAN_EXPIRED' : 'GALLERY_LIMIT_EXCEEDED'}
         lockedFeature="Client Galleries"
-        errorMessage={`Your ${planQuota.planName} has reached the limit of ${planQuota.maxGalleries} active client galleries. Upgrade to unlock more client galleries and higher storage.`}
+        errorMessage={
+          planQuota.isExpired
+            ? `Your studio membership has expired. Renew your plan to unlock and manage client galleries, proofing sets, and high-resolution deliveries.`
+            : `Your ${planQuota.planName} has reached the limit of ${planQuota.maxGalleries} active client galleries. Upgrade to unlock more client galleries and higher storage.`
+        }
       />
 
       {/* Delete / Archive Confirmation Modal */}
