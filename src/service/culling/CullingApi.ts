@@ -1,4 +1,5 @@
 import { CommonApi } from '@/lib/CommonApi';
+import { resolveImageUrl } from '@/utils/downloadUtils';
 import type {
   CullingPlanTier,
   CullingSession,
@@ -19,24 +20,24 @@ export const DEFAULT_CULLING_TIERS: CullingPlanTier[] = [
     name: 'Single Shoot Batch',
     price: 149,
     photosLimit: 300,
-    badge: 'Up to 300 Photos',
-    description: 'Ideal for portraits, couple pre-weddings & small shoots.',
+    badge: '1 – 300 Photos',
+    description: 'Ideal for mini shoots, maternity sessions, or portrait portraits.',
   },
   {
     id: 'cull_wedding_1200',
-    name: 'Full Event / Wedding',
-    price: 249,
+    name: 'Full Event & Wedding',
+    price: 399,
     photosLimit: 1200,
-    badge: 'Up to 1,200 Photos',
-    description: 'Weddings, multi-shooter ceremonies & event galas.',
+    badge: '301 – 1,200 Photos',
+    description: 'Engineered for weddings, receptions, and half-day commercial shoots.',
   },
   {
     id: 'cull_pro_unlimited',
-    name: 'Studio Pro Batch',
-    price: 499,
-    photosLimit: Infinity,
-    badge: 'Unlimited Photos',
-    description: 'High-density commercial raw bursts & multi-day sets.',
+    name: 'Studio Multi-Day Pro',
+    price: 899,
+    photosLimit: 999999,
+    badge: '1,201+ Photos',
+    description: 'For multi-day festivals, corporate conventions, and multi-camera sets.',
   },
 ];
 
@@ -127,31 +128,64 @@ export const GetCullingSessionApi = async (sessionId: string): Promise<CullingSe
 
 /**
  * 3. Upload raw photos to backend Culling Session
- * Endpoint: POST /api/culling/sessions/{sessionId}/upload-photos/
+ * Endpoint: POST /api/culling/upload/ or /api/culling/sessions/{sessionId}/upload/
  */
 export const UploadCullingPhotosApi = async (
   sessionId: string,
   files: File[]
-): Promise<{ message: string }> => {
+): Promise<{
+  message: string;
+  photos?: Array<{
+    id: string;
+    name: string;
+    previewUrl: string;
+    sizeBytes: number;
+    sizeMB: number;
+  }>;
+}> => {
   const formData = new FormData();
+  formData.append('session_id', sessionId);
   files.forEach((f) => {
     formData.append('files', f);
     formData.append('photos', f);
   });
 
   const urlsToTry = [
-    `/api/culling/sessions/${sessionId}/upload-photos/`,
+    '/api/culling/upload/',
     `/api/culling/sessions/${sessionId}/upload/`,
-    `/api/culling/upload-photos/`,
+    `/api/culling/sessions/${sessionId}/upload-photos/`,
+    '/api/culling/upload-photos/',
   ];
 
   for (const url of urlsToTry) {
     try {
-      return await CommonApi<{ message: string }>('POST', url, formData, {
+      const res = await CommonApi<any>('POST', url, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       });
+      const photoList = Array.isArray(res?.photos)
+        ? res.photos
+        : Array.isArray(res?.items)
+        ? res.items
+        : Array.isArray(res?.data)
+        ? res.data
+        : [];
+
+      return {
+        message: res?.message || 'Uploaded to session',
+        photos: photoList.map((p: any, idx: number) => {
+          const rawUrl = p.previewUrl || p.file_url || p.image || p.preview_url || p.file || '';
+          const sizeBytes = Number(p.size_bytes || p.sizeBytes || files[idx]?.size || 0);
+          return {
+            id: String(p.id || `photo_${Date.now()}_${idx}`),
+            name: p.name || p.original_filename || files[idx]?.name || `photo_${idx + 1}.jpg`,
+            previewUrl: resolveImageUrl(rawUrl),
+            sizeBytes,
+            sizeMB: Number(p.size_mb || p.sizeMB || (sizeBytes > 0 ? (sizeBytes / (1024 * 1024)).toFixed(1) : 0)),
+          };
+        }),
+      };
     } catch (err: any) {
       if (err?.response?.status && err.response.status !== 404) {
         break;
@@ -293,23 +327,40 @@ export const GetActiveCullingSessionApi = async (): Promise<ActiveCullingSession
         const rawClusters = Array.isArray(data.clusters) ? data.clusters : [];
 
         // Normalize photos to match AnalyzedPhoto interface
-        const photos = rawPhotos.map((p: any, idx: number) => ({
-          id: String(p.id || `photo_${idx}`),
-          name: p.name || p.original_filename || `photo_${idx + 1}.jpg`,
-          previewUrl: p.previewUrl || p.file_url || p.image || p.preview_url || '',
-          sizeBytes: Number(p.sizeBytes || p.file_size_bytes || 0),
-          sizeMB: Number(
+        const photos = rawPhotos.map((p: any, idx: number) => {
+          const rawUrl = p.previewUrl || p.file_url || p.image || p.preview_url || p.file || p.url || '';
+          const previewUrl = resolveImageUrl(rawUrl);
+          const sizeBytes = Number(p.sizeBytes || p.file_size_bytes || p.size_bytes || 0);
+          const sizeMB = Number(
             p.sizeMB ||
-              (p.file_size_bytes ? (p.file_size_bytes / (1024 * 1024)).toFixed(1) : 0)
-          ),
-          sharpnessScore: Number(p.sharpnessScore ?? p.sharpness_score ?? 80),
-          rawSharpnessVariance: Number(p.rawSharpnessVariance ?? p.sharpness_score ?? 100),
-          clusterId: p.clusterId || p.cluster_id || undefined,
-          isBestPick: Boolean(p.isBestPick ?? p.is_best_pick ?? false),
-          status: (p.status === 'discard' ? 'discard' : 'keep') as 'keep' | 'discard',
-          similarityWithBest: p.similarityWithBest ?? p.similarity_with_winner,
-          hash: p.hash || p.perceptual_hash || '',
-        }));
+              p.size_mb ||
+              (sizeBytes > 0 ? Number((sizeBytes / (1024 * 1024)).toFixed(1)) : 0)
+          );
+
+          // Clean up name if it was stored as dummy "Photo_photo_..."
+          let cleanName = p.name || p.original_filename || `photo_${idx + 1}.jpg`;
+          if (cleanName.startsWith('Photo_photo_') && p.original_filename) {
+            cleanName = p.original_filename;
+          } else if (cleanName.startsWith('Photo_photo_') && p.file && typeof p.file === 'string') {
+            const parts = p.file.split('/');
+            cleanName = parts[parts.length - 1] || cleanName;
+          }
+
+          return {
+            id: String(p.id || `photo_${idx}`),
+            name: cleanName,
+            previewUrl,
+            sizeBytes,
+            sizeMB,
+            sharpnessScore: Number(p.sharpnessScore ?? p.sharpness_score ?? 80),
+            rawSharpnessVariance: Number(p.rawSharpnessVariance ?? p.sharpness_score ?? 100),
+            clusterId: p.clusterId || p.cluster_id || undefined,
+            isBestPick: Boolean(p.isBestPick ?? p.is_best_pick ?? false),
+            status: (p.status === 'discard' ? 'discard' : 'keep') as 'keep' | 'discard',
+            similarityWithBest: p.similarityWithBest ?? p.similarity_with_winner,
+            hash: p.hash || p.perceptual_hash || '',
+          };
+        });
 
         // Normalize clusters to match DuplicateCluster interface
         const clusters = rawClusters.map((c: any, cIdx: number) => ({
@@ -431,7 +482,11 @@ export const saveLocalCullingSession = (data: Omit<LocalCullingCache, 'savedAt'>
     // Only store serializable fields (strip File objects to prevent browser quota errors)
     const sanitizedPhotos = data.photos.map((p) => {
       const { file, ...rest } = p;
-      return rest;
+      return {
+        ...rest,
+        // Do not persist ephemeral blob URLs that expire on reload; preserve real server URLs
+        previewUrl: rest.previewUrl?.startsWith('blob:') ? '' : rest.previewUrl,
+      };
     });
     const payload: LocalCullingCache = {
       ...data,
@@ -453,6 +508,17 @@ export const loadLocalCullingSession = (): LocalCullingCache | null => {
     if (Date.now() - parsed.savedAt > 7 * 24 * 60 * 60 * 1000) {
       localStorage.removeItem(LOCAL_SESSION_KEY);
       return null;
+    }
+    // Clean up any stale blob URLs from previous versions
+    if (Array.isArray(parsed.photos)) {
+      parsed.photos = parsed.photos.map((p: any) => ({
+        ...p,
+        previewUrl: p.previewUrl?.startsWith('blob:')
+          ? ''
+          : p.previewUrl
+          ? resolveImageUrl(p.previewUrl)
+          : '',
+      }));
     }
     return parsed;
   } catch {

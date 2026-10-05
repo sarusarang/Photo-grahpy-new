@@ -21,6 +21,7 @@ import {
   Filter,
   Loader2,
   Download,
+  FileImage,
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -29,7 +30,7 @@ import {
   type DuplicateCluster,
   type CullingResult,
 } from '@/utils/deduplicationEngine';
-import { downloadMultipleAsZip } from '@/utils/downloadUtils';
+import { downloadMultipleAsZip, resolveImageUrl } from '@/utils/downloadUtils';
 import { CullingUploadModal } from '@/components/culling/CullingUploadModal';
 import { CullingPaymentModal } from '@/components/culling/CullingPaymentModal';
 import { MoveCullToGalleryModal } from '@/components/culling/MoveCullToGalleryModal';
@@ -113,20 +114,30 @@ export const SmartCullPage: React.FC = () => {
               amount: activeSession.tier.price,
             });
           }
-          const mappedPhotos: AnalyzedPhoto[] = activeSession.photos.map((p) => ({
-            id: p.id,
-            name: p.name,
-            previewUrl: p.previewUrl || '',
-            sizeBytes: p.sizeBytes,
-            sizeMB: p.sizeMB ?? Math.round((p.sizeBytes / (1024 * 1024)) * 10) / 10,
-            sharpnessScore: p.sharpnessScore,
-            rawSharpnessVariance: p.rawSharpnessVariance ?? p.sharpnessScore ?? 0,
-            clusterId: p.clusterId,
-            isBestPick: Boolean(p.isBestPick),
-            status: (p.status === 'discard' ? 'discard' : 'keep') as 'keep' | 'discard',
-            similarityWithBest: p.similarityWithBest,
-            hash: p.hash || '',
-          }));
+          const mappedPhotos: AnalyzedPhoto[] = activeSession.photos.map((p) => {
+            const sizeBytes = p.sizeBytes || 0;
+            const sizeMB =
+              p.sizeMB > 0
+                ? p.sizeMB
+                : sizeBytes > 0
+                ? Math.round((sizeBytes / (1024 * 1024)) * 10) / 10
+                : 1.5;
+
+            return {
+              id: p.id,
+              name: p.name,
+              previewUrl: resolveImageUrl(p.previewUrl || ''),
+              sizeBytes,
+              sizeMB,
+              sharpnessScore: p.sharpnessScore,
+              rawSharpnessVariance: p.rawSharpnessVariance ?? p.sharpnessScore ?? 0,
+              clusterId: p.clusterId,
+              isBestPick: Boolean(p.isBestPick),
+              status: (p.status === 'discard' ? 'discard' : 'keep') as 'keep' | 'discard',
+              similarityWithBest: p.similarityWithBest,
+              hash: p.hash || '',
+            };
+          });
           setPhotos(mappedPhotos);
           setClusters(activeSession.clusters);
           saveLocalCullingSession({
@@ -182,12 +193,13 @@ export const SmartCullPage: React.FC = () => {
     async (files: File[]) => {
       setIsAnalyzing(true);
       setAnalysisProgress(5);
-      setAnalysisStatusText('Preparing high-resolution images for culling...');
+      setAnalysisStatusText('Uploading photos to backend staging & preparing AI analysis...');
 
       try {
-        // Upload staging files to backend session concurrently
-        UploadCullingPhotosApi(sessionId, files).catch((err) => {
-          console.warn('[SmartCull] Staging sync notice:', err);
+        // Concurrent staging upload to Django backend
+        const uploadPromise = UploadCullingPhotosApi(sessionId, files).catch((err) => {
+          console.warn('[SmartCull] Staging upload notice:', err);
+          return null;
         });
 
         const fileItems = files.map((file, idx) => ({
@@ -207,8 +219,39 @@ export const SmartCullPage: React.FC = () => {
           }
         );
 
-        setPhotos(result.allPhotos);
-        setClusters(result.clusters);
+        // Await upload response so we can attach backend server URLs
+        const uploadRes = await uploadPromise;
+        let finalPhotos = result.allPhotos;
+        let finalClusters = result.clusters;
+
+        if (uploadRes?.photos && uploadRes.photos.length > 0) {
+          const idMap = new Map<string, string>(); // oldId -> newId
+
+          finalPhotos = result.allPhotos.map((p, idx) => {
+            const serverMatch =
+              uploadRes.photos!.find((sp: any) => sp.name === p.name) ||
+              uploadRes.photos![idx];
+            if (serverMatch) {
+              idMap.set(p.id, serverMatch.id);
+              return {
+                ...p,
+                id: serverMatch.id,
+                previewUrl: serverMatch.previewUrl || p.previewUrl,
+              };
+            }
+            return p;
+          });
+
+          // Remap cluster photoIds and bestPickId to the backend IDs
+          finalClusters = result.clusters.map((c) => ({
+            ...c,
+            bestPickId: idMap.get(c.bestPickId) || c.bestPickId,
+            photoIds: c.photoIds.map((pid) => idMap.get(pid) || pid),
+          }));
+        }
+
+        setPhotos(finalPhotos);
+        setClusters(finalClusters);
         setIsUploadModalOpen(false);
 
         // Save to resilient local cache immediately
@@ -216,8 +259,8 @@ export const SmartCullPage: React.FC = () => {
           sessionId,
           isSessionPaid,
           paidDetails,
-          photos: result.allPhotos,
-          clusters: result.clusters,
+          photos: finalPhotos,
+          clusters: finalClusters,
         });
 
         // Persist to Django backend
@@ -225,8 +268,8 @@ export const SmartCullPage: React.FC = () => {
           session_id: sessionId,
           tier_id: paidDetails?.tier,
           is_paid: isSessionPaid,
-          photos: result.allPhotos,
-          clusters: result.clusters,
+          photos: finalPhotos,
+          clusters: finalClusters,
         }).catch((err) => {
           console.warn('[SmartCull] Backend sync notice:', err);
         });
@@ -1044,11 +1087,25 @@ export const SmartCullPage: React.FC = () => {
 
                                 {/* Photo Thumbnail */}
                                 <div className="aspect-[4/3] w-full overflow-hidden bg-neutral-900 relative">
-                                  <img
-                                    src={photo.previewUrl}
-                                    alt={photo.name}
-                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                                  />
+                                  {photo.previewUrl ? (
+                                    <img
+                                      src={resolveImageUrl(photo.previewUrl)}
+                                      alt={photo.name}
+                                      loading="lazy"
+                                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                      onError={(e) => {
+                                        const target = e.currentTarget;
+                                        target.style.display = 'none';
+                                        const fallbackEl = target.nextElementSibling as HTMLElement;
+                                        if (fallbackEl) fallbackEl.classList.remove('hidden');
+                                      }}
+                                    />
+                                  ) : null}
+                                  <div className={`img-fallback absolute inset-0 flex flex-col items-center justify-center p-3 text-center bg-neutral-900 text-neutral-400 ${photo.previewUrl ? 'hidden' : 'flex'}`}>
+                                    <FileImage className="w-8 h-8 text-neutral-600 mb-1" />
+                                    <span className="text-[10px] text-neutral-400 truncate max-w-full font-mono">{photo.name}</span>
+                                    <span className="text-[9px] text-amber-500/80 mt-0.5 font-mono">Backend Photo</span>
+                                  </div>
                                 </div>
 
                                 {/* Actions Footer */}
@@ -1137,12 +1194,25 @@ export const SmartCullPage: React.FC = () => {
                         {photo.sharpnessScore}%
                       </div>
 
-                      <div className="aspect-[4/3] w-full overflow-hidden bg-neutral-900">
-                        <img
-                          src={photo.previewUrl}
-                          alt={photo.name}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                        />
+                      <div className="aspect-[4/3] w-full overflow-hidden bg-neutral-900 relative">
+                        {photo.previewUrl ? (
+                          <img
+                            src={resolveImageUrl(photo.previewUrl)}
+                            alt={photo.name}
+                            loading="lazy"
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                            onError={(e) => {
+                              const target = e.currentTarget;
+                              target.style.display = 'none';
+                              const fallbackEl = target.nextElementSibling as HTMLElement;
+                              if (fallbackEl) fallbackEl.classList.remove('hidden');
+                            }}
+                          />
+                        ) : null}
+                        <div className={`img-fallback absolute inset-0 flex flex-col items-center justify-center p-2 text-center bg-neutral-900 text-neutral-400 ${photo.previewUrl ? 'hidden' : 'flex'}`}>
+                          <FileImage className="w-6 h-6 text-neutral-600 mb-1" />
+                          <span className="text-[9px] text-neutral-400 truncate max-w-full font-mono">{photo.name}</span>
+                        </div>
                       </div>
 
                       <div className="p-2 flex items-center justify-between text-[10px] text-neutral-400 bg-[#161720]">

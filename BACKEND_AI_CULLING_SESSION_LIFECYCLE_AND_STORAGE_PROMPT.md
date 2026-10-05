@@ -299,6 +299,10 @@ class ActiveCullingSessionResponseSerializer(serializers.ModelSerializer):
 
 class CullingPhotoSyncItemSerializer(serializers.Serializer):
     id = serializers.CharField(max_length=128)
+    name = serializers.CharField(max_length=255, required=False, default="")
+    previewUrl = serializers.CharField(max_length=1024, required=False, allow_blank=True, default="")
+    sizeBytes = serializers.IntegerField(required=False, default=0)
+    sizeMB = serializers.FloatField(required=False, default=0.0)
     status = serializers.ChoiceField(choices=['keep', 'discard'])
     isBestPick = serializers.BooleanField(default=False)
     clusterId = serializers.CharField(max_length=128, required=False, allow_blank=True)
@@ -600,7 +604,18 @@ class UploadCullingPhotosView(APIView):
         return Response({
             "status": "success",
             "uploaded_count": len(files),
-            "session_id": session.id
+            "session_id": session.id,
+            "photos": [
+                {
+                    "id": p.id,
+                    "name": p.name,
+                    "file_url": request.build_absolute_uri(p.file.url) if p.file else "",
+                    "previewUrl": request.build_absolute_uri(p.file.url) if p.file else "",
+                    "size_bytes": p.size_bytes,
+                    "size_mb": p.size_mb,
+                }
+                for p in photo_objects
+            ]
         }, status=status.HTTP_201_CREATED)
 
 
@@ -637,14 +652,18 @@ class SyncCullingSessionView(APIView):
             # Update photos
             photos_data = data.get('photos', [])
             existing_photos = {p.id: p for p in session.photos.all()}
+            existing_by_name = {p.name: p for p in session.photos.all()}
 
             photos_to_create = []
             photos_to_update = []
 
             for p_item in photos_data:
                 p_id = p_item['id']
-                if p_id in existing_photos:
-                    photo = existing_photos[p_id]
+                p_name = p_item.get('name') or ""
+                # Match by primary key OR match by uploaded filename to keep staging file attached!
+                photo = existing_photos.get(p_id) or (existing_by_name.get(p_name) if p_name else None)
+
+                if photo:
                     photo.status = p_item['status']
                     photo.is_best_pick = p_item['isBestPick']
                     photo.cluster_id = p_item.get('clusterId', '')
@@ -652,13 +671,17 @@ class SyncCullingSessionView(APIView):
                     photo.sharpness_score = p_item.get('sharpnessScore', photo.sharpness_score)
                     photo.raw_sharpness_variance = p_item.get('rawSharpnessVariance', photo.raw_sharpness_variance)
                     photo.hash = p_item.get('hash', photo.hash)
+                    if p_name and photo.name.startswith('Photo_photo_'):
+                        photo.name = p_name
                     photos_to_update.append(photo)
                 else:
                     # Created client-side
                     photos_to_create.append(CullingPhoto(
                         id=p_id,
                         session=session,
-                        name=f"Photo_{p_id}",
+                        name=p_name or f"Photo_{p_id}",
+                        size_bytes=p_item.get('sizeBytes', 0),
+                        size_mb=p_item.get('sizeMB', 0.0),
                         status=p_item['status'],
                         is_best_pick=p_item['isBestPick'],
                         cluster_id=p_item.get('clusterId', ''),
@@ -674,7 +697,7 @@ class SyncCullingSessionView(APIView):
                 CullingPhoto.objects.bulk_update(
                     photos_to_update,
                     ['status', 'is_best_pick', 'cluster_id', 'similarity_with_best', 
-                     'sharpness_score', 'raw_sharpness_variance', 'hash']
+                     'sharpness_score', 'raw_sharpness_variance', 'hash', 'name']
                 )
 
             # Rebuild clusters

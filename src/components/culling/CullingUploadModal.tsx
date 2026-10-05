@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import {
   X,
@@ -68,31 +68,51 @@ export const CullingUploadModal: React.FC<CullingUploadModalProps> = ({
     staleTime: 1000 * 60 * 5,
   });
 
-  // Selected pricing tier for upfront payment
-  const [selectedTierId, setSelectedTierId] = useState<string>('cull_wedding_1200');
+  // Sort tiers by photo capacity
+  const sortedTiers = useMemo(() => {
+    return [...tiers].sort((a: CullingPlanTier, b: CullingPlanTier) => a.photosLimit - b.photosLimit);
+  }, [tiers]);
 
-  // Auto-recommend tier based on queue size & dynamic plan limits
+  // Helper to get capacity and range info for any tier
+  const getTierRangeInfo = useCallback(
+    (tier: CullingPlanTier) => {
+      const index = sortedTiers.findIndex((t: CullingPlanTier) => t.id === tier.id);
+      const prevLimit = index > 0 ? sortedTiers[index - 1].photosLimit : 0;
+      const minPhotos = prevLimit + 1;
+      const maxPhotos = tier.photosLimit;
+      const isUnlimited = !isFinite(maxPhotos) || maxPhotos >= 999999;
+      const rangeLabel = isUnlimited
+        ? `${minPhotos.toLocaleString()}+ Photos`
+        : index === 0
+        ? `1 – ${maxPhotos.toLocaleString()} Photos`
+        : `${minPhotos.toLocaleString()} – ${maxPhotos.toLocaleString()} Photos`;
+
+      return { minPhotos, maxPhotos, isUnlimited, rangeLabel };
+    },
+    [sortedTiers]
+  );
+
+  // Automatically determine the exact plan required by the queued media count
+  const matchedTier = useMemo(() => {
+    if (selectedFiles.length === 0) return sortedTiers[0] || DEFAULT_CULLING_TIERS[0];
+    const suitable = sortedTiers.find((t: CullingPlanTier) => selectedFiles.length <= t.photosLimit);
+    return suitable || sortedTiers[sortedTiers.length - 1] || DEFAULT_CULLING_TIERS[0];
+  }, [selectedFiles.length, sortedTiers]);
+
+  // Selected pricing tier for upfront payment (auto-locked to matchedTier)
+  const [selectedTierId, setSelectedTierId] = useState<string>(() => matchedTier.id);
+
+  // Strictly sync selectedTierId to the matching tier whenever selected files change
   useEffect(() => {
-    if (selectedFiles.length > 0 && tiers.length > 0) {
-      const sorted = tiers.slice().sort((a, b) => a.photosLimit - b.photosLimit);
-      const suitable = sorted.find((t) => selectedFiles.length <= t.photosLimit);
-      if (suitable) {
-        setSelectedTierId(suitable.id);
-      } else {
-        const highest = sorted[sorted.length - 1];
-        if (highest) setSelectedTierId(highest.id);
-      }
+    if (matchedTier) {
+      setSelectedTierId(matchedTier.id);
     }
-  }, [selectedFiles.length, tiers]);
+  }, [matchedTier]);
 
-  const selectedTier =
-    tiers.find((t) => t.id === selectedTierId) || tiers[0] || DEFAULT_CULLING_TIERS[0];
+  const selectedTier = matchedTier;
 
-  // STRICT VALIDATION: Ensure uploaded media is suitable for selected plan (NO LOOPHOLES)
+  // Plan capacity check
   const isOverPlanLimit = selectedFiles.length > selectedTier.photosLimit;
-  const upgradeRecommendation = isOverPlanLimit
-    ? tiers.find((t) => t.photosLimit >= selectedFiles.length)
-    : null;
 
   // Clean up object URLs when clearing
   const handleClear = useCallback(() => {
@@ -419,13 +439,13 @@ export const CullingUploadModal: React.FC<CullingUploadModalProps> = ({
             </p>
           </div>
 
-          {/* Upfront Payment Tier Selection (Appears once photos are staged) */}
+          {/* Auto-Determined Batch Plan Selection */}
           {selectedFiles.length > 0 && (
             <div className="space-y-3.5">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-mono font-bold uppercase tracking-wider text-neutral-300 flex items-center gap-2">
                   <CreditCard className="w-4 h-4 text-amber-400" />
-                  <span>Choose Batch Plan (Pay Once On Upload)</span>
+                  <span>Plan Auto-Matched to Media Count</span>
                 </span>
                 {isSessionPaid ? (
                   <span className="text-[11px] font-mono font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-0.5 rounded-full flex items-center gap-1">
@@ -439,104 +459,112 @@ export const CullingUploadModal: React.FC<CullingUploadModalProps> = ({
                 )}
               </div>
 
-              {/* Over Limit Alert Banner */}
-              {isOverPlanLimit && (
-                <div className="p-3.5 rounded-2xl bg-red-500/10 border border-red-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-red-200 text-xs">
-                  <div className="flex items-center gap-2.5">
-                    <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
-                    <span>
-                      <strong>Plan capacity exceeded:</strong> You queued <strong>{selectedFiles.length} photos</strong>, but "{selectedTier.name}" only supports up to <strong>{selectedTier.photosLimit.toLocaleString()} photos</strong>.
-                    </span>
+              {/* Media Count Auto-Match Banner */}
+              <div className="p-3.5 rounded-2xl bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/5 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
+                    <Sparkles className="w-4 h-4" />
                   </div>
-                  {upgradeRecommendation && (
-                    <button
-                      type="button"
-                      onClick={() => setSelectedTierId(upgradeRecommendation.id)}
-                      className="px-3.5 py-1.5 rounded-xl bg-red-500 hover:bg-red-400 text-white font-bold text-xs shrink-0 cursor-pointer transition-colors shadow-sm self-start sm:self-auto"
-                    >
-                      Upgrade to {upgradeRecommendation.name} (₹{upgradeRecommendation.price})
-                    </button>
-                  )}
+                  <div>
+                    <span className="font-bold text-white">
+                      Auto-Matched Plan: {matchedTier.name} (₹{matchedTier.price})
+                    </span>
+                    <p className="text-[11px] text-neutral-400 mt-0.5">
+                      Your batch has <strong>{selectedFiles.length} photos</strong>, which qualifies for the <strong>{getTierRangeInfo(matchedTier).rangeLabel}</strong> plan.
+                    </p>
+                  </div>
                 </div>
-              )}
+                <div className="flex items-center gap-1.5 self-start sm:self-auto shrink-0 px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 font-mono text-xs font-bold border border-amber-500/30">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  Auto-Selected
+                </div>
+              </div>
 
               {/* Tier Cards Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {tiers.map((tier) => {
-                  const isSelected = selectedTierId === tier.id;
-                  const isUnderLimit = selectedFiles.length <= tier.photosLimit;
-                  const photosOver = selectedFiles.length - tier.photosLimit;
+                {sortedTiers.map((tier: CullingPlanTier) => {
+                  const { minPhotos, maxPhotos, rangeLabel } = getTierRangeInfo(tier);
+                  const isAutoMatched = matchedTier.id === tier.id;
+                  const isTooSmall = selectedFiles.length > maxPhotos;
 
                   return (
-                    <button
+                    <div
                       key={tier.id}
-                      type="button"
-                      disabled={isSessionPaid}
-                      onClick={() => setSelectedTierId(tier.id)}
-                      className={`relative p-4 rounded-2xl border text-left transition-all cursor-pointer ${
-                        isSelected
-                          ? !isUnderLimit
-                            ? 'bg-red-500/10 border-red-500/80 ring-1 ring-red-500/50 shadow-lg shadow-red-500/10'
-                            : 'bg-amber-500/10 border-amber-400/80 ring-1 ring-amber-400/50 shadow-lg shadow-amber-500/10'
-                          : !isUnderLimit
-                          ? 'bg-white/[0.01] border-red-500/20 hover:border-red-500/40 opacity-75'
-                          : 'bg-white/[0.02] border-white/10 hover:border-white/20'
+                      className={`relative p-4 rounded-2xl border text-left transition-all ${
+                        isAutoMatched
+                          ? 'bg-gradient-to-b from-amber-500/15 to-amber-500/5 border-amber-400/90 ring-2 ring-amber-400/40 shadow-xl shadow-amber-500/10'
+                          : isTooSmall
+                          ? 'bg-red-950/10 border-red-500/20 opacity-50 cursor-not-allowed'
+                          : 'bg-white/[0.02] border-white/10 opacity-60 cursor-not-allowed'
                       }`}
                     >
+                      {/* Top Badges */}
                       <div className="flex items-center justify-between mb-2">
-                        <span className={`text-[10px] font-mono font-bold uppercase tracking-wider ${
-                          !isUnderLimit ? 'text-red-400' : 'text-amber-400'
+                        <span className={`text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                          isAutoMatched
+                            ? 'bg-amber-400/20 text-amber-300 border border-amber-400/40'
+                            : isTooSmall
+                            ? 'bg-red-500/15 text-red-400 border border-red-500/20'
+                            : 'bg-white/5 text-neutral-400 border border-white/10'
                         }`}>
-                          {tier.badge}
+                          {rangeLabel}
                         </span>
-                        {isSelected ? (
-                          <div className={`w-4 h-4 rounded-full text-black flex items-center justify-center ${
-                            !isUnderLimit ? 'bg-red-400' : 'bg-amber-400'
-                          }`}>
+
+                        {isAutoMatched ? (
+                          <div className="w-4 h-4 rounded-full bg-amber-400 text-black flex items-center justify-center shadow-md shadow-amber-400/30">
                             <Check className="w-3 h-3 stroke-[3]" />
                           </div>
-                        ) : !isUnderLimit ? (
-                          <span className="text-[9px] font-mono text-red-400 bg-red-500/15 px-1.5 py-0.5 rounded">
-                            +{photosOver} Over
+                        ) : isTooSmall ? (
+                          <span className="text-[9px] font-mono text-red-400">
+                            Limit Exceeded
                           </span>
-                        ) : null}
+                        ) : (
+                          <span className="text-[9px] font-mono text-neutral-500">
+                            {minPhotos}+ Photos
+                          </span>
+                        )}
                       </div>
 
+                      {/* Price */}
                       <div className="flex items-baseline gap-1 mb-1">
                         <span className="text-xl font-bold text-white tracking-tight">₹{tier.price}</span>
                         <span className="text-[11px] text-neutral-400 font-mono">/ batch</span>
                       </div>
 
+                      {/* Plan Title */}
                       <div className="text-xs font-semibold text-neutral-200 truncate">{tier.name}</div>
                       <p className="text-[11px] text-neutral-400 line-clamp-2 mt-1 leading-snug">
                         {tier.description}
                       </p>
-                    </button>
+
+                      {/* Bottom Status Tag */}
+                      <div className="mt-3 pt-2 border-t border-white/5 text-[10px]">
+                        {isAutoMatched ? (
+                          <span className="text-amber-300 font-bold flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3" />
+                            Active for your {selectedFiles.length} photos
+                          </span>
+                        ) : isTooSmall ? (
+                          <span className="text-red-400/90 font-mono">
+                            Max {maxPhotos.toLocaleString()} photos (queued: {selectedFiles.length})
+                          </span>
+                        ) : (
+                          <span className="text-neutral-500 font-mono">
+                            Not required — ₹{matchedTier.price} plan fits your batch
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   );
                 })}
               </div>
 
               {/* Status Note */}
               {!isSessionPaid ? (
-                <div className={`p-3 rounded-xl border flex items-center gap-2.5 text-xs ${
-                  isOverPlanLimit
-                    ? 'bg-red-500/10 border-red-500/30 text-red-200'
-                    : 'bg-amber-500/10 border-amber-500/25 text-amber-200'
-                }`}>
-                  {isOverPlanLimit ? (
-                    <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
-                  ) : (
-                    <Lock className="w-4 h-4 text-amber-400 shrink-0" />
-                  )}
+                <div className="p-3 rounded-xl border bg-amber-500/10 border-amber-500/25 text-amber-200 flex items-center gap-2.5 text-xs">
+                  <Lock className="w-4 h-4 text-amber-400 shrink-0" />
                   <span>
-                    {isOverPlanLimit ? (
-                      <strong>Action Required:</strong>
-                    ) : (
-                      <strong>Upfront Payment Required:</strong>
-                    )}{' '}
-                    {isOverPlanLimit
-                      ? `Your batch (${selectedFiles.length} photos) exceeds this tier limit (${selectedTier.photosLimit.toLocaleString()}). Please choose an upgraded plan.`
-                      : `Once you pay ₹${selectedTier.price}, AI culling starts immediately. After sorting, you can move all keeper photos to your gallery for free!`}
+                    <strong>Upfront Payment Required:</strong> Once you pay ₹{selectedTier.price} ({selectedTier.name}), AI culling runs on all {selectedFiles.length} photos immediately. After culling, you can move all keeper photos to your gallery for free!
                   </span>
                 </div>
               ) : (
@@ -645,10 +673,10 @@ export const CullingUploadModal: React.FC<CullingUploadModalProps> = ({
 
             <button
               onClick={handleStartCulling}
-              disabled={selectedFiles.length === 0 || isAnalyzing || isCheckingOut || isOverPlanLimit}
+              disabled={selectedFiles.length === 0 || isAnalyzing || isCheckingOut}
               className={`px-6 py-2.5 text-xs font-bold rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all cursor-pointer ${
-                isOverPlanLimit
-                  ? 'bg-red-500 text-white shadow-red-500/20 opacity-85 cursor-not-allowed'
+                selectedFiles.length === 0
+                  ? 'bg-neutral-800 text-neutral-500 opacity-60 cursor-not-allowed'
                   : 'text-neutral-950 bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-300 hover:to-orange-300 shadow-amber-500/20 disabled:opacity-50 disabled:pointer-events-none'
               }`}
             >
@@ -662,20 +690,17 @@ export const CullingUploadModal: React.FC<CullingUploadModalProps> = ({
                   <Loader2 className="w-4 h-4 animate-spin text-neutral-950" />
                   <span>Analyzing Photos ({analysisProgress}%)...</span>
                 </>
-              ) : isOverPlanLimit ? (
-                <>
-                  <AlertCircle className="w-4 h-4 text-white" />
-                  <span>Plan Limit Exceeded ({selectedFiles.length}/{selectedTier.photosLimit.toLocaleString()})</span>
-                </>
+              ) : selectedFiles.length === 0 ? (
+                <span>Upload Photos to Select Plan</span>
               ) : !isSessionPaid ? (
                 <>
                   <CreditCard className="w-4 h-4" />
-                  <span>Pay ₹{selectedTier.price} & Run AI Culling</span>
+                  <span>Pay ₹{selectedTier.price} & Run AI Culling ({selectedFiles.length} Photos)</span>
                 </>
               ) : (
                 <>
                   <Sparkles className="w-4 h-4" />
-                  <span>Run AI Smart Cull ({selectedFiles.length})</span>
+                  <span>Run AI Smart Cull ({selectedFiles.length} Photos)</span>
                 </>
               )}
             </button>

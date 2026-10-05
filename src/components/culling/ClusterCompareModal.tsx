@@ -13,8 +13,10 @@ import {
   Sliders,
   ChevronLeft,
   ChevronRight,
+  FileImage,
 } from 'lucide-react';
 import type { AnalyzedPhoto, DuplicateCluster } from '@/utils/deduplicationEngine';
+import { resolveImageUrl } from '@/utils/downloadUtils';
 
 export interface ClusterCompareModalProps {
   isOpen: boolean;
@@ -98,11 +100,24 @@ export const ClusterCompareModal: React.FC<ClusterCompareModalProps> = ({
             </div>
 
             <div className="flex-1 relative flex items-center justify-center p-3 bg-neutral-950">
-              <img
-                src={bestPick.previewUrl}
-                alt={bestPick.name}
-                className="max-h-full max-w-full object-contain rounded-lg"
-              />
+              {bestPick.previewUrl ? (
+                <img
+                  src={resolveImageUrl(bestPick.previewUrl)}
+                  alt={bestPick.name}
+                  className="max-h-full max-w-full object-contain rounded-lg"
+                  onError={(e) => {
+                    const target = e.currentTarget;
+                    target.style.display = 'none';
+                    const fallbackEl = target.nextElementSibling as HTMLElement;
+                    if (fallbackEl) fallbackEl.classList.remove('hidden');
+                  }}
+                />
+              ) : null}
+              <div className={`img-fallback absolute inset-0 flex flex-col items-center justify-center p-4 text-center bg-neutral-950 text-neutral-400 ${bestPick.previewUrl ? 'hidden' : 'flex'}`}>
+                <FileImage className="w-10 h-10 text-neutral-600 mb-2" />
+                <span className="text-xs text-neutral-300 font-mono">{bestPick.name}</span>
+                <span className="text-[10px] text-amber-500/80 mt-1 font-mono">Backend Staged Photo</span>
+              </div>
             </div>
 
             <div className="p-3 bg-[#13141a] border-t border-white/10 flex items-center justify-between text-xs">
@@ -144,11 +159,24 @@ export const ClusterCompareModal: React.FC<ClusterCompareModalProps> = ({
             </div>
 
             <div className="flex-1 relative flex items-center justify-center p-3 bg-neutral-950">
-              <img
-                src={activeComparisonPhoto.previewUrl}
-                alt={activeComparisonPhoto.name}
-                className="max-h-full max-w-full object-contain rounded-lg"
-              />
+              {activeComparisonPhoto.previewUrl ? (
+                <img
+                  src={resolveImageUrl(activeComparisonPhoto.previewUrl)}
+                  alt={activeComparisonPhoto.name}
+                  className="max-h-full max-w-full object-contain rounded-lg"
+                  onError={(e) => {
+                    const target = e.currentTarget;
+                    target.style.display = 'none';
+                    const fallbackEl = target.nextElementSibling as HTMLElement;
+                    if (fallbackEl) fallbackEl.classList.remove('hidden');
+                  }}
+                />
+              ) : null}
+              <div className={`img-fallback absolute inset-0 flex flex-col items-center justify-center p-4 text-center bg-neutral-950 text-neutral-400 ${activeComparisonPhoto.previewUrl ? 'hidden' : 'flex'}`}>
+                <FileImage className="w-10 h-10 text-neutral-600 mb-2" />
+                <span className="text-xs text-neutral-300 font-mono">{activeComparisonPhoto.name}</span>
+                <span className="text-[10px] text-amber-500/80 mt-1 font-mono">Backend Staged Photo</span>
+              </div>
             </div>
 
             <div className="p-3 bg-[#13141a] border-t border-white/10 flex items-center justify-between gap-3 text-xs">
