@@ -47,7 +47,9 @@ export function getStoredGuestProfile(): GuestProfile {
 
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(newProfile));
-  } catch {}
+  } catch (err) {
+    console.warn('[GuestIdentity] Storage unavailable:', err);
+  }
 
   return newProfile;
 }

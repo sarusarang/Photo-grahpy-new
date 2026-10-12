@@ -8,7 +8,6 @@ import {
   ChevronsDown,
   Hash,
   X,
-  GripVertical,
   Film,
   Heart,
   FolderInput,

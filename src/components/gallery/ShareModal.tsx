@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { QRCodeSVG } from 'qrcode.react';
 import type { Gallery } from '../../types';
 import { useToast } from '../ui/Toast';
 import { useGallery } from '../../context/GalleryContext';
@@ -20,7 +19,6 @@ import { ShareUrlBar } from './share/ShareUrlBar';
 import { QRCodeStudioBox } from './share/QRCodeStudioBox';
 import {
   X,
-  QrCode,
   Image as ImageIcon,
   ExternalLink,
   Send,

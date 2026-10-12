@@ -36,13 +36,14 @@ import {
   useSetGalleryCover,
   useReorderGalleryMedia,
   useToggleMediaFavorite,
+  useBulkToggleMediaFavorite,
 } from '@/hooks/useAtelierQueries';
 import { GalleryDetailSkeleton } from '@/components/common/LoadingSkeleton';
 import { ErrorState } from '@/components/common/ErrorState';
 import { EmptyState } from '@/components/common/EmptyState';
 import { normalizeServerGallery } from '@/utils/galleryNormalizer';
 import { useSmoothScroll } from '@/components/common/SmoothScroll';
-import { AlertTriangle, Archive, Loader2, FolderInput, Trash2, Download, Lock, Sparkles, ChevronsUp, ChevronsDown } from 'lucide-react';
+import { AlertTriangle, Archive, Loader2, FolderInput, Trash2, Download, Lock, Sparkles, ChevronsUp, ChevronsDown, Heart, HeartOff } from 'lucide-react';
 import { usePlanQuota } from '@/hooks/usePlanQuota';
 import { downloadSingleImage, downloadMultipleAsZip, getGalleryWatermarkOptions } from '@/utils/downloadUtils';
 import { UpgradePlanModal } from '@/components/common/UpgradePlanModal';
@@ -62,6 +63,7 @@ export const GalleryDetailPage: React.FC = () => {
     deleteGallery,
     removeMediaFromGallery,
     toggleMediaFavorite,
+    bulkToggleMediaFavorite,
     addSectionToGallery,
     deleteSectionFromGallery,
     renameSectionInGallery,
@@ -106,6 +108,7 @@ export const GalleryDetailPage: React.FC = () => {
   const setCoverMutation = useSetGalleryCover();
   const reorderMediaMutation = useReorderGalleryMedia();
   const toggleFavoriteMutation = useToggleMediaFavorite();
+  const bulkToggleFavoriteMutation = useBulkToggleMediaFavorite();
 
   // Optimistic Sections State for instant responsive UI updates
   const [optimisticSections, setOptimisticSections] = useState<string[]>([]);
@@ -122,7 +125,9 @@ export const GalleryDetailPage: React.FC = () => {
 
   // Optimistic Favorites & Loading State for card and lightbox
   const [optimisticFavorites, setOptimisticFavorites] = useState<Record<string, boolean>>({});
+  const [optimisticFavoritesCount, setOptimisticFavoritesCount] = useState<number | null>(null);
   const [favoritingMediaIds, setFavoritingMediaIds] = useState<Set<string>>(new Set());
+  const [isBulkFavoriting, setIsBulkFavoriting] = useState(false);
   const [isReorderModalOpen, setIsReorderModalOpen] = useState(false);
 
   // Base gallery metadata (from first page)
@@ -244,6 +249,19 @@ export const GalleryDetailPage: React.FC = () => {
     optimisticFavorites,
   ]);
 
+  // True resolved favorites count across whole gallery: prioritizes optimistic state, then backend aggregate, then loaded slice
+  const resolvedFavoritesCount = useMemo(() => {
+    if (optimisticFavoritesCount !== null) {
+      return optimisticFavoritesCount;
+    }
+    const backendCount = gallery?.favoritesCount;
+    const loadedFavs = gallery?.media.filter((m) => m.isFavorite).length ?? 0;
+    if (typeof backendCount === 'number' && backendCount >= 0) {
+      return Math.max(backendCount, loadedFavs);
+    }
+    return loadedFavs;
+  }, [optimisticFavoritesCount, gallery?.favoritesCount, gallery?.media]);
+
   // Sync optimistic template ID when server confirms update
   useEffect(() => {
     if (firstPageRaw && (firstPageRaw as any).id) {
@@ -285,7 +303,7 @@ export const GalleryDetailPage: React.FC = () => {
         }),
       ]);
     }
-  }, [gallery?.id, gallery?.media.length, gallery?.coverImage, gallery?.templateId]);
+  }, [gallery, setCoverMutation, setTemplateBannerMutation]);
 
   // Tab State
   const tabParam = searchParams.get('tab');
@@ -884,14 +902,21 @@ export const GalleryDetailPage: React.FC = () => {
     // 1. Instant optimistic UI feedback
     setOptimisticFavorites((prev) => ({ ...prev, [itemId]: nextFavorite }));
     setFavoritingMediaIds((prev) => new Set(prev).add(itemId));
+    setOptimisticFavoritesCount((prev) => {
+      const base = prev !== null ? prev : resolvedFavoritesCount;
+      return nextFavorite ? base + 1 : Math.max(0, base - 1);
+    });
     toggleMediaFavorite(gallery.id, itemId);
 
     try {
-      await toggleFavoriteMutation.mutateAsync({
+      const res = await toggleFavoriteMutation.mutateAsync({
         mediaId: itemId,
         galleryId: gallery.id,
         isFavorite: nextFavorite,
       });
+      if (typeof res?.favorites_count === 'number') {
+        setOptimisticFavoritesCount(res.favorites_count);
+      }
     } catch (err) {
       console.warn('Favorite API call failed:', err);
     } finally {
@@ -900,6 +925,65 @@ export const GalleryDetailPage: React.FC = () => {
         next.delete(itemId);
         return next;
       });
+    }
+  };
+
+  const handleBulkFavorite = async (targetFavoriteState: boolean) => {
+    if (!gallery || selectedIds.length === 0 || isBulkFavoriting) return;
+
+    const count = selectedIds.length;
+    const isAll = isAllCurrentSelected || count >= (gallery.totalMediaCount || 0);
+    setIsBulkFavoriting(true);
+
+    // 1. Instant optimistic UI feedback across all selected cards and local context
+    const newOptimisticMap: Record<string, boolean> = {};
+    selectedIds.forEach((id) => {
+      newOptimisticMap[id] = targetFavoriteState;
+    });
+    setOptimisticFavorites((prev) => ({ ...prev, ...newOptimisticMap }));
+
+    // 2. Instant optimistic total favorites count update
+    if (targetFavoriteState) {
+      if (isAll) {
+        setOptimisticFavoritesCount(gallery.totalMediaCount || count);
+      } else {
+        setOptimisticFavoritesCount(
+          Math.min(
+            gallery.totalMediaCount || Infinity,
+            Math.max(resolvedFavoritesCount, count)
+          )
+        );
+      }
+    } else {
+      if (isAll) {
+        setOptimisticFavoritesCount(0);
+      } else {
+        setOptimisticFavoritesCount(Math.max(0, resolvedFavoritesCount - count));
+      }
+    }
+
+    bulkToggleMediaFavorite(gallery.id, selectedIds, targetFavoriteState);
+
+    showToast(
+      targetFavoriteState ? 'Liked Selected Photos' : 'Unliked Selected Photos',
+      `${targetFavoriteState ? 'Marked' : 'Removed like from'} ${count} ${count === 1 ? 'photo' : 'photos'}.`,
+      'success'
+    );
+
+    try {
+      const res = await bulkToggleFavoriteMutation.mutateAsync({
+        galleryId: gallery.id,
+        mediaIds: selectedIds,
+        isFavorite: targetFavoriteState,
+        selectAll: isAll,
+      });
+      if (typeof res?.favorites_count === 'number') {
+        setOptimisticFavoritesCount(res.favorites_count);
+      }
+    } catch (err: any) {
+      console.warn('Bulk favorite API sync failed:', err);
+    } finally {
+      setIsBulkFavoriting(false);
     }
   };
 
@@ -1057,7 +1141,7 @@ export const GalleryDetailPage: React.FC = () => {
     if (!gallery) return 0;
     if (dashboardSectionFilter === 'all') {
       if (showFavoritesOnly) {
-        return gallery.favoritesCount ?? gallery.media.filter((m) => m.isFavorite).length;
+        return resolvedFavoritesCount;
       }
       return gallery.totalMediaCount || gallery.media.length;
     }
@@ -1067,10 +1151,13 @@ export const GalleryDetailPage: React.FC = () => {
       gallery.sectionCounts?.[dashboardSectionFilter.toUpperCase()] ??
       gallery.sectionCounts?.[secKey];
     if (countFromRecord !== undefined) {
+      if (showFavoritesOnly) {
+        return Math.min(countFromRecord, resolvedFavoritesCount);
+      }
       return countFromRecord;
     }
     return currentFilteredMedia.length;
-  }, [gallery, dashboardSectionFilter, showFavoritesOnly, currentFilteredMedia.length]);
+  }, [gallery, dashboardSectionFilter, showFavoritesOnly, resolvedFavoritesCount, currentFilteredMedia.length]);
 
   const isAllCurrentSelected =
     totalMatchingCount > 0 && selectedIds.length >= totalMatchingCount;
@@ -1402,6 +1489,7 @@ export const GalleryDetailPage: React.FC = () => {
         <div className="space-y-4 -mt-3 sm:-mt-4">
           <GallerySectionControlBar
             gallery={gallery}
+            totalFavoritesCount={resolvedFavoritesCount}
             selectedIds={selectedIds}
             dashboardSectionFilter={dashboardSectionFilter}
             showFavoritesOnly={showFavoritesOnly}
@@ -1523,6 +1611,38 @@ export const GalleryDetailPage: React.FC = () => {
               Clear
             </button>
 
+            {/* Bulk Like Selected Photos */}
+            <button
+              type="button"
+              onClick={() => handleBulkFavorite(true)}
+              disabled={isBulkFavoriting}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-400 border border-rose-500/30 text-xs font-mono font-bold transition-all cursor-pointer active:scale-95 shrink-0 whitespace-nowrap disabled:opacity-50"
+              title="Mark all selected photos as Liked"
+            >
+              {isBulkFavoriting ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-rose-400" />
+              ) : (
+                <Heart className="w-3.5 h-3.5 fill-rose-500 text-rose-500" />
+              )}
+              <span>Like ({selectedIds.length})</span>
+            </button>
+
+            {/* Bulk Unlike Selected Photos */}
+            <button
+              type="button"
+              onClick={() => handleBulkFavorite(false)}
+              disabled={isBulkFavoriting}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white border border-neutral-700 text-xs font-mono font-medium transition-all cursor-pointer active:scale-95 shrink-0 whitespace-nowrap disabled:opacity-50"
+              title="Remove Like from all selected photos"
+            >
+              {isBulkFavoriting ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-neutral-400" />
+              ) : (
+                <HeartOff className="w-3.5 h-3.5 text-neutral-400 hover:text-rose-400" />
+              )}
+              <span>Unlike ({selectedIds.length})</span>
+            </button>
+
             {/* Download Selected Photos / Archive */}
             <button
               type="button"
@@ -1622,6 +1742,11 @@ export const GalleryDetailPage: React.FC = () => {
           watermarkOpacity={gallery.watermark_opacity}
           watermarkPosition={gallery.watermark_position}
           watermarkImage={gallery.watermark_image}
+          watermarkType={gallery.watermark_type}
+          watermarkFontSize={gallery.watermark_font_size}
+          watermarkFontColor={gallery.watermark_font_color}
+          watermarkFontStyle={gallery.watermark_font_style}
+          theme={gallery.templateId || 'editorial'}
         />
       )}
 

@@ -35,8 +35,8 @@ export const TrackGalleryActivityApi = async (
   payload: TrackGalleryActivityPayload
 ): Promise<TrackGalleryActivityResponse> => {
   try {
-    return await CommonApi('POST', `/api/public/galleries/${galleryId}/track-activity/`, payload);
+    return await CommonApi<TrackGalleryActivityResponse>('POST', `/api/public/galleries/${galleryId}/track-activity/`, payload);
   } catch {
-    return await CommonApi('POST', `/api/galleries/${galleryId}/track-activity/`, payload);
+    return await CommonApi<TrackGalleryActivityResponse>('POST', `/api/galleries/${galleryId}/track-activity/`, payload);
   }
 };

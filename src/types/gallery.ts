@@ -44,9 +44,21 @@ export interface Gallery {
   watermark_enabled?: boolean;
   watermarkEnabled?: boolean;
   watermark_text?: string;
+  watermarkText?: string;
   watermark_opacity?: number;
+  watermarkOpacity?: number;
   watermark_position?: 'bottom-right' | 'bottom-left' | 'top-right' | 'center' | 'tiled' | string;
+  watermarkPosition?: 'bottom-right' | 'bottom-left' | 'top-right' | 'center' | 'tiled' | string;
   watermark_image?: string | null;
+  watermarkImage?: string | null;
+  watermark_type?: 'text' | 'image' | string;
+  watermarkType?: 'text' | 'image' | string;
+  watermark_font_size?: 'sm' | 'md' | 'lg' | 'xl' | string;
+  watermarkFontSize?: 'sm' | 'md' | 'lg' | 'xl' | string;
+  watermark_font_color?: string;
+  watermarkFontColor?: string;
+  watermark_font_style?: 'serif' | 'sans' | 'script' | 'mono' | string;
+  watermarkFontStyle?: 'serif' | 'sans' | 'script' | 'mono' | string;
   media: MediaItem[];
   sections?: string[]; // Custom section titles created by photographer
   viewsCount: number;

@@ -179,6 +179,7 @@ const EVENT_TYPES: { id: InquiryEventType | 'all'; label: string }[] = [
   { id: 'commercial', label: 'Commercial' },
   { id: 'maternity', label: 'Maternity' },
   { id: 'portrait', label: 'Portrait' },
+  { id: 'workshop', label: 'Workshop / Mentorship' },
 ];
 
 const EventTypeDropdown: React.FC<{
@@ -261,7 +262,7 @@ export const InquiriesPage: React.FC = () => {
   const { showToast } = useToast();
 
   const { data: apiData, isLoading, isError, refetch } = useInquiries();
-  const { mutate: updateStatusApi, isPending: isUpdatingStatus } = useUpdateInquiryStatus();
+  const { mutate: updateStatusApi } = useUpdateInquiryStatus();
   const { mutate: deleteInquiryApi, isPending: isDeletingInquiry } = useDeleteInquiry();
   const planQuota = usePlanQuota();
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
@@ -271,10 +272,34 @@ export const InquiriesPage: React.FC = () => {
   const [typeFilter, setTypeFilter] = useState<InquiryEventType | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Sync inquiries from real API whenever available
+  // Sync inquiries from real API whenever available (handles Django snake_case & list shapes)
   useEffect(() => {
-    if (apiData?.inquiries && Array.isArray(apiData.inquiries)) {
-      setInquiries(apiData.inquiries as any);
+    if (apiData) {
+      const list = Array.isArray(apiData)
+        ? apiData
+        : Array.isArray((apiData as any).inquiries)
+        ? (apiData as any).inquiries
+        : Array.isArray((apiData as any).results)
+        ? (apiData as any).results
+        : [];
+      if (list.length > 0) {
+        const mapped: PortfolioInquiry[] = list.map((item: any) => ({
+          id: item.id || `inq-${Date.now()}`,
+          clientName: item.clientName || item.client_name || item.name || 'Anonymous Client',
+          clientEmail: item.clientEmail || item.client_email || item.email || '',
+          clientPhone: item.clientPhone || item.client_phone || item.phone || '',
+          eventType: item.eventType || item.event_type || item.service || 'wedding',
+          eventDate: item.eventDate || item.event_date || '',
+          location: item.location || item.city || '',
+          guestCount: item.guestCount || item.guest_count,
+          estimatedBudget: item.estimatedBudget || item.estimated_budget || item.budget,
+          message: item.message || item.notes || '',
+          status: (item.status as InquiryStatus) || 'new',
+          createdAt: item.createdAt || item.created_at || new Date().toISOString(),
+          isRestricted: Boolean(item.isRestricted ?? item.is_restricted),
+        }));
+        setInquiries(mapped);
+      }
     }
   }, [apiData]);
 
@@ -345,12 +370,12 @@ export const InquiriesPage: React.FC = () => {
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
               <h4 className="text-sm font-semibold text-amber-400 tracking-tight">
-                Inquiry Detail Mask Active ({planQuota.planName})
+                Inquiry Detail Mask Active ({planQuota.planName} • {planQuota.inquiryAccessDisplay})
               </h4>
             </div>
             <p className="text-xs text-neutral-300 mt-1 max-w-xl leading-relaxed">
               {apiData?.upgrade_prompt ||
-                `Contact details for leads past your current plan limit are masked. Upgrade your studio subscription to unlock direct client phone numbers, emails, and full inquiry tracking.`}
+                `First ${planQuota.maxInquiries || 10} client inquiries include full phone numbers and direct communication links. Leads past this limit have contact details masked. Upgrade your plan to unlock full unmasked access to all leads.`}
             </p>
           </div>
           <button
@@ -358,7 +383,7 @@ export const InquiriesPage: React.FC = () => {
             onClick={() => setIsUpgradeModalOpen(true)}
             className="px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 text-xs font-bold whitespace-nowrap shadow-md shadow-amber-400/10 transition-transform active:scale-95 cursor-pointer"
           >
-            Upgrade Plan Tier
+            Upgrade Studio Plan
           </button>
         </div>
       )}
@@ -569,10 +594,15 @@ export const InquiriesPage: React.FC = () => {
             </p>
           </div>
         ) : (
-          filteredInquiries.map((inq) => (
-            <div
-              key={inq.id}
-              className={`p-5 sm:p-6 rounded-3xl bg-white dark:bg-[#13141b]/95 border transition-all space-y-4 shadow-xs ${
+          filteredInquiries.map((inq, index) => {
+            const isLeadLocked = Boolean(
+              inq.is_locked ||
+              (!planQuota.hasFullInquiryAccess && planQuota.maxInquiries > 0 && index >= planQuota.maxInquiries)
+            );
+            return (
+              <div
+                key={inq.id}
+                className={`p-5 sm:p-6 rounded-3xl bg-white dark:bg-[#13141b]/95 border transition-all space-y-4 shadow-xs ${
                 inq.status === 'new'
                   ? 'border-purple-500/50 shadow-purple-500/5 ring-1 ring-purple-500/20'
                   : 'border-neutral-200 dark:border-neutral-800/90 hover:border-neutral-300 dark:hover:border-neutral-700'
@@ -656,7 +686,7 @@ export const InquiriesPage: React.FC = () => {
                   </span>
                   <span className="font-semibold text-neutral-800 dark:text-neutral-200 flex items-center gap-1.5 mt-0.5">
                     <Phone className="w-3.5 h-3.5 text-blue-500" />
-                    <span>{inq.is_locked ? '+91 **********' : inq.clientPhone || 'None provided'}</span>
+                    <span>{isLeadLocked ? '+91 **********' : inq.clientPhone || 'None provided'}</span>
                   </span>
                 </div>
               </div>
@@ -673,18 +703,19 @@ export const InquiriesPage: React.FC = () => {
 
               {/* Bottom Row: Communication Triggers */}
               <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-neutral-100 dark:border-neutral-800/60">
-                {inq.is_locked ? (
+                {isLeadLocked ? (
                   <div className="flex items-center gap-2">
                     <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20 text-xs font-semibold">
                       <Lock className="w-3.5 h-3.5" />
-                      <span>Contact Details Gated on Standard Quarterly</span>
+                      <span>Contact Details Gated on {planQuota.planName}</span>
                     </span>
-                    <Link
-                      to="/dashboard/settings"
-                      className="px-3.5 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 font-bold text-xs shadow-xs"
+                    <button
+                      type="button"
+                      onClick={() => setIsUpgradeModalOpen(true)}
+                      className="px-3.5 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 font-bold text-xs shadow-xs cursor-pointer active:scale-95 transition-all"
                     >
                       Upgrade to Reveal
-                    </Link>
+                    </button>
                   </div>
                 ) : (
                   <div className="flex items-center gap-2">
@@ -721,12 +752,13 @@ export const InquiriesPage: React.FC = () => {
                 )}
 
                 <span className="text-[11px] font-mono text-neutral-400">
-                  Client: {inq.is_locked ? '********@*****.com' : inq.clientEmail}
+                  Client: {isLeadLocked ? '********@*****.com' : inq.clientEmail}
                 </span>
               </div>
             </div>
-          ))
-        )}
+          );
+        })
+      )}
       </div>
 
       <PlanUpgradeModal

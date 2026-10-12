@@ -40,7 +40,10 @@ function seedGalleryAnalytics(gallery: Gallery): GalleryAnalyticsData {
   const uniqueVisitors = Math.round(baseViews * 0.68);
   const photoImpressions = baseViews * Math.max(gallery.media.length > 0 ? 12 : 5, 8);
   const fullZipDownloads = Math.max(1, Math.round(baseDownloads * 0.35));
-  const favoritesCount = gallery.media.filter((m) => m.isFavorite).length || Math.round(baseViews * 0.15);
+  const favoritesCount =
+    typeof gallery.favoritesCount === 'number' && gallery.favoritesCount >= 0
+      ? gallery.favoritesCount
+      : gallery.media.filter((m) => m.isFavorite).length || Math.round(baseViews * 0.15);
   const sharesCount = Math.round(baseViews * 0.08) + 2;
 
   // Generate 30 days timeline

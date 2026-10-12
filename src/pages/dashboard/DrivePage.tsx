@@ -812,7 +812,7 @@ export const GalleryPage: React.FC = () => {
       ) : viewMode === 'grid' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6 stagger">
           {filteredGalleries.map((gal) => {
-            const { photos, videos, sizeMB, sizeFormatted } = getGalleryStats(gal);
+            const { photos, videos, sizeFormatted } = getGalleryStats(gal);
 
             return (
               <div
@@ -1071,7 +1071,7 @@ export const GalleryPage: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800/60">
               {filteredGalleries.map((gal) => {
-                const { photos, videos, sizeMB, sizeFormatted } = getGalleryStats(gal);
+                const { photos, videos, sizeFormatted } = getGalleryStats(gal);
                 return (
                   <tr
                     key={gal.id}

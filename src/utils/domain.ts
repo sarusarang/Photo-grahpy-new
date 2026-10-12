@@ -87,3 +87,5 @@ export const getEventShareUrl = (eventIdOrSlug: string): string => {
   const clean = encodeURIComponent(String(eventIdOrSlug || '').trim());
   return `${getFrontendBaseUrl()}/events/${clean}`;
 };
+
+export { getSubdomainPublicUrl } from './tenantResolver';

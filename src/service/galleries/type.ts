@@ -57,6 +57,10 @@ export interface BulkUploadGalleryMediaResponse {
   storage_usage?: any;
 }
 
+export interface DeleteGalleryMediaResponse {
+  success: boolean;
+}
+
 export interface BulkDeleteGalleryMediaResponse {
   deleted_count: number;
   freed_bytes: number;
@@ -65,6 +69,15 @@ export interface BulkDeleteGalleryMediaResponse {
 export interface ToggleMediaFavoriteResponse {
   id?: string;
   is_favorite: boolean;
+  favorites_count?: number;
+}
+
+export interface BulkToggleMediaFavoriteResponse {
+  status?: string;
+  message?: string;
+  updated_count: number;
+  is_favorite: boolean;
+  media_ids?: string[];
   favorites_count?: number;
 }
 

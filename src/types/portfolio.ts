@@ -34,7 +34,13 @@ export interface PortfolioConfig {
   philosophyQuote: string;
   philosophyAuthor: string;
   accentColor?: string;
+  subdomain?: string | null;
+  customDomain?: string | null;
   featuredWorks: PortfolioProject[];
+  whatsappEnabled?: boolean;
+  whatsappNumber?: string;
+  whatsappPrefillMessage?: string;
+  whatsappButtonLabel?: string;
 }
 
 export interface PortfolioAnalytics {

@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { usePlanQuota } from '@/hooks/usePlanQuota';
 import { useResumeSubscription } from '@/service/plans/usePlans';
 import {
-  AlertTriangle,
   RotateCcw,
   ArrowRight,
   X,

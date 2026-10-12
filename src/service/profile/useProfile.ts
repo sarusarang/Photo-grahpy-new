@@ -18,6 +18,7 @@ import type {
   UpdatePersonalInformationResponse,
   UploadAvatarResponse,
   RemoveAvatarResponse,
+  UpdateWatermarkPayload,
 } from './type';
 
 // Query for current onboarding state
@@ -168,17 +169,7 @@ export const useRemoveProfileAvatar = () => {
 export const useUpdateWatermark = () => {
   const queryClient = useQueryClient();
 
-  return useMutation<
-    any,
-    Error,
-    {
-      enable_watermark?: boolean;
-      watermark_text?: string;
-      watermark_opacity?: number;
-      watermark_position?: string;
-      watermark_image?: File;
-    }
-  >({
+  return useMutation<any, Error, UpdateWatermarkPayload>({
     mutationFn: async (payload) => {
       return await UpdateWatermarkApi(payload);
     },

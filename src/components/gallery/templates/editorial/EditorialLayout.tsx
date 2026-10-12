@@ -53,6 +53,10 @@ export const EditorialLayout: React.FC<TemplateLayoutProps> = ({
   const watermarkText =
     gallery.watermark_text ||
     (resolvedPhotographer.startsWith('©') ? resolvedPhotographer : `© ${resolvedPhotographer}`);
+  const watermarkType = gallery.watermark_type || gallery.watermarkType;
+  const watermarkFontSize = gallery.watermark_font_size || gallery.watermarkFontSize;
+  const watermarkFontColor = gallery.watermark_font_color || gallery.watermarkFontColor;
+  const watermarkFontStyle = gallery.watermark_font_style || gallery.watermarkFontStyle;
 
   return (
     <div className="min-h-screen bg-white text-neutral-900 font-sans selection:bg-neutral-900 selection:text-white">
@@ -67,6 +71,10 @@ export const EditorialLayout: React.FC<TemplateLayoutProps> = ({
         watermarkOpacity={gallery.watermark_opacity}
         watermarkPosition={gallery.watermark_position}
         watermarkImage={gallery.watermark_image}
+        watermarkType={watermarkType}
+        watermarkFontSize={watermarkFontSize}
+        watermarkFontColor={watermarkFontColor}
+        watermarkFontStyle={watermarkFontStyle}
       />
 
       {/* ─── FILTER & SECTION NAVIGATION ─── */}
@@ -123,6 +131,10 @@ export const EditorialLayout: React.FC<TemplateLayoutProps> = ({
         watermarkOpacity={gallery.watermark_opacity}
         watermarkPosition={gallery.watermark_position}
         watermarkImage={gallery.watermark_image}
+        watermarkType={watermarkType}
+        watermarkFontSize={watermarkFontSize}
+        watermarkFontColor={watermarkFontColor}
+        watermarkFontStyle={watermarkFontStyle}
       />
 
       {/* ─── FOOTER ─── */}

@@ -53,6 +53,10 @@ export const MinimalLayout: React.FC<TemplateLayoutProps> = ({
   const watermarkText =
     gallery.watermark_text ||
     (resolvedPhotographer.startsWith('©') ? resolvedPhotographer : `© ${resolvedPhotographer}`);
+  const watermarkType = gallery.watermark_type || gallery.watermarkType;
+  const watermarkFontSize = gallery.watermark_font_size || gallery.watermarkFontSize;
+  const watermarkFontColor = gallery.watermark_font_color || gallery.watermarkFontColor;
+  const watermarkFontStyle = gallery.watermark_font_style || gallery.watermarkFontStyle;
 
   return (
     <div className="min-h-screen bg-[#F5F5F2] text-neutral-900 font-sans selection:bg-neutral-900 selection:text-white">
@@ -67,6 +71,10 @@ export const MinimalLayout: React.FC<TemplateLayoutProps> = ({
         watermarkOpacity={gallery.watermark_opacity}
         watermarkPosition={gallery.watermark_position}
         watermarkImage={gallery.watermark_image}
+        watermarkType={watermarkType}
+        watermarkFontSize={watermarkFontSize}
+        watermarkFontColor={watermarkFontColor}
+        watermarkFontStyle={watermarkFontStyle}
       />
 
       {/* ─── ARCHIVAL FILTER BAR ─── */}
@@ -125,6 +133,10 @@ export const MinimalLayout: React.FC<TemplateLayoutProps> = ({
         watermarkOpacity={gallery.watermark_opacity}
         watermarkPosition={gallery.watermark_position}
         watermarkImage={gallery.watermark_image}
+        watermarkType={watermarkType}
+        watermarkFontSize={watermarkFontSize}
+        watermarkFontColor={watermarkFontColor}
+        watermarkFontStyle={watermarkFontStyle}
       />
 
       {/* ─── SCANDINAVIAN ARCHITECTURAL FOOTER ─── */}

@@ -1,5 +1,10 @@
 import { CommonApi } from '@/lib/CommonApi';
 import type { Gallery } from '@/types/atelier';
+import type {
+  VerifyGalleryPinResponse,
+  TrackGalleryViewResponse,
+  TrackGalleryFavoriteResponse,
+} from './type';
 
 /**
  * 1. Retrieve Public Client Gallery (no auth required)
@@ -16,8 +21,8 @@ export const GetPublicGalleryApi = async (slugOrId: string): Promise<Gallery> =>
 export const VerifyGalleryPinApi = async (
   slugOrId: string,
   pin: string
-): Promise<{ status: string; gallery: Gallery; token?: string }> => {
-  return CommonApi('POST', `/api/public/galleries/${slugOrId}/verify-pin/`, { pin });
+): Promise<VerifyGalleryPinResponse> => {
+  return CommonApi<VerifyGalleryPinResponse>('POST', `/api/public/galleries/${slugOrId}/verify-pin/`, { pin });
 };
 
 /**
@@ -28,8 +33,8 @@ export const TrackGalleryViewApi = async (
   slugOrId: string,
   device: 'desktop' | 'mobile' | 'tablet' = 'desktop',
   referrer: string = 'direct'
-): Promise<{ success: boolean }> => {
-  return CommonApi('POST', `/api/public/galleries/${slugOrId}/track-view/`, { device, referrer });
+): Promise<TrackGalleryViewResponse> => {
+  return CommonApi<TrackGalleryViewResponse>('POST', `/api/public/galleries/${slugOrId}/track-view/`, { device, referrer });
 };
 
 /**
@@ -40,8 +45,8 @@ export const TrackGalleryFavoriteApi = async (
   slugOrId: string,
   mediaId: string,
   isFavorite: boolean = true
-): Promise<{ status: string; is_favorite: boolean }> => {
-  return CommonApi('POST', `/api/public/galleries/${slugOrId}/favorite/`, {
+): Promise<TrackGalleryFavoriteResponse> => {
+  return CommonApi<TrackGalleryFavoriteResponse>('POST', `/api/public/galleries/${slugOrId}/favorite/`, {
     media_id: mediaId,
     is_favorite: isFavorite,
   });

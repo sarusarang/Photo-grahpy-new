@@ -14,6 +14,7 @@ import {
   UploadReloadWarningModal,
   type ActiveUploadItem,
 } from '../components/common/UploadReloadWarningModal';
+import type { UploadProgressMetrics } from '../utils/batchUploadRunner';
 
 export type { ActiveUploadItem as ActiveUploadTask };
 
@@ -28,6 +29,7 @@ export interface UploadContextType {
   isMinimized: boolean;
   uploadProgress: number;
   uploadStatusText: string;
+  uploadMetrics: UploadProgressMetrics | null;
   queuedFilesCount: number;
 
   openUploadModal: (galleryId: string, galleryTitle?: string) => boolean;
@@ -64,6 +66,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadStatusText, setUploadStatusText] = useState('');
+  const [uploadMetrics, setUploadMetrics] = useState<UploadProgressMetrics | null>(null);
   const [queuedFilesCount, setQueuedFilesCount] = useState(0);
 
   const activeAbortControllerRef = useRef<AbortController | null>(null);
@@ -244,6 +247,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setUploadingGalleryTitle(null);
     setUploadProgress(0);
     setUploadStatusText('');
+    setUploadMetrics(null);
     setIsMinimized(false);
     setIsUploadModalOpen(false);
     setActiveGalleryId(null);
@@ -260,9 +264,12 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setQueuedFilesCount(count);
   }, [activeGalleryId, activeGalleryTitle]);
 
-  const handleUploadProgress = useCallback((percent: number, statusText: string) => {
+  const handleUploadProgress = useCallback((percent: number, statusText: string, metrics?: UploadProgressMetrics) => {
     setUploadProgress(percent);
     setUploadStatusText(statusText);
+    if (metrics) {
+      setUploadMetrics(metrics);
+    }
   }, []);
 
   const handleUploadComplete = useCallback(() => {
@@ -273,6 +280,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setUploadingGalleryTitle(null);
     setUploadProgress(0);
     setUploadStatusText('');
+    setUploadMetrics(null);
     setIsMinimized(false);
     setIsUploadModalOpen(false);
     setActiveGalleryId(null);
@@ -292,6 +300,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         isMinimized,
         uploadProgress,
         uploadStatusText,
+        uploadMetrics,
         queuedFilesCount,
         openUploadModal,
         closeUploadModal,

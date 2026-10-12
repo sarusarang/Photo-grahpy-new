@@ -188,6 +188,55 @@ export const normalizeServerGallery = (g: any): Gallery => {
         : `${(totalSizeBytes / (1024 * 1024)).toFixed(1)} MB`
       : undefined);
 
+  // Strict Watermark Mode & Assets Resolution:
+  // Defaults to 'text' mode unless explicitly configured as 'image'.
+  const rawWatermarkType =
+    g.watermark_type ||
+    g.watermarkType ||
+    g.watermark_config?.type ||
+    g.photographer?.watermark_type ||
+    g.photographer?.watermarkType;
+  const resolvedWatermarkType = rawWatermarkType === 'image' ? 'image' : 'text';
+
+  const rawWatermarkImage =
+    g.watermark_image ||
+    g.watermarkImage ||
+    g.watermark_image_url ||
+    g.watermark_config?.image_url ||
+    g.watermark_config?.image ||
+    g.photographer?.watermark_image ||
+    g.photographer?.watermarkImage ||
+    null;
+
+  // Strict "One at a Time" rule:
+  // If active mode is 'text', watermarkImage MUST be null so image logo NEVER displays over text.
+  // If active mode is 'image', watermarkImage is preserved.
+  const resolvedWatermarkImage = resolvedWatermarkType === 'image' ? rawWatermarkImage : null;
+
+  const resolvedWatermarkFontSize =
+    g.watermark_font_size ||
+    g.watermarkFontSize ||
+    g.watermark_config?.font_size ||
+    g.photographer?.watermark_font_size ||
+    g.photographer?.watermarkFontSize ||
+    'md';
+
+  const resolvedWatermarkFontColor =
+    g.watermark_font_color ||
+    g.watermarkFontColor ||
+    g.watermark_config?.font_color ||
+    g.photographer?.watermark_font_color ||
+    g.photographer?.watermarkFontColor ||
+    '#FFFFFF';
+
+  const resolvedWatermarkFontStyle =
+    g.watermark_font_style ||
+    g.watermarkFontStyle ||
+    g.watermark_config?.font_style ||
+    g.photographer?.watermark_font_style ||
+    g.photographer?.watermarkFontStyle ||
+    'serif';
+
   return {
     id: galleryId,
     slug: g.slug || galleryId,
@@ -252,20 +301,47 @@ export const normalizeServerGallery = (g: any): Gallery => {
     watermark_opacity:
       typeof g.watermark_opacity === 'number'
         ? g.watermark_opacity
-        : typeof g.watermark_config?.opacity === 'number'
-          ? g.watermark_config.opacity
-          : 0.45,
+        : typeof g.watermarkOpacity === 'number'
+          ? g.watermarkOpacity
+          : typeof g.watermark_config?.opacity === 'number'
+            ? g.watermark_config.opacity
+            : typeof g.photographer?.watermark_opacity === 'number'
+              ? g.photographer.watermark_opacity
+              : 0.45,
+    watermarkOpacity:
+      typeof g.watermark_opacity === 'number'
+        ? g.watermark_opacity
+        : typeof g.watermarkOpacity === 'number'
+          ? g.watermarkOpacity
+          : typeof g.watermark_config?.opacity === 'number'
+            ? g.watermark_config.opacity
+            : typeof g.photographer?.watermark_opacity === 'number'
+              ? g.photographer.watermark_opacity
+              : 0.45,
     watermark_position:
       g.watermark_position ||
       g.watermarkPosition ||
       g.watermark_config?.position ||
+      g.photographer?.watermark_position ||
+      g.photographer?.watermarkPosition ||
       'bottom-right',
-    watermark_image:
-      g.watermark_image ||
-      g.watermarkImage ||
-      g.watermark_image_url ||
-      g.watermark_config?.image_url ||
-      null,
+    watermarkPosition:
+      g.watermark_position ||
+      g.watermarkPosition ||
+      g.watermark_config?.position ||
+      g.photographer?.watermark_position ||
+      g.photographer?.watermarkPosition ||
+      'bottom-right',
+    watermark_image: resolvedWatermarkImage,
+    watermarkImage: resolvedWatermarkImage,
+    watermark_type: resolvedWatermarkType,
+    watermarkType: resolvedWatermarkType,
+    watermark_font_size: resolvedWatermarkFontSize,
+    watermarkFontSize: resolvedWatermarkFontSize,
+    watermark_font_color: resolvedWatermarkFontColor,
+    watermarkFontColor: resolvedWatermarkFontColor,
+    watermark_font_style: resolvedWatermarkFontStyle,
+    watermarkFontStyle: resolvedWatermarkFontStyle,
     expiresAt: g.expires_at !== undefined ? g.expires_at : (g.expiresAt !== undefined ? g.expiresAt : null),
     isExpired: Boolean(g.is_expired ?? g.isExpired ?? false),
     viewsCount: g.views_count ?? g.viewsCount ?? 0,

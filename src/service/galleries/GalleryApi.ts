@@ -1,10 +1,29 @@
 import { CommonApi } from '@/lib/CommonApi';
 import { getUploadBatchSize } from '@/utils/uploadConfig';
+import { executeBatchUpload } from '@/utils/batchUploadRunner';
 import type { Gallery, GalleryTemplateId, MediaItem } from '@/types/atelier';
 import type {
   GalleryFilterParams,
   CreateGalleryPayload,
   GalleryDetailQueryParams,
+  DeleteGalleryResponse,
+  MoveMediaToSectionResponse,
+  BulkUploadGalleryMediaResponse,
+  DeleteGalleryMediaResponse,
+  BulkDeleteGalleryMediaResponse,
+  ToggleMediaFavoriteResponse,
+  BulkToggleMediaFavoriteResponse,
+  SetGalleryCoverImageResponse,
+  SetMasonrySlotBannerResponse,
+  AddGallerySectionResponse,
+  DeleteGallerySectionResponse,
+  RenameGallerySectionResponse,
+  GetGalleryShareDetailsResponse,
+  SetGalleryTemplateResponse,
+  SetGalleryTemplateBannerResponse,
+  ReorderGalleryMediaResponse,
+  ReorderGallerySectionsResponse,
+  TrackGalleryAnalyticsEventResponse,
 } from './type';
 
 export * from './type';
@@ -69,9 +88,9 @@ export const UpdateGalleryApi = async (id: string, updates: Partial<Gallery>): P
 export const DeleteGalleryApi = async (
   id: string,
   permanent: boolean = false
-): Promise<{ success: boolean; message: string; status?: string }> => {
+): Promise<DeleteGalleryResponse> => {
   const query = permanent ? '?permanent=true' : '';
-  return CommonApi('DELETE', `/api/galleries/${id}/${query}`);
+  return CommonApi<DeleteGalleryResponse>('DELETE', `/api/galleries/${id}/${query}`);
 };
 
 /**
@@ -109,8 +128,8 @@ export const MoveMediaToSectionApi = async (
   galleryId: string,
   mediaIds: string[],
   targetSection: string
-): Promise<{ status: string; updated_count: number; section: string }> => {
-  return CommonApi('POST', `/api/galleries/${galleryId}/media/move-section/`, {
+): Promise<MoveMediaToSectionResponse> => {
+  return CommonApi<MoveMediaToSectionResponse>('POST', `/api/galleries/${galleryId}/media/move-section/`, {
     media_ids: mediaIds,
     target_section: targetSection,
   });
@@ -174,186 +193,105 @@ export const BulkUploadGalleryMediaApi = async (
   files: File[],
   sectionTitle?: string,
   type?: 'photo' | 'video',
-  onProgress?: (percent: number, statusText?: string) => void,
-  signal?: AbortSignal
-): Promise<{ message?: string; total_uploaded: number; media: MediaItem[]; storage_usage?: any }> => {
+  onProgress?: (percent: number, statusText?: string, metrics?: any) => void,
+  signal?: AbortSignal,
+  pauseController?: import('@/utils/batchUploadRunner').BatchUploadPauseController
+): Promise<BulkUploadGalleryMediaResponse> => {
   if (!files || files.length === 0) {
     return { message: 'No files to upload', total_uploaded: 0, media: [] };
   }
 
   const isVideoBatch = type === 'video' || files.some((f) => f.type.startsWith('video/'));
-  // Dynamic batch size from .env (VITE_UPLOAD_BATCH_SIZE / VITE_VIDEO_UPLOAD_BATCH_SIZE)
+  // Dynamic batch size from .env / .env.local (VITE_UPLOAD_BATCH_SIZE / VITE_VIDEO_UPLOAD_BATCH_SIZE)
   const BATCH_SIZE = getUploadBatchSize(isVideoBatch);
-
-  const uploadChunk = async (
-    chunkFiles: File[],
-    onChunkProgress?: (percent: number) => void
-  ): Promise<{ message?: string; total_uploaded: number; media: MediaItem[]; storage_usage?: any }> => {
-    const formData = new FormData();
-    let hasVideo = false;
-    let hasPhoto = false;
-
-    chunkFiles.forEach((f) => {
-      const isVideo =
-        type === 'video' ||
-        f.type.startsWith('video/') ||
-        /\.(mp4|mov|webm|mkv|avi|m4v|3gp)$/i.test(f.name);
-
-      if (isVideo) {
-        formData.append('videos', f);
-        hasVideo = true;
-      } else {
-        formData.append('photos', f);
-        hasPhoto = true;
-      }
-    });
-
-    if (sectionTitle) formData.append('section_title', sectionTitle);
-    if (type) {
-      formData.append('type', type);
-    } else if (hasVideo && !hasPhoto) {
-      formData.append('type', 'video');
-    } else if (hasPhoto && !hasVideo) {
-      formData.append('type', 'photo');
-    }
-
-    const res = await CommonApi<any>(
-      'POST',
-      `/api/galleries/${galleryId}/upload/`,
-      formData,
-      {
-        timeout: 300000,
-        signal,
-        onUploadProgress: (progressEvent) => {
-          if (progressEvent.total && onChunkProgress) {
-            const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-            onChunkProgress(percent);
-          }
-        },
-      }
-    );
-
-    let mediaList: any[] = [];
-    if (Array.isArray(res)) {
-      mediaList = res;
-    } else if (res && Array.isArray(res.media)) {
-      mediaList = res.media;
-    } else if (res && Array.isArray(res.data)) {
-      mediaList = res.data;
-    } else if (res && res.id) {
-      mediaList = [res];
-    } else if (res && res.data && res.data.id) {
-      mediaList = [res.data];
-    }
-
-    return {
-      message: res?.message,
-      total_uploaded: res?.total_uploaded ?? mediaList.length,
-      media: mediaList,
-      storage_usage: res?.storage_usage,
-    };
-  };
-
-  // If the total files fit within a single batch, execute directly
-  if (files.length <= BATCH_SIZE) {
-    return await uploadChunk(files, (percent) => {
-      onProgress?.(percent, `Uploading ${files.length} item(s): ${percent}%`);
-    });
-  }
-
-  // Multi-batch pipeline for large uploads (e.g. 50, 100, 500+ items)
-  const chunks: File[][] = [];
-  for (let i = 0; i < files.length; i += BATCH_SIZE) {
-    chunks.push(files.slice(i, i + BATCH_SIZE));
-  }
-  const totalChunks = chunks.length;
 
   const allMedia: MediaItem[] = [];
   let totalUploaded = 0;
   let lastStorageUsage: any = undefined;
   let lastMessage: string | undefined = undefined;
 
-  for (let i = 0; i < totalChunks; i++) {
-    if (signal?.aborted) {
-      const cancelErr: any = new Error('Upload cancelled by user');
-      cancelErr.name = 'AbortError';
-      if (allMedia.length > 0) cancelErr.uploadedMedia = allMedia;
-      throw cancelErr;
-    }
+  await executeBatchUpload<
+    File,
+    BulkUploadGalleryMediaResponse
+  >({
+    items: files,
+    batchSize: BATCH_SIZE,
+    itemLabel: isVideoBatch ? 'video' : 'photo',
+    signal,
+    pauseController,
+    onProgress,
+    uploadBatch: async (chunkFiles, onChunkProgress) => {
+      const formData = new FormData();
+      let hasVideo = false;
+      let hasPhoto = false;
 
-    const chunkFiles = chunks[i];
-    const chunkStart = i * BATCH_SIZE + 1;
-    const chunkEnd = Math.min(files.length, (i + 1) * BATCH_SIZE);
+      chunkFiles.forEach((f) => {
+        const isVideo =
+          type === 'video' ||
+          f.type.startsWith('video/') ||
+          /\.(mp4|mov|webm|mkv|avi|m4v|3gp)$/i.test(f.name);
 
-    onProgress?.(
-      Math.round((i / totalChunks) * 100),
-      `Uploading batch ${i + 1} of ${totalChunks} (${chunkStart}–${chunkEnd} of ${files.length})...`
-    );
+        if (isVideo) {
+          formData.append('videos', f);
+          hasVideo = true;
+        } else {
+          formData.append('photos', f);
+          hasPhoto = true;
+        }
+      });
 
-    let attempt = 0;
-    let success = false;
-    let lastError: any = null;
-
-    while (attempt < 2 && !success) {
-      if (signal?.aborted) {
-        const cancelErr: any = new Error('Upload cancelled by user');
-        cancelErr.name = 'AbortError';
-        if (allMedia.length > 0) cancelErr.uploadedMedia = allMedia;
-        throw cancelErr;
+      if (sectionTitle) formData.append('section_title', sectionTitle);
+      if (type) {
+        formData.append('type', type);
+      } else if (hasVideo && !hasPhoto) {
+        formData.append('type', 'video');
+      } else if (hasPhoto && !hasVideo) {
+        formData.append('type', 'photo');
       }
 
-      attempt++;
-      try {
-        const chunkRes = await uploadChunk(chunkFiles, (chunkPercent) => {
-          const overall = Math.min(
-            99,
-            Math.round(((i + chunkPercent / 100) / totalChunks) * 100)
-          );
-          onProgress?.(
-            overall,
-            `Uploading batch ${i + 1} of ${totalChunks} (${chunkStart}–${chunkEnd} of ${files.length})... ${chunkPercent}%`
-          );
-        });
+      const res = await CommonApi<any>(
+        'POST',
+        `/api/galleries/${galleryId}/upload/`,
+        formData,
+        {
+          timeout: 300000,
+          signal,
+          onUploadProgress: (progressEvent) => {
+            if (progressEvent.total && onChunkProgress) {
+              const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+              onChunkProgress(percent, progressEvent.loaded);
+            }
+          },
+        }
+      );
 
-        allMedia.push(...chunkRes.media);
-        totalUploaded += chunkRes.total_uploaded;
-        if (chunkRes.storage_usage) lastStorageUsage = chunkRes.storage_usage;
-        if (chunkRes.message) lastMessage = chunkRes.message;
-        success = true;
-      } catch (err: any) {
-        lastError = err;
-        if (
-          signal?.aborted ||
-          err?.name === 'AbortError' ||
-          err?.name === 'CanceledError' ||
-          err?.code === 'ERR_CANCELED'
-        ) {
-          if (allMedia.length > 0) err.uploadedMedia = allMedia;
-          throw err;
-        }
-        if (
-          err?.response?.status === 401 ||
-          err?.response?.status === 403 ||
-          err?.response?.status === 413 ||
-          err?.response?.data?.error_code === 'STORAGE_LIMIT_EXCEEDED'
-        ) {
-          throw err;
-        }
-        if (attempt < 2) {
-          await new Promise((r) => setTimeout(r, 1200));
-        }
+      let mediaList: any[] = [];
+      if (Array.isArray(res)) {
+        mediaList = res;
+      } else if (res && Array.isArray(res.media)) {
+        mediaList = res.media;
+      } else if (res && Array.isArray(res.data)) {
+        mediaList = res.data;
+      } else if (res && res.id) {
+        mediaList = [res];
+      } else if (res && res.data && res.data.id) {
+        mediaList = [res.data];
       }
-    }
 
-    if (!success) {
-      if (allMedia.length > 0) {
-        lastError.uploadedMedia = allMedia;
-      }
-      throw lastError;
-    }
-  }
-
-  onProgress?.(100, `Uploaded all ${files.length} items successfully!`);
+      return {
+        message: res?.message,
+        total_uploaded: res?.total_uploaded ?? mediaList.length,
+        media: mediaList,
+        storage_usage: res?.storage_usage,
+      };
+    },
+    onBatchSuccess: (chunkRes) => {
+      allMedia.push(...chunkRes.media);
+      totalUploaded += chunkRes.total_uploaded;
+      if (chunkRes.storage_usage) lastStorageUsage = chunkRes.storage_usage;
+      if (chunkRes.message) lastMessage = chunkRes.message;
+    },
+  });
 
   return {
     message: lastMessage || 'All media uploaded successfully',
@@ -370,15 +308,15 @@ export const BulkUploadGalleryMediaApi = async (
 export const DeleteGalleryMediaApi = async (
   mediaId: string,
   galleryId?: string
-): Promise<{ success: boolean }> => {
+): Promise<DeleteGalleryMediaResponse> => {
   if (galleryId) {
     try {
-      return await CommonApi('DELETE', `/api/galleries/${galleryId}/media/${mediaId}/`);
+      return await CommonApi<DeleteGalleryMediaResponse>('DELETE', `/api/galleries/${galleryId}/media/${mediaId}/`);
     } catch {
       // fallback
     }
   }
-  return CommonApi('DELETE', `/api/galleries/media/${mediaId}/`);
+  return CommonApi<DeleteGalleryMediaResponse>('DELETE', `/api/galleries/media/${mediaId}/`);
 };
 
 /**
@@ -389,14 +327,14 @@ export const BulkDeleteGalleryMediaApi = async (
   mediaIds: string[],
   galleryId?: string,
   options?: { section?: string; deleteAll?: boolean }
-): Promise<{ deleted_count: number; freed_bytes?: number }> => {
+): Promise<BulkDeleteGalleryMediaResponse> => {
   const payload: any = { media_ids: mediaIds };
   if (galleryId) payload.gallery_id = galleryId;
   if (options?.deleteAll) payload.delete_all = true;
   if (options?.section && options.section.toLowerCase() !== 'all') {
     payload.section = options.section;
   }
-  return CommonApi('POST', '/api/galleries/media/bulk-delete/', payload);
+  return CommonApi<BulkDeleteGalleryMediaResponse>('POST', '/api/galleries/media/bulk-delete/', payload);
 };
 
 /**
@@ -407,21 +345,21 @@ export const ToggleMediaFavoriteApi = async (
   mediaId: string,
   galleryId?: string,
   isFavorite?: boolean
-): Promise<{ id?: string; is_favorite: boolean; favorites_count?: number }> => {
+): Promise<ToggleMediaFavoriteResponse> => {
   if (galleryId) {
     try {
-      return await CommonApi('POST', `/api/galleries/${galleryId}/media/${mediaId}/favorite/`, {
+      return await CommonApi<ToggleMediaFavoriteResponse>('POST', `/api/galleries/${galleryId}/media/${mediaId}/favorite/`, {
         is_favorite: isFavorite,
       });
     } catch {
       try {
-        return await CommonApi('POST', `/api/galleries/${galleryId}/favorite/`, {
+        return await CommonApi<ToggleMediaFavoriteResponse>('POST', `/api/galleries/${galleryId}/favorite/`, {
           media_id: mediaId,
           is_favorite: isFavorite,
         });
       } catch {
         try {
-          return await CommonApi('POST', `/api/public/galleries/${galleryId}/favorite/`, {
+          return await CommonApi<ToggleMediaFavoriteResponse>('POST', `/api/public/galleries/${galleryId}/favorite/`, {
             media_id: mediaId,
             is_favorite: isFavorite,
           });
@@ -431,9 +369,54 @@ export const ToggleMediaFavoriteApi = async (
       }
     }
   }
-  return CommonApi('POST', `/api/galleries/media/${mediaId}/favorite/`, {
+  return CommonApi<ToggleMediaFavoriteResponse>('POST', `/api/galleries/media/${mediaId}/favorite/`, {
     is_favorite: isFavorite,
   });
+};
+
+/**
+ * 11b. Bulk Toggle Media Favorite Heart Selection
+ * Primary Endpoint: POST /api/galleries/{galleryId}/media/bulk-favorite/
+ * Fallbacks: POST /api/galleries/media/bulk-favorite/ or batched single requests
+ */
+export const BulkToggleMediaFavoriteApi = async (
+  galleryId: string,
+  mediaIds: string[],
+  isFavorite: boolean,
+  selectAll?: boolean
+): Promise<BulkToggleMediaFavoriteResponse> => {
+  const payload = {
+    media_ids: mediaIds,
+    is_favorite: isFavorite,
+    ...(selectAll ? { select_all: true } : {}),
+  };
+
+  try {
+    return await CommonApi<BulkToggleMediaFavoriteResponse>(
+      'POST',
+      `/api/galleries/${galleryId}/media/bulk-favorite/`,
+      payload
+    );
+  } catch {
+    try {
+      return await CommonApi<BulkToggleMediaFavoriteResponse>(
+        'POST',
+        `/api/galleries/media/bulk-favorite/`,
+        { ...payload, gallery_id: galleryId }
+      );
+    } catch {
+      // Resilient fallback: execute individual favorite API calls in parallel
+      await Promise.allSettled(
+        mediaIds.map((id) => ToggleMediaFavoriteApi(id, galleryId, isFavorite))
+      );
+      return {
+        status: 'success',
+        updated_count: mediaIds.length,
+        is_favorite: isFavorite,
+        media_ids: mediaIds,
+      };
+    }
+  }
 };
 
 /**
@@ -444,7 +427,7 @@ export const SetGalleryCoverImageApi = async (
   galleryId: string,
   mediaIdOrUrl: string,
   mediaId?: string
-): Promise<{ cover_image: string }> => {
+): Promise<SetGalleryCoverImageResponse> => {
   const isUrl = typeof mediaIdOrUrl === 'string' && (mediaIdOrUrl.startsWith('http') || mediaIdOrUrl.startsWith('/'));
   const isUUID = (val?: string): boolean =>
     Boolean(val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val));
@@ -461,12 +444,12 @@ export const SetGalleryCoverImageApi = async (
   }
 
   try {
-    return await CommonApi('POST', `/api/galleries/${galleryId}/cover/`, payload);
+    return await CommonApi<SetGalleryCoverImageResponse>('POST', `/api/galleries/${galleryId}/cover/`, payload);
   } catch {
     try {
-      return await CommonApi('POST', `/api/galleries/${galleryId}/set-cover/`, payload);
+      return await CommonApi<SetGalleryCoverImageResponse>('POST', `/api/galleries/${galleryId}/set-cover/`, payload);
     } catch {
-      return await CommonApi('PATCH', `/api/galleries/${galleryId}/`, { cover_image: finalMediaUrl });
+      return await CommonApi<SetGalleryCoverImageResponse>('PATCH', `/api/galleries/${galleryId}/`, { cover_image: finalMediaUrl });
     }
   }
 };
@@ -479,20 +462,20 @@ export const SetMasonrySlotBannerApi = async (
   galleryId: string,
   slotIndex: number,
   mediaUrl: string
-): Promise<{ masonry_banner_images: string[] }> => {
+): Promise<SetMasonrySlotBannerResponse> => {
   try {
-    return await CommonApi('POST', `/api/galleries/${galleryId}/masonry-slots/`, {
+    return await CommonApi<SetMasonrySlotBannerResponse>('POST', `/api/galleries/${galleryId}/masonry-slots/`, {
       slot_index: slotIndex,
       media_url: mediaUrl,
     });
   } catch {
     try {
-      return await CommonApi('POST', `/api/galleries/${galleryId}/banners/masonry-slot/`, {
+      return await CommonApi<SetMasonrySlotBannerResponse>('POST', `/api/galleries/${galleryId}/banners/masonry-slot/`, {
         slot_index: slotIndex,
         media_url: mediaUrl,
       });
     } catch {
-      return await CommonApi('PATCH', `/api/galleries/${galleryId}/`, {
+      return await CommonApi<SetMasonrySlotBannerResponse>('PATCH', `/api/galleries/${galleryId}/`, {
         masonry_banner_images: [mediaUrl],
         template_banners: { masonry: mediaUrl },
       });
@@ -507,8 +490,8 @@ export const SetMasonrySlotBannerApi = async (
 export const AddGallerySectionApi = async (
   galleryId: string,
   title: string
-): Promise<{ id?: number | string; title: string; order?: number }> => {
-  return CommonApi('POST', `/api/galleries/${galleryId}/sections/`, { title });
+): Promise<AddGallerySectionResponse> => {
+  return CommonApi<AddGallerySectionResponse>('POST', `/api/galleries/${galleryId}/sections/`, { title });
 };
 
 /**
@@ -518,8 +501,8 @@ export const AddGallerySectionApi = async (
 export const DeleteGallerySectionApi = async (
   galleryId: string,
   sectionTitle: string
-): Promise<{ success: boolean; message?: string }> => {
-  return CommonApi('DELETE', `/api/galleries/${galleryId}/sections/${encodeURIComponent(sectionTitle)}/`);
+): Promise<DeleteGallerySectionResponse> => {
+  return CommonApi<DeleteGallerySectionResponse>('DELETE', `/api/galleries/${galleryId}/sections/${encodeURIComponent(sectionTitle)}/`);
 };
 
 /**
@@ -530,8 +513,8 @@ export const RenameGallerySectionApi = async (
   galleryId: string,
   oldTitle: string,
   newTitle: string
-): Promise<{ old_title: string; new_title: string; updated_count: number }> => {
-  return CommonApi('POST', `/api/galleries/${galleryId}/sections/rename/`, {
+): Promise<RenameGallerySectionResponse> => {
+  return CommonApi<RenameGallerySectionResponse>('POST', `/api/galleries/${galleryId}/sections/rename/`, {
     old_title: oldTitle,
     new_title: newTitle,
   });
@@ -543,15 +526,8 @@ export const RenameGallerySectionApi = async (
  */
 export const GetGalleryShareDetailsApi = async (
   galleryId: string
-): Promise<{
-  share_url: string;
-  qr_code_svg?: string;
-  qr_code_png?: string;
-  pin_code?: string;
-  expires_at: string | null;
-  is_password_protected: boolean;
-}> => {
-  return CommonApi('GET', `/api/galleries/${galleryId}/share-details/`);
+): Promise<GetGalleryShareDetailsResponse> => {
+  return CommonApi<GetGalleryShareDetailsResponse>('GET', `/api/galleries/${galleryId}/share-details/`);
 };
 
 /**
@@ -561,11 +537,11 @@ export const GetGalleryShareDetailsApi = async (
 export const SetGalleryTemplateApi = async (
   galleryId: string,
   templateId: GalleryTemplateId
-): Promise<{ template_id: GalleryTemplateId }> => {
+): Promise<SetGalleryTemplateResponse> => {
   try {
-    return await CommonApi('POST', `/api/galleries/${galleryId}/template/`, { template_id: templateId });
+    return await CommonApi<SetGalleryTemplateResponse>('POST', `/api/galleries/${galleryId}/template/`, { template_id: templateId });
   } catch {
-    return await CommonApi('PATCH', `/api/galleries/${galleryId}/`, { template_id: templateId });
+    return await CommonApi<SetGalleryTemplateResponse>('PATCH', `/api/galleries/${galleryId}/`, { template_id: templateId });
   }
 };
 
@@ -578,7 +554,7 @@ export const SetGalleryTemplateBannerApi = async (
   templateId: GalleryTemplateId,
   mediaUrl: string,
   mediaId?: string
-): Promise<{ template_banners: Record<string, string> }> => {
+): Promise<SetGalleryTemplateBannerResponse> => {
   const isUUID = (val?: string): boolean =>
     Boolean(val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val));
 
@@ -591,12 +567,12 @@ export const SetGalleryTemplateBannerApi = async (
   }
 
   try {
-    return await CommonApi('POST', `/api/galleries/${galleryId}/banners/`, payload);
+    return await CommonApi<SetGalleryTemplateBannerResponse>('POST', `/api/galleries/${galleryId}/banners/`, payload);
   } catch {
     try {
-      return await CommonApi('POST', `/api/galleries/${galleryId}/banner/`, payload);
+      return await CommonApi<SetGalleryTemplateBannerResponse>('POST', `/api/galleries/${galleryId}/banner/`, payload);
     } catch {
-      return await CommonApi('PATCH', `/api/galleries/${galleryId}/`, {
+      return await CommonApi<SetGalleryTemplateBannerResponse>('PATCH', `/api/galleries/${galleryId}/`, {
         template_banners: { [templateId]: mediaUrl },
       });
     }
@@ -610,8 +586,8 @@ export const SetGalleryTemplateBannerApi = async (
 export const ReorderGalleryMediaApi = async (
   galleryId: string,
   mediaIds: string[]
-): Promise<{ status: string; updated_count: number }> => {
-  return CommonApi('POST', `/api/galleries/${galleryId}/media/reorder/`, { media_ids: mediaIds });
+): Promise<ReorderGalleryMediaResponse> => {
+  return CommonApi<ReorderGalleryMediaResponse>('POST', `/api/galleries/${galleryId}/media/reorder/`, { media_ids: mediaIds });
 };
 
 /**
@@ -621,8 +597,8 @@ export const ReorderGalleryMediaApi = async (
 export const ReorderGallerySectionsApi = async (
   galleryId: string,
   sections: string[]
-): Promise<{ status: string; sections: string[] }> => {
-  return CommonApi('POST', `/api/galleries/${galleryId}/sections/reorder/`, { sections });
+): Promise<ReorderGallerySectionsResponse> => {
+  return CommonApi<ReorderGallerySectionsResponse>('POST', `/api/galleries/${galleryId}/sections/reorder/`, { sections });
 };
 
 /**
@@ -644,8 +620,8 @@ export const TrackGalleryAnalyticsEventApi = async (
   galleryId: string,
   eventType: string,
   mediaId?: string
-): Promise<{ success: boolean }> => {
-  return CommonApi('POST', `/api/galleries/${galleryId}/analytics/event/`, {
+): Promise<TrackGalleryAnalyticsEventResponse> => {
+  return CommonApi<TrackGalleryAnalyticsEventResponse>('POST', `/api/galleries/${galleryId}/analytics/event/`, {
     event_type: eventType,
     media_id: mediaId,
   });

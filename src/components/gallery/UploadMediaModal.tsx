@@ -30,6 +30,12 @@ import {
   ExternalLink,
   AlertOctagon,
 } from 'lucide-react';
+import { UploadProgressCard, MinimizedUploadWidget } from '@/components/common/upload';
+import {
+  createPauseController,
+  type BatchUploadPauseController,
+  type UploadProgressMetrics,
+} from '@/utils/batchUploadRunner';
 
 export interface UploadMediaModalProps {
   isOpen: boolean;
@@ -170,9 +176,12 @@ export const UploadMediaModal: React.FC<UploadMediaModalProps> = ({
   const [isWidgetDismissed, setIsWidgetDismissed] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadStatusText, setUploadStatusText] = useState('');
+  const [uploadMetrics, setUploadMetrics] = useState<UploadProgressMetrics | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [quotaError, setQuotaError] = useState<{ code: string; message: string } | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const pauseControllerRef = useRef<BatchUploadPauseController | null>(null);
+  const [isPaused, setIsPaused] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -236,12 +245,33 @@ export const UploadMediaModal: React.FC<UploadMediaModalProps> = ({
     isActive: isUploading,
   });
 
-  // ── 3. Cancel Active Upload Handler ───────────────────────────
+  // ── 3. Pause, Resume & Cancel Handlers ────────────────────────
+  const handlePauseUpload = () => {
+    if (pauseControllerRef.current) {
+      pauseControllerRef.current.pause();
+      setIsPaused(true);
+      showToast('Upload Paused', 'Upload paused. Click Resume to continue.', 'info');
+    }
+  };
+
+  const handleResumeUpload = () => {
+    if (pauseControllerRef.current) {
+      pauseControllerRef.current.resume();
+      setIsPaused(false);
+      showToast('Upload Resumed', 'Continuing upload...', 'info');
+    }
+  };
+
   const handleCancelUpload = () => {
+    if (pauseControllerRef.current) {
+      pauseControllerRef.current.resume();
+      pauseControllerRef.current = null;
+    }
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
+    setIsPaused(false);
     setIsUploading(false);
     setUploadStatusText('');
     onUploadComplete?.();
@@ -298,8 +328,11 @@ export const UploadMediaModal: React.FC<UploadMediaModalProps> = ({
 
     const newQueued: QueuedFile[] = [];
 
+    const existingCount = queuedPhotos.length;
     incomingValidFiles.forEach((file, index) => {
-      const previewUrl = URL.createObjectURL(file);
+      // Eagerly generate previews for up to 48 items to prevent browser memory freeze on 1,000+ photo batches
+      const shouldGeneratePreview = existingCount + index < 48;
+      const previewUrl = shouldGeneratePreview ? URL.createObjectURL(file) : '';
       const cleanTitle = file.name.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ').trim();
 
       newQueued.push({
@@ -427,7 +460,10 @@ export const UploadMediaModal: React.FC<UploadMediaModalProps> = ({
     }
 
     const controller = new AbortController();
+    const pauseCtrl = createPauseController();
     abortControllerRef.current = controller;
+    pauseControllerRef.current = pauseCtrl;
+    setIsPaused(false);
     setUploadError(null);
     setIsUploading(true);
     setUploadProgress(10);
@@ -447,11 +483,13 @@ export const UploadMediaModal: React.FC<UploadMediaModalProps> = ({
         sectionTitle: selectedSection,
         type: 'photo',
         signal: controller.signal,
-        onProgress: (percent, statusText) => {
+        pauseController: pauseCtrl,
+        onProgress: (percent: number, statusText?: string, metrics?: any) => {
           const p = Math.min(98, Math.max(5, percent));
           const text = statusText || `Uploading photos: ${percent}%...`;
           setUploadProgress(p);
           setUploadStatusText(text);
+          if (metrics) setUploadMetrics(metrics);
           onUploadProgress?.(p, text);
         },
       });
@@ -533,7 +571,9 @@ export const UploadMediaModal: React.FC<UploadMediaModalProps> = ({
       setUploadError(failureMsg);
     } finally {
       setIsUploading(false);
+      setIsPaused(false);
       abortControllerRef.current = null;
+      pauseControllerRef.current = null;
       await syncGalleryStateImmediately();
       onUploadComplete?.();
     }
@@ -564,7 +604,10 @@ export const UploadMediaModal: React.FC<UploadMediaModalProps> = ({
     }
 
     const controller = new AbortController();
+    const pauseCtrl = createPauseController();
     abortControllerRef.current = controller;
+    pauseControllerRef.current = pauseCtrl;
+    setIsPaused(false);
     setUploadError(null);
     setIsUploading(true);
     setUploadProgress(10);
@@ -584,11 +627,13 @@ export const UploadMediaModal: React.FC<UploadMediaModalProps> = ({
         sectionTitle: selectedSection,
         type: 'video',
         signal: controller.signal,
-        onProgress: (percent, statusText) => {
+        pauseController: pauseCtrl,
+        onProgress: (percent: number, statusText?: string, metrics?: any) => {
           const p = Math.min(98, Math.max(5, percent));
           const text = statusText || `Uploading videos: ${percent}%...`;
           setUploadProgress(p);
           setUploadStatusText(text);
+          if (metrics) setUploadMetrics(metrics);
           onUploadProgress?.(p, text);
         },
       });
@@ -669,7 +714,9 @@ export const UploadMediaModal: React.FC<UploadMediaModalProps> = ({
       }
     } finally {
       setIsUploading(false);
+      setIsPaused(false);
       abortControllerRef.current = null;
+      pauseControllerRef.current = null;
       await syncGalleryStateImmediately();
       onUploadComplete?.();
     }
@@ -679,87 +726,33 @@ export const UploadMediaModal: React.FC<UploadMediaModalProps> = ({
 
   // ── Render Minimized Floating Widget in Bottom Corner ──
   if (!isWidgetDismissed && (isMinimized || (!isOpen && isUploading))) {
-    const displayGalleryTitle = gallery?.title || galleryTitle || 'Gallery';
-    return createPortal(
-      <aside
-        aria-label="Upload Progress Manager"
-        className="fixed bottom-5 right-5 z-50 w-80 sm:w-96 rounded-2xl bg-white/95 dark:bg-[#121319]/95 border border-neutral-200 dark:border-neutral-800 shadow-2xl backdrop-blur-xl p-4 space-y-3 text-neutral-900 dark:text-white animate-in slide-in-from-bottom-5 duration-200 pointer-events-auto ring-1 ring-black/5 dark:ring-white/10"
-      >
-        <div className="flex items-center justify-between gap-2.5">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-500 shrink-0">
-              {isUploading ? (
-                <Loader2 className="w-4 h-4 animate-spin text-amber-500" />
-              ) : (
-                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-              )}
-            </div>
-            <div className="min-w-0">
-              <p className="text-xs font-bold truncate">
-                {isUploading
-                  ? `Uploading ${currentQueuedList.length} Item${currentQueuedList.length > 1 ? 's' : ''} • ${displayGalleryTitle}`
-                  : `Upload Complete • ${displayGalleryTitle}`}
-              </p>
-              <p className="text-[10px] text-neutral-500 dark:text-neutral-400 font-mono truncate">
-                {uploadStatusText || (isUploading ? `Target: ${selectedSection}` : 'All files processed')}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-1 shrink-0">
-            <button
-              type="button"
-              onClick={() => {
-                navigate(`/dashboard/gallery/${galleryId}`);
-              }}
-              className="p-1.5 text-neutral-400 hover:text-amber-500 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg transition-colors cursor-pointer"
-              title={`View ${displayGalleryTitle}`}
-            >
-              <ExternalLink className="w-3.5 h-3.5" />
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setMinimizedState(false);
-                setIsWidgetDismissed(false);
-              }}
-              className="p-1.5 text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg transition-colors cursor-pointer"
-              title="Expand upload window"
-            >
-              <Maximize2 className="w-3.5 h-3.5" />
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setIsWidgetDismissed(true);
-                setMinimizedState(false);
-                onClose();
-              }}
-              className="p-1.5 text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg transition-colors cursor-pointer"
-              title="Close widget"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        </div>
-
-        {/* Progress Bar & Percentage */}
-        {isUploading && (
-          <div className="space-y-1.5 pt-0.5">
-            <div className="flex items-center justify-between text-[10px] font-mono text-neutral-500 dark:text-neutral-400">
-              <span className="truncate pr-2">{uploadStatusText || 'Transferring files...'}</span>
-              <span className="font-bold text-amber-500 font-mono shrink-0">{uploadProgress}%</span>
-            </div>
-            <div className="w-full h-1.5 rounded-full bg-neutral-200 dark:bg-neutral-800 overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-amber-500 to-amber-400 transition-all duration-300 rounded-full"
-                style={{ width: `${uploadProgress}%` }}
-              />
-            </div>
-          </div>
-        )}
-      </aside>,
-      document.body
+    return (
+      <MinimizedUploadWidget
+        isOpen={true}
+        isUploading={isUploading}
+        progress={uploadProgress}
+        statusText={uploadStatusText}
+        metrics={uploadMetrics}
+        title={gallery?.title || galleryTitle || 'Gallery Media'}
+        sourceType="gallery"
+        itemCount={currentQueuedList.length}
+        targetSection={selectedSection}
+        isPaused={isPaused}
+        onPause={handlePauseUpload}
+        onResume={handleResumeUpload}
+        onExpand={() => {
+          setMinimizedState(false);
+          setIsWidgetDismissed(false);
+        }}
+        onClose={() => {
+          setIsWidgetDismissed(true);
+          setMinimizedState(false);
+          onClose();
+        }}
+        onViewTarget={() => {
+          navigate(`/dashboard/gallery/${galleryId}`);
+        }}
+      />
     );
   }
 
@@ -1043,36 +1036,19 @@ export const UploadMediaModal: React.FC<UploadMediaModalProps> = ({
           )}
         </div>
 
-        {/* ── Loading State Progress Bar & Cancel Button ── */}
+        {/* ── Loading State Progress Card with Live Speed, Elapsed/ETA & MB Uploaded ── */}
         {isUploading && (
-          <div className="mt-4 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-2.5">
-            <div className="flex items-center justify-between text-xs text-amber-800 dark:text-amber-300 font-semibold">
-              <span className="flex items-center gap-2 truncate">
-                <Loader2 className="w-4 h-4 animate-spin text-amber-500 shrink-0" />
-                <span className="truncate">{uploadStatusText || `Uploading media to "${selectedSection}"...`}</span>
-              </span>
-              <div className="flex items-center gap-3 shrink-0">
-                <span className="font-mono text-xs font-bold">{uploadProgress}%</span>
-                <button
-                  type="button"
-                  onClick={handleCancelUpload}
-                  className="px-2.5 py-1 rounded-xl border border-rose-500/40 bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
-                  title="Cancel active upload"
-                >
-                  <X className="w-3.5 h-3.5" /> Cancel Upload
-                </button>
-              </div>
-            </div>
-            <div className="h-2 w-full bg-neutral-200 dark:bg-neutral-800 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-amber-500 transition-all duration-300 rounded-full"
-                style={{ width: `${uploadProgress}%` }}
-              />
-            </div>
-            <div className="flex items-center justify-between text-[11px] text-neutral-500 dark:text-neutral-400 font-mono">
-              <span>Automatic batch processing active</span>
-              <span>All original metadata preserved</span>
-            </div>
+          <div className="mt-4">
+            <UploadProgressCard
+              progress={uploadProgress}
+              statusText={uploadStatusText}
+              metrics={uploadMetrics}
+              targetSection={selectedSection}
+              isPaused={isPaused}
+              onPause={handlePauseUpload}
+              onResume={handleResumeUpload}
+              onCancel={handleCancelUpload}
+            />
           </div>
         )}
 

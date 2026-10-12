@@ -24,6 +24,7 @@ interface GalleryContextType {
   removeMediaFromGallery: (galleryId: string, mediaId: string) => void;
   reorderMediaInGallery: (galleryId: string, reorderedList: MediaItem[]) => void;
   toggleMediaFavorite: (galleryId: string, mediaId: string) => void;
+  bulkToggleMediaFavorite: (galleryId: string, mediaIds: string[], isFavorite: boolean) => void;
   setCoverImage: (galleryId: string, mediaUrl: string) => void;
   setTemplateBannerImage: (galleryId: string, templateId: GalleryTemplateId, mediaUrl: string) => void;
   setMasonryBannerImage: (galleryId: string, slotIndex: number, mediaUrl: string) => void;
@@ -208,11 +209,54 @@ export const GalleryProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setGalleries((prev) =>
       prev.map((gal) => {
         if (gal.id !== galleryId) return gal;
+        const target = gal.media.find((m) => m.id === mediaId);
+        const willBeFav = target ? !target.isFavorite : true;
+        const currentCount =
+          typeof gal.favoritesCount === 'number' && gal.favoritesCount >= 0
+            ? gal.favoritesCount
+            : gal.media.filter((m) => m.isFavorite).length;
+        const nextCount = willBeFav ? currentCount + 1 : Math.max(0, currentCount - 1);
         return {
           ...gal,
+          favoritesCount: nextCount,
           media: gal.media.map((m) =>
-            m.id === mediaId ? { ...m, isFavorite: !m.isFavorite } : m
+            m.id === mediaId ? { ...m, isFavorite: willBeFav } : m
           ),
+        };
+      })
+    );
+  };
+
+  const bulkToggleMediaFavorite = (galleryId: string, mediaIds: string[], isFavorite: boolean) => {
+    const idSet = new Set(mediaIds);
+    setGalleries((prev) =>
+      prev.map((gal) => {
+        if (gal.id !== galleryId) return gal;
+        const newMedia = gal.media.map((m) =>
+          idSet.has(m.id) ? { ...m, isFavorite } : m
+        );
+        const currentCount =
+          typeof gal.favoritesCount === 'number' && gal.favoritesCount >= 0
+            ? gal.favoritesCount
+            : newMedia.filter((m) => m.isFavorite).length;
+        let nextCount = currentCount;
+        if (isFavorite) {
+          if (gal.totalMediaCount && mediaIds.length >= gal.totalMediaCount) {
+            nextCount = gal.totalMediaCount;
+          } else {
+            nextCount = Math.min(gal.totalMediaCount || Infinity, Math.max(currentCount, mediaIds.length));
+          }
+        } else {
+          if (gal.totalMediaCount && mediaIds.length >= gal.totalMediaCount) {
+            nextCount = 0;
+          } else {
+            nextCount = Math.max(0, currentCount - mediaIds.length);
+          }
+        }
+        return {
+          ...gal,
+          media: newMedia,
+          favoritesCount: nextCount,
         };
       })
     );
@@ -451,6 +495,7 @@ export const GalleryProvider: React.FC<{ children: React.ReactNode }> = ({ child
         removeMediaFromGallery,
         reorderMediaInGallery,
         toggleMediaFavorite,
+        bulkToggleMediaFavorite,
         setCoverImage,
         setTemplateBannerImage,
         setMasonryBannerImage,

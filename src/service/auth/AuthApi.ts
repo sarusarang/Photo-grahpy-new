@@ -9,6 +9,8 @@ import type {
   RefreshTokenResponse,
 } from "./type";
 
+export * from "./type";
+
 /**
  * Send OTP for Passwordless Login
  * Endpoint: POST /api/auth/passwordless/login/send-otp/

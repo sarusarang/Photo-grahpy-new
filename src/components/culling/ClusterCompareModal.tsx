@@ -4,15 +4,9 @@ import {
   X,
   Sparkles,
   Check,
-  CheckCircle2,
   Trash2,
   Undo2,
   Trophy,
-  ZoomIn,
-  Eye,
-  Sliders,
-  ChevronLeft,
-  ChevronRight,
   FileImage,
 } from 'lucide-react';
 import type { AnalyzedPhoto, DuplicateCluster } from '@/utils/deduplicationEngine';

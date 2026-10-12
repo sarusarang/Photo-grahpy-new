@@ -26,6 +26,12 @@ export interface StudioNotification {
   time_ago?: string;
 }
 
+export interface GetNotificationsParams {
+  is_read?: boolean;
+  type?: string;
+  limit?: number;
+}
+
 export interface NotificationsListResponse {
   status?: string;
   unread_count: number;

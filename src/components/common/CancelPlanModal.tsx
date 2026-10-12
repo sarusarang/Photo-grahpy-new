@@ -9,9 +9,7 @@ import {
   Calendar,
   CreditCard,
   HardDrive,
-  ShieldCheck,
   Loader2,
-  ArrowRight,
   CheckCircle2,
 } from 'lucide-react';
 

@@ -4,7 +4,7 @@ import {
   type UpgradePlanModalProps,
 } from '@/components/common/UpgradePlanModal';
 
-export interface PlanUpgradeModalProps extends UpgradePlanModalProps {}
+export type PlanUpgradeModalProps = UpgradePlanModalProps;
 
 /**
  * Unified Studio Plan Upgrade Modal

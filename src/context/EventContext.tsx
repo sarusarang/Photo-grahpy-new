@@ -14,7 +14,7 @@ import {
   useUpdateEventQR,
   useMoveEventToGallery,
 } from '@/hooks/useAtelierQueries';
-import { TetherPhotoUploadApi, DeleteEventMediaApi } from '@/service/events/EventApi';
+import { DeleteEventMediaApi } from '@/service/events/EventApi';
 import { useQueryClient } from '@tanstack/react-query';
 
 interface EventContextType {
@@ -155,13 +155,10 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     [restoreEventMutation]
   );
 
-  const addMediaToEvent = useCallback(
-    (_eventId: string, _items: Omit<MediaItem, 'id' | 'galleryId' | 'dateAdded'>[]) => {
-      // In real backend mode, media files are uploaded as multipart Files via TetherPhotoUploadApi
-      // Query cache is automatically invalidated upon completion
-    },
-    []
-  );
+  const addMediaToEvent = useCallback<EventContextType['addMediaToEvent']>(() => {
+    // In real backend mode, media files are uploaded as multipart Files via API
+    // Query cache is automatically invalidated upon completion
+  }, []);
 
   const removeMediaFromEvent = useCallback(
     async (eventId: string, mediaId: string) => {
@@ -213,7 +210,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     [getEventByIdOrSlug, updateEventMutation]
   );
 
-  const simulateTetherShot = useCallback((_eventId: string): MediaItem | null => {
+  const simulateTetherShot = useCallback<EventContextType['simulateTetherShot']>(() => {
     // Deprecated simulation: replaced by live camera hardware capture and hot-folder watcher
     return null;
   }, []);
@@ -240,12 +237,9 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     [moveEventMutation]
   );
 
-  const incrementEventStat = useCallback(
-    (_eventId: string, _statKey: keyof EventStats) => {
-      // Backend automatically aggregates analytics on view / scan / search
-    },
-    []
-  );
+  const incrementEventStat = useCallback<EventContextType['incrementEventStat']>(() => {
+    // Backend automatically aggregates analytics on view / scan / search
+  }, []);
 
   const resetEventsData = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['events'] });

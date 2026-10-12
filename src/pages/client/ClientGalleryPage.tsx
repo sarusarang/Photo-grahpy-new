@@ -60,7 +60,9 @@ const ClientGalleryContent: React.FC = () => {
         if (saved && ['default', 'masonry', 'collage', 'grid', 'large'].includes(saved)) {
           return saved;
         }
-      } catch {}
+      } catch {
+        // Storage access unavailable or restricted
+      }
     }
     return 'default';
   });
@@ -69,7 +71,9 @@ const ClientGalleryContent: React.FC = () => {
     setGridDesign(design);
     try {
       localStorage.setItem('ex_share_gallery_grid_design', design);
-    } catch {}
+    } catch {
+      // Storage access unavailable or restricted
+    }
   };
 
   // Normalize server gallery with resilient demo fallback
@@ -104,7 +108,7 @@ const ClientGalleryContent: React.FC = () => {
       };
     }
     return base;
-  }, [apiGallery, galleryId, localFavoritesOverride, galleryError]);
+  }, [apiGallery, localFavoritesOverride, galleryError]);
 
   // Track gallery view once on mount when gallery is loaded
   const hasTrackedViewRef = useRef(false);
@@ -116,7 +120,7 @@ const ClientGalleryContent: React.FC = () => {
         device: window.innerWidth < 640 ? 'mobile' : window.innerWidth < 1024 ? 'tablet' : 'desktop',
       });
     }
-  }, [gallery?.id, trackViewMutation]);
+  }, [gallery, trackViewMutation]);
 
   // Dynamic SEO & OpenGraph Social Graph: updates page title and hero banner image dynamically
   const activePhotoId =
@@ -1007,11 +1011,16 @@ const ClientGalleryContent: React.FC = () => {
         clientName={gallery.clientName}
         selectedTrack={selectedTrack}
         onChangeTrack={() => setIsMusicPickerOpen(true)}
+        onTrackAutoAdvance={(nextTrack) => setSelectedTrack(nextTrack)}
         watermarkEnabled={Boolean(gallery.watermark_enabled ?? gallery.watermarkEnabled)}
         watermarkText={defaultWatermarkText}
         watermarkOpacity={gallery.watermark_opacity}
         watermarkPosition={gallery.watermark_position}
         watermarkImage={gallery.watermark_image}
+        watermarkType={gallery.watermark_type}
+        watermarkFontSize={gallery.watermark_font_size}
+        watermarkFontColor={gallery.watermark_font_color}
+        watermarkFontStyle={gallery.watermark_font_style}
       />
 
       {/* Lightbox Modal */}
@@ -1037,6 +1046,11 @@ const ClientGalleryContent: React.FC = () => {
           watermarkOpacity={gallery.watermark_opacity}
           watermarkPosition={gallery.watermark_position}
           watermarkImage={gallery.watermark_image}
+          watermarkType={gallery.watermark_type}
+          watermarkFontSize={gallery.watermark_font_size}
+          watermarkFontColor={gallery.watermark_font_color}
+          watermarkFontStyle={gallery.watermark_font_style}
+          theme={activeTemplate}
         />
       )}
 

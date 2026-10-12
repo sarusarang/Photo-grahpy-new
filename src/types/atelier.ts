@@ -352,9 +352,18 @@ export interface PortfolioConfig {
   tagline?: string;
   philosophy_quote?: string;
   template_id: string;
+  subdomain?: string | null;
   custom_domain?: string | null;
   featured_projects: PortfolioProject[];
   accent_color?: string;
+  whatsapp_enabled?: boolean;
+  whatsapp_number?: string;
+  whatsapp_prefill_message?: string;
+  whatsapp_button_label?: string;
+  whatsappEnabled?: boolean;
+  whatsappNumber?: string;
+  whatsappPrefillMessage?: string;
+  whatsappButtonLabel?: string;
 }
 
 // ---------------------------------------------------------------------------

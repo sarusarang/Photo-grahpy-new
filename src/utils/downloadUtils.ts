@@ -24,6 +24,8 @@ import { axiosInstance } from '@/lib/axiosInstance';
 export interface WatermarkDownloadOptions {
   /** Whether watermarking is active */
   enabled: boolean;
+  /** Mode: 'text' or 'image' */
+  watermarkType?: 'text' | 'image' | string;
   /** Studio brand or photographer name text */
   text?: string;
   /** Custom logo image URL (optional) */
@@ -32,6 +34,12 @@ export interface WatermarkDownloadOptions {
   opacity?: number;
   /** Positioning: 'bottom-right' | 'bottom-left' | 'top-right' | 'center' | 'tiled' */
   position?: 'bottom-right' | 'bottom-left' | 'top-right' | 'center' | 'tiled' | string;
+  /** Font size preset */
+  fontSize?: 'sm' | 'md' | 'lg' | 'xl' | string;
+  /** Font color hex code */
+  fontColor?: string;
+  /** Font style */
+  fontStyle?: 'serif' | 'sans' | 'script' | 'mono' | string;
 }
 
 export interface ZipDownloadItem {
@@ -77,12 +85,13 @@ export function resolveImageUrl(url: string): string {
     import.meta.env.VITE_API_BASE_URL || 'https://server.exshare.ai/api'
   ).trim();
 
-  let baseOrigin = '';
-  try {
-    baseOrigin = new URL(rawBaseURL).origin;
-  } catch {
-    baseOrigin = window.location.origin;
-  }
+  const baseOrigin = (() => {
+    try {
+      return new URL(rawBaseURL).origin;
+    } catch {
+      return window.location.origin;
+    }
+  })();
 
   // If URL starts with http://localhost:8000 or http://127.0.0.1:8000, and our API base is a remote tunnel,
   // rewrite localhost to tunnel origin so the browser doesn't fail on mixed content or unreachable port
@@ -328,9 +337,10 @@ export async function stampWatermarkOnBlob(
     const opacity = rawOpacity > 1 ? rawOpacity / 100 : Math.max(0.1, Math.min(1, rawOpacity));
     const position = options.position || 'bottom-right';
 
-    // 2. Check if a custom logo image should be stamped
+    // 2. Check if a custom logo image should be stamped (strictly in image mode)
+    const isImageMode = options.watermarkType === 'image' && Boolean(options.imageUrl);
     let logoDrawn = false;
-    if (options.imageUrl) {
+    if (isImageMode && options.imageUrl) {
       try {
         const logo = await loadLogoImage(options.imageUrl);
         if (logo && logo.naturalWidth > 0 && logo.naturalHeight > 0) {
@@ -376,20 +386,59 @@ export async function stampWatermarkOnBlob(
       }
     }
 
-    // 3. Fallback or primary: Stamp typographic watermark (strictly photographer's name by default)
+    // 3. Fallback or primary: Stamp typographic watermark with accurate font style & color
     if (!logoDrawn) {
-      const rawText = (options.text || 'PHOTOGRAPHER').trim().toUpperCase();
+      if (typeof document !== 'undefined' && document.fonts?.ready) {
+        try {
+          await document.fonts.ready;
+        } catch {
+          // Continue if fonts ready check fails
+        }
+      }
+
+      const isScript = options.fontStyle === 'script';
+      const rawText = isScript
+        ? (options.text || 'Photographer').trim()
+        : (options.text || 'PHOTOGRAPHER').trim().toUpperCase();
       const minDimension = Math.min(width, height);
 
-      let fontSize = Math.max(16, Math.round(minDimension * 0.032));
+      let fontMultiplier = 0.032;
+      if (options.fontSize === 'sm') fontMultiplier = 0.022;
+      else if (options.fontSize === 'lg') fontMultiplier = 0.044;
+      else if (options.fontSize === 'xl') fontMultiplier = 0.058;
+
+      let fontSize = Math.max(16, Math.round(minDimension * fontMultiplier));
+      if (isScript) {
+        fontSize = Math.round(fontSize * 1.3);
+      }
       if (position === 'center') {
-        fontSize = Math.max(22, Math.round(minDimension * 0.052));
+        fontSize = Math.round(fontSize * 1.35);
       } else if (position === 'tiled') {
-        fontSize = Math.max(16, Math.round(minDimension * 0.028));
+        fontSize = Math.round(fontSize * 0.9);
+      }
+
+      let fontStyleStr = '600';
+      let fontFamily = '"Cormorant Garamond", "Cinzel", Georgia, serif';
+      if (options.fontStyle === 'sans') {
+        fontFamily = '"Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", sans-serif';
+        fontStyleStr = '700';
+      } else if (options.fontStyle === 'script') {
+        fontFamily = '"Alex Brush", "Caveat", "Playfair Display", Georgia, cursive, serif';
+        fontStyleStr = 'normal 600';
+      } else if (options.fontStyle === 'mono') {
+        fontFamily = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace';
+        fontStyleStr = '500';
       }
 
       ctx.save();
-      ctx.font = `600 ${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Cinzel", Georgia, serif`;
+      ctx.font = `${fontStyleStr} ${fontSize}px ${fontFamily}`;
+
+      const fontColor = (options.fontColor || '#FFFFFF').trim();
+      const lowerColor = fontColor.toLowerCase();
+      const isDark =
+        lowerColor === '#000000' ||
+        lowerColor === '#18181b' ||
+        lowerColor === '#111827';
 
       if (position === 'tiled') {
         ctx.save();
@@ -399,8 +448,9 @@ export async function stampWatermarkOnBlob(
 
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillStyle = `rgba(255, 255, 255, ${opacity * 0.85})`;
-        ctx.strokeStyle = `rgba(0, 0, 0, ${opacity * 0.6})`;
+        ctx.fillStyle = fontColor;
+        ctx.globalAlpha = opacity * 0.85;
+        ctx.strokeStyle = isDark ? `rgba(255, 255, 255, ${opacity * 0.75})` : `rgba(0, 0, 0, ${opacity * 0.7})`;
         ctx.lineWidth = Math.max(1.5, Math.round(fontSize * 0.06));
 
         const stepX = Math.max(fontSize * 12, 320);
@@ -438,16 +488,21 @@ export async function stampWatermarkOnBlob(
         }
 
         // Drop shadow and stroke for visibility across both light and dark photos
-        ctx.shadowColor = `rgba(0, 0, 0, ${Math.min(0.9, opacity * 1.8)})`;
+        ctx.shadowColor = isDark
+          ? `rgba(255, 255, 255, ${Math.min(0.85, opacity * 1.5)})`
+          : `rgba(0, 0, 0, ${Math.min(0.9, opacity * 1.8)})`;
         ctx.shadowBlur = Math.max(4, Math.round(fontSize * 0.3));
         ctx.shadowOffsetX = Math.max(1, Math.round(fontSize * 0.05));
         ctx.shadowOffsetY = Math.max(1, Math.round(fontSize * 0.05));
 
         ctx.lineWidth = Math.max(2, Math.round(fontSize * 0.09));
-        ctx.strokeStyle = `rgba(0, 0, 0, ${Math.min(1, opacity * 1.2)})`;
+        ctx.strokeStyle = isDark
+          ? `rgba(255, 255, 255, ${Math.min(0.9, opacity * 1.2)})`
+          : `rgba(0, 0, 0, ${Math.min(1, opacity * 1.2)})`;
         ctx.strokeText(rawText, tx, ty);
 
-        ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
+        ctx.fillStyle = fontColor;
+        ctx.globalAlpha = opacity;
         ctx.fillText(rawText, tx, ty);
       }
       ctx.restore();
@@ -486,6 +541,14 @@ export function getGalleryWatermarkOptions(
     watermarkPosition?: string;
     watermark_image?: string | null;
     watermarkImage?: string | null;
+    watermark_type?: string;
+    watermarkType?: string;
+    watermark_font_size?: string;
+    watermarkFontSize?: string;
+    watermark_font_color?: string;
+    watermarkFontColor?: string;
+    watermark_font_style?: string;
+    watermarkFontStyle?: string;
     photographerName?: string;
     photographer_name?: string;
     photographer?: { fullName?: string; name?: string };
@@ -493,10 +556,14 @@ export function getGalleryWatermarkOptions(
     studio_name?: string;
     watermark_config?: {
       enabled?: boolean;
+      type?: string;
       text?: string;
       opacity?: number;
       position?: string;
       image?: string | null;
+      font_size?: string;
+      font_color?: string;
+      font_style?: string;
     };
   } | null,
   fallbackPhotographerName?: string
@@ -526,17 +593,47 @@ export function getGalleryWatermarkOptions(
     text = photographerFallback.startsWith('©') ? photographerFallback : `© ${photographerFallback}`;
   }
 
-  const rawOpacity = gallery.watermark_opacity ?? gallery.watermarkOpacity ?? gallery.watermark_config?.opacity ?? 0.45;
+  const rawOpacity = gallery.watermark_opacity ?? gallery.watermarkOpacity ?? gallery.watermark_config?.opacity ?? (gallery as any).photographer?.watermark_opacity ?? 0.45;
   const opacity = typeof rawOpacity === 'number' ? (rawOpacity > 1 ? rawOpacity / 100 : rawOpacity) : 0.45;
-  const position = gallery.watermark_position || gallery.watermarkPosition || gallery.watermark_config?.position || 'bottom-right';
-  const imageUrl = gallery.watermark_image || gallery.watermarkImage || gallery.watermark_config?.image || null;
+  const position =
+    gallery.watermark_position ||
+    gallery.watermarkPosition ||
+    gallery.watermark_config?.position ||
+    (gallery as any).photographer?.watermark_position ||
+    'bottom-right';
+
+  const rawType =
+    gallery.watermark_type ||
+    gallery.watermarkType ||
+    gallery.watermark_config?.type ||
+    (gallery as any).photographer?.watermark_type;
+  const watermarkType = rawType === 'image' ? 'image' : 'text';
+
+  const rawImageUrl =
+    gallery.watermark_image ||
+    gallery.watermarkImage ||
+    gallery.watermark_config?.image ||
+    (gallery as any).photographer?.watermark_image ||
+    null;
+
+  // Strict one-at-a-time for downloads:
+  // In text mode, imageUrl is null so image logo is NEVER drawn over or instead of text!
+  const imageUrl = watermarkType === 'image' ? rawImageUrl : null;
+
+  const fontSize = gallery.watermark_font_size || gallery.watermarkFontSize || gallery.watermark_config?.font_size || (gallery as any).photographer?.watermark_font_size || 'md';
+  const fontColor = gallery.watermark_font_color || gallery.watermarkFontColor || gallery.watermark_config?.font_color || (gallery as any).photographer?.watermark_font_color || '#FFFFFF';
+  const fontStyle = gallery.watermark_font_style || gallery.watermarkFontStyle || gallery.watermark_config?.font_style || (gallery as any).photographer?.watermark_font_style || 'serif';
 
   return {
     enabled,
+    watermarkType,
     text,
     opacity,
     position,
     imageUrl,
+    fontSize,
+    fontColor,
+    fontStyle,
   };
 }
 

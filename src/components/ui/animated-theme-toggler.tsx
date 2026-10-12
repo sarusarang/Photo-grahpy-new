@@ -281,7 +281,9 @@ export const AnimatedThemeToggler = ({
         setInternalIsDark(newTheme)
         try {
           localStorage.setItem("theme", newTheme ? "dark" : "light")
-        } catch {}
+        } catch {
+          // Ignore localStorage errors
+        }
       }
     }
 

@@ -5,6 +5,7 @@ import { DarkroomAtelierTemplate } from './DarkroomAtelierTemplate';
 
 export interface PortfolioTemplateProps {
   config: PortfolioConfig;
+  photographerSlug?: string;
   onInquirySubmit?: (inquiry: {
     clientName: string;
     clientEmail: string;

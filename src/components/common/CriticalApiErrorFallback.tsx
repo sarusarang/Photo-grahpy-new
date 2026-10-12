@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   AlertTriangle,
   RefreshCw,
@@ -67,6 +67,19 @@ export const CriticalApiErrorFallback: React.FC<CriticalApiErrorFallbackProps> =
   const isNetworkOffline =
     typeof navigator !== 'undefined' && !navigator.onLine;
 
+  const handleRetry = useCallback(async () => {
+    if (isRetrying || !onRetry) return;
+    setIsRetrying(true);
+    try {
+      await onRetry();
+    } catch {
+      // Re-trigger countdown if still failing
+      setCountdown(autoRetrySeconds);
+    } finally {
+      setIsRetrying(false);
+    }
+  }, [isRetrying, onRetry, autoRetrySeconds]);
+
   // Auto-retry countdown timer
   useEffect(() => {
     if (!onRetry || autoRetrySeconds <= 0) return;
@@ -82,20 +95,7 @@ export const CriticalApiErrorFallback: React.FC<CriticalApiErrorFallbackProps> =
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [onRetry, autoRetrySeconds]);
-
-  const handleRetry = async () => {
-    if (isRetrying || !onRetry) return;
-    setIsRetrying(true);
-    try {
-      await onRetry();
-    } catch {
-      // Re-trigger countdown if still failing
-      setCountdown(autoRetrySeconds);
-    } finally {
-      setIsRetrying(false);
-    }
-  };
+  }, [onRetry, autoRetrySeconds, handleRetry]);
 
   const handleSignOut = () => {
     if (onSignOut) {
@@ -122,7 +122,7 @@ export const CriticalApiErrorFallback: React.FC<CriticalApiErrorFallbackProps> =
             ) : (
               <ServerCrash className="w-3.5 h-3.5 text-red-400 animate-pulse" />
             )}
-            <span>{isNetworkOffline ? 'Network Offline' : 'Critical Service Outage'}</span>
+            <span>{isNetworkOffline ? 'Network Offline' : 'Connection Interrupted'}</span>
           </div>
 
           <div className="text-[11px] font-mono text-neutral-500">
@@ -195,7 +195,7 @@ export const CriticalApiErrorFallback: React.FC<CriticalApiErrorFallbackProps> =
                 {errorDetails}
               </div>
               <p className="text-[10px] text-neutral-500 leading-normal">
-                If this problem persists, please check your network connection or verify that the backend Django REST API service is healthy.
+                If this problem persists, please check your network connection or reach out to studio support.
               </p>
             </div>
           )}

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Play, Check, Sparkles, Download } from 'lucide-react';
 import type { MediaItem } from '../../types';
 import { WatermarkOverlay } from './WatermarkOverlay';
@@ -21,11 +21,16 @@ export interface UniversalPhotoGridProps {
   watermarkOpacity?: number;
   watermarkPosition?: string;
   watermarkImage?: string | null;
+  watermarkType?: string;
+  watermarkFontSize?: string;
+  watermarkFontColor?: string;
+  watermarkFontStyle?: string;
 }
 
 // ─────────────────────────────────────────────────────────────
 // REUSABLE PHOTO ITEM CARD
 // Clean, structured, highly performant card shared across all layouts
+// Guaranteed to fill 100% of each frame flush without whitespace gaps
 // ─────────────────────────────────────────────────────────────
 export interface PhotoItemCardProps {
   item: MediaItem;
@@ -43,6 +48,10 @@ export interface PhotoItemCardProps {
   watermarkOpacity?: number;
   watermarkPosition?: string;
   watermarkImage?: string | null;
+  watermarkType?: string;
+  watermarkFontSize?: string;
+  watermarkFontColor?: string;
+  watermarkFontStyle?: string;
 }
 
 export const PhotoItemCard: React.FC<PhotoItemCardProps> = ({
@@ -54,13 +63,17 @@ export const PhotoItemCard: React.FC<PhotoItemCardProps> = ({
   onToggleSelectMedia,
   onDownloadSingle,
   containerClassName = '',
-  imgClassName = 'w-full h-full block object-cover rounded-none transition-transform duration-500 ease-out group-hover:scale-[1.025] cursor-pointer',
+  imgClassName = 'w-full h-full block object-cover object-center rounded-none transition-transform duration-500 ease-out group-hover:scale-[1.025] cursor-pointer',
   badgeContent,
   watermarkEnabled = false,
   watermarkText,
   watermarkOpacity,
   watermarkPosition,
   watermarkImage,
+  watermarkType,
+  watermarkFontSize,
+  watermarkFontColor,
+  watermarkFontStyle,
 }) => {
   // Theme-specific accent styles for selection
   const getSelectStyles = () => {
@@ -95,9 +108,17 @@ export const PhotoItemCard: React.FC<PhotoItemCardProps> = ({
     }
   };
 
+  // Determine if the caller explicitly controls height via aspect-ratio or h-auto.
+  // In grid row tracks (Editorial, Masonry default, Collage), enforce h-full
+  // so the container and inner image fill 100% of the allocated cell track.
+  const hasCustomHeight =
+    containerClassName.includes('h-auto') ||
+    containerClassName.includes('aspect-');
+  const heightClass = hasCustomHeight ? '' : 'h-full';
+
   return (
     <div
-      className={`group relative rounded-none overflow-hidden bg-neutral-900/10 select-none ${
+      className={`group relative w-full ${heightClass} rounded-none overflow-hidden bg-neutral-900/10 select-none ${
         isSelected ? getActiveRing() : ''
       } ${containerClassName}`}
     >
@@ -107,6 +128,11 @@ export const PhotoItemCard: React.FC<PhotoItemCardProps> = ({
         loading="lazy"
         onClick={() => onOpenLightbox(originalIndex)}
         className={imgClassName}
+        onError={(e) => {
+          if (item.thumbnailUrl && e.currentTarget.src !== item.thumbnailUrl) {
+            e.currentTarget.src = item.thumbnailUrl;
+          }
+        }}
       />
 
       {/* Video Play Badge */}
@@ -158,12 +184,133 @@ export const PhotoItemCard: React.FC<PhotoItemCardProps> = ({
           imageUrl={watermarkImage}
           opacity={watermarkOpacity}
           position={watermarkPosition}
+          watermarkType={watermarkType}
+          fontSize={watermarkFontSize}
+          fontColor={watermarkFontColor}
+          fontStyle={watermarkFontStyle}
           size="sm"
         />
       )}
     </div>
   );
 };
+
+// ─────────────────────────────────────────────────────────────
+// EDITORIAL FLUSH BLOCK LAYOUT GENERATOR
+// Mathematically guaranteed 0-hole magazine spreads for any photo count
+// ─────────────────────────────────────────────────────────────
+const EDITORIAL_BLOCKS_LEFT = {
+  5: [
+    'col-span-2 md:col-span-2 row-span-2',
+    'col-span-1 md:col-span-1 row-span-1',
+    'col-span-1 md:col-span-1 row-span-1',
+    'col-span-1 md:col-span-1 row-span-1',
+    'col-span-1 md:col-span-1 row-span-1',
+  ],
+  4: [
+    'col-span-2 md:col-span-2 row-span-2',
+    'col-span-2 md:col-span-2 row-span-1',
+    'col-span-1 md:col-span-1 row-span-1',
+    'col-span-1 md:col-span-1 row-span-1',
+  ],
+  3: [
+    'col-span-2 md:col-span-2 row-span-2',
+    'col-span-2 md:col-span-2 row-span-1',
+    'col-span-2 md:col-span-2 row-span-1',
+  ],
+  2: [
+    'col-span-1 md:col-span-2 row-span-2',
+    'col-span-1 md:col-span-2 row-span-2',
+  ],
+  1: [
+    'col-span-2 md:col-span-4 row-span-2',
+  ],
+};
+
+const EDITORIAL_BLOCKS_RIGHT = {
+  5: [
+    'col-span-1 md:col-span-1 row-span-1',
+    'col-span-1 md:col-span-1 row-span-1',
+    'col-span-1 md:col-span-1 row-span-1',
+    'col-span-1 md:col-span-1 row-span-1',
+    'col-span-2 md:col-span-2 row-span-2',
+  ],
+  4: [
+    'col-span-2 md:col-span-2 row-span-1',
+    'col-span-1 md:col-span-1 row-span-1',
+    'col-span-1 md:col-span-1 row-span-1',
+    'col-span-2 md:col-span-2 row-span-2',
+  ],
+  3: [
+    'col-span-2 md:col-span-2 row-span-1',
+    'col-span-2 md:col-span-2 row-span-1',
+    'col-span-2 md:col-span-2 row-span-2',
+  ],
+  2: [
+    'col-span-1 md:col-span-2 row-span-2',
+    'col-span-1 md:col-span-2 row-span-2',
+  ],
+  1: [
+    'col-span-2 md:col-span-4 row-span-2',
+  ],
+};
+
+function partitionEditorialBlocks(total: number): number[] {
+  let remaining = total;
+  const blockSizes: number[] = [];
+  while (remaining > 0) {
+    if (remaining >= 10) {
+      blockSizes.push(5);
+      remaining -= 5;
+    } else if (remaining === 9) {
+      blockSizes.push(5, 4);
+      remaining = 0;
+    } else if (remaining === 8) {
+      blockSizes.push(4, 4);
+      remaining = 0;
+    } else if (remaining === 7) {
+      blockSizes.push(4, 3);
+      remaining = 0;
+    } else if (remaining === 6) {
+      blockSizes.push(3, 3);
+      remaining = 0;
+    } else if (remaining === 5) {
+      blockSizes.push(5);
+      remaining = 0;
+    } else if (remaining === 4) {
+      blockSizes.push(4);
+      remaining = 0;
+    } else if (remaining === 3) {
+      blockSizes.push(3);
+      remaining = 0;
+    } else if (remaining === 2) {
+      blockSizes.push(2);
+      remaining = 0;
+    } else if (remaining === 1) {
+      blockSizes.push(1);
+      remaining = 0;
+    }
+  }
+  return blockSizes;
+}
+
+function calculateEditorialSpans(total: number): string[] {
+  if (total <= 0) return [];
+  const blockSizes = partitionEditorialBlocks(total);
+  const spans: string[] = [];
+  let blockIndex = 0;
+  for (const size of blockSizes) {
+    const isAlternate = blockIndex % 2 === 1;
+    const blockList = isAlternate
+      ? (EDITORIAL_BLOCKS_RIGHT as any)[size]
+      : (EDITORIAL_BLOCKS_LEFT as any)[size];
+    if (blockList) {
+      spans.push(...blockList);
+    }
+    blockIndex++;
+  }
+  return spans;
+}
 
 export const UniversalPhotoGrid: React.FC<UniversalPhotoGridProps> = ({
   media,
@@ -181,7 +328,16 @@ export const UniversalPhotoGrid: React.FC<UniversalPhotoGridProps> = ({
   watermarkOpacity,
   watermarkPosition,
   watermarkImage,
+  watermarkType,
+  watermarkFontSize,
+  watermarkFontColor,
+  watermarkFontStyle,
 }) => {
+  // Pre-calculate mathematically flush editorial layout spans for all items
+  const editorialSpans = useMemo(() => {
+    return calculateEditorialSpans(media.length);
+  }, [media.length]);
+
   if (media.length === 0) {
     const isDark = theme === 'cinematic' || theme === 'masonry';
     return (
@@ -204,7 +360,7 @@ export const UniversalPhotoGrid: React.FC<UniversalPhotoGridProps> = ({
   const renderCard = (
     item: MediaItem,
     containerClassName = '',
-    imgClassName = 'w-full h-full block object-cover rounded-none transition-transform duration-500 ease-out group-hover:scale-[1.025] cursor-pointer',
+    imgClassName = 'w-full h-full block object-cover object-center rounded-none transition-transform duration-500 ease-out group-hover:scale-[1.025] cursor-pointer',
     badgeContent?: React.ReactNode
   ) => {
     const originalIndex = findOriginalIndex(item);
@@ -227,6 +383,10 @@ export const UniversalPhotoGrid: React.FC<UniversalPhotoGridProps> = ({
         watermarkOpacity={watermarkOpacity}
         watermarkPosition={watermarkPosition}
         watermarkImage={watermarkImage}
+        watermarkType={watermarkType}
+        watermarkFontSize={watermarkFontSize}
+        watermarkFontColor={watermarkFontColor}
+        watermarkFontStyle={watermarkFontStyle}
       />
     );
   };
@@ -242,38 +402,16 @@ export const UniversalPhotoGrid: React.FC<UniversalPhotoGridProps> = ({
     // ─────────────────────────────────────────────────────────────
     // Alternates between a large double-height opening hero spread,
     // rhythmic diptych pairings, and landscape editorial banners.
+    // Guaranteed 100% flush rectangular blocks with zero whitespace gaps.
     if (theme === 'editorial') {
-      const getEditorialSpan = (idx: number) => {
-        const pattern = idx % 6;
-        switch (pattern) {
-          case 0:
-            // Opening Feature: 2x2 Hero square
-            return 'col-span-2 row-span-2';
-          case 1:
-            // Supporting portrait detail
-            return 'col-span-1 row-span-1';
-          case 2:
-            // Supporting portrait detail
-            return 'col-span-1 row-span-1';
-          case 3:
-            // Editorial landscape ribbon beneath details 1 & 2
-            return 'col-span-2 row-span-1';
-          case 4:
-            // High-fashion vertical diptych A
-            return 'col-span-1 row-span-2';
-          case 5:
-            // High-fashion vertical diptych B
-            return 'col-span-1 row-span-2';
-          default:
-            return 'col-span-1 row-span-1';
-        }
-      };
-
       return (
-        <main className="w-full px-[2px] sm:px-[3px] pb-28 sm:pb-24">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-[2px] sm:gap-[3px] auto-rows-[220px] xs:auto-rows-[260px] sm:auto-rows-[300px] md:auto-rows-[340px]">
+        <main className="w-full px-1.5 sm:px-2 md:px-3 pb-4 sm:pb-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-1.5 sm:gap-2 grid-flow-dense auto-rows-[220px] xs:auto-rows-[260px] sm:auto-rows-[300px] md:auto-rows-[340px]">
             {media.map((item, idx) =>
-              renderCard(item, getEditorialSpan(idx))
+              renderCard(
+                item,
+                editorialSpans[idx] || 'col-span-1 md:col-span-1 row-span-1'
+              )
             )}
           </div>
         </main>
@@ -284,24 +422,42 @@ export const UniversalPhotoGrid: React.FC<UniversalPhotoGridProps> = ({
     // 2. MASONRY TEMPLATE DEFAULT: Botanical Romance Cascade with Panorama Ribbons
     // ─────────────────────────────────────────────────────────────
     // Natural organic aspect ratios flowing left-to-right, broken gracefully
-    // every 5th item by a dramatic widescreen landscape panorama ribbon.
+    // by dramatic widescreen panorama ribbons and tall portraits with dense auto-packing.
     if (theme === 'masonry') {
       return (
-        <main className="w-full px-[2px] sm:px-[3px] pb-28 sm:pb-24">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-[2px] sm:gap-[3px] auto-rows-[200px] sm:auto-rows-[260px] md:auto-rows-[300px]">
+        <main className="w-full px-1.5 sm:px-2 md:px-3 pb-4 sm:pb-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-1.5 sm:gap-2 grid-flow-dense auto-rows-[200px] sm:auto-rows-[260px] md:auto-rows-[300px]">
             {media.map((item, idx) => {
-              // Panorama breakout ribbon every 5th photo
-              const isPanorama = idx % 5 === 0 && idx > 0;
-              const isTallPortrait = idx % 5 === 1 || idx % 5 === 4;
-              let spanClass = 'col-span-1 row-span-1';
-
-              if (isPanorama) {
-                spanClass = 'col-span-2 md:col-span-4 row-span-1 sm:row-span-2';
-              } else if (isTallPortrait) {
-                spanClass = 'col-span-1 row-span-2';
-              } else {
-                spanClass = 'col-span-1 row-span-1';
+              if (media.length === 1) {
+                return renderCard(item, 'col-span-2 md:col-span-4 row-span-2');
               }
+              if (media.length === 2) {
+                return renderCard(item, 'col-span-1 md:col-span-2 row-span-2');
+              }
+              if (media.length === 3) {
+                const spanClass = idx === 0
+                  ? 'col-span-2 md:col-span-2 row-span-2'
+                  : 'col-span-1 md:col-span-2 row-span-1';
+                return renderCard(item, spanClass);
+              }
+              if (media.length === 4) {
+                return renderCard(item, 'col-span-1 md:col-span-2 row-span-1');
+              }
+              if (media.length === 5) {
+                const spanClass = idx === 0
+                  ? 'col-span-2 md:col-span-4 row-span-2'
+                  : 'col-span-1 md:col-span-1 row-span-1';
+                return renderCard(item, spanClass);
+              }
+
+              // Panorama breakout ribbon every 6th photo
+              const isPanorama = idx % 6 === 0 && idx > 0;
+              const isTallPortrait = idx % 6 === 1 || idx % 6 === 4;
+              const spanClass = isPanorama
+                ? 'col-span-2 md:col-span-4 row-span-1 sm:row-span-2'
+                : isTallPortrait
+                ? 'col-span-1 row-span-2'
+                : 'col-span-1 row-span-1';
 
               return renderCard(item, spanClass);
             })}
@@ -317,12 +473,22 @@ export const UniversalPhotoGrid: React.FC<UniversalPhotoGridProps> = ({
     // (4:5 medium format) and quad gallery walls, complete with fine archival plate numbers.
     if (theme === 'minimal') {
       return (
-        <main className="w-full px-[2px] sm:px-[3px] pb-28 sm:pb-24">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-[2px] sm:gap-[3px]">
+        <main className="w-full px-1.5 sm:px-2 md:px-3 pb-4 sm:pb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-1.5 sm:gap-2 grid-flow-dense">
             {media.map((item, idx) => {
+              if (media.length <= 2) {
+                const spanClass = 'col-span-1 sm:col-span-2 aspect-[4/3] sm:aspect-[16/10]';
+                return renderCard(item, spanClass);
+              }
+
               // Alternating archival rhythms: 2-col museum focus vs uniform quad plate
               const isMonographFocus = idx % 6 === 0;
-              const spanClass = isMonographFocus
+              // If last photo would be orphaned in a 4-col row, expand it gracefully
+              const isOrphanedLast = idx === media.length - 1 && media.length % 4 === 1;
+
+              const spanClass = isOrphanedLast
+                ? 'col-span-1 sm:col-span-2 lg:col-span-4 aspect-[16/9]'
+                : isMonographFocus
                 ? 'col-span-1 sm:col-span-2 aspect-[16/10] sm:aspect-[16/9]'
                 : 'col-span-1 aspect-[4/5] sm:aspect-[3/4]';
 
@@ -346,12 +512,28 @@ export const UniversalPhotoGrid: React.FC<UniversalPhotoGridProps> = ({
     // stills and subtle golden film slate metadata.
     if (theme === 'cinematic') {
       return (
-        <main className="w-full px-[2px] sm:px-[3px] pb-28 sm:pb-24">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-[2px] sm:gap-[3px]">
+        <main className="w-full px-1.5 sm:px-2 md:px-3 pb-4 sm:pb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5 sm:gap-2 grid-flow-dense">
             {media.map((item, idx) => {
+              if (media.length === 1) {
+                return renderCard(
+                  item,
+                  'col-span-1 sm:col-span-2 lg:col-span-3 aspect-[16/9] sm:aspect-[21/9]'
+                );
+              }
+              if (media.length === 2) {
+                return renderCard(
+                  item,
+                  'col-span-1 sm:col-span-1 lg:col-span-auto aspect-[16/9] sm:aspect-[16/10]'
+                );
+              }
+
               // Master establishing shot every 4th photo
               const isMasterShot = idx % 4 === 0;
-              const spanClass = isMasterShot
+              // If last photo would be single orphaned still in 3-col grid, expand as final scene
+              const isOrphanedLast = idx === media.length - 1 && media.length % 3 === 1 && !isMasterShot;
+
+              const spanClass = (isMasterShot || isOrphanedLast)
                 ? 'col-span-1 sm:col-span-2 lg:col-span-3 aspect-[16/9] sm:aspect-[21/9]'
                 : 'col-span-1 aspect-[16/10] sm:aspect-[4/3]';
 
@@ -380,13 +562,13 @@ export const UniversalPhotoGrid: React.FC<UniversalPhotoGridProps> = ({
   // ─────────────────────────────────────────────────────────────
   if (gridDesign === 'masonry') {
     return (
-      <main className="w-full px-[2px] sm:px-[3px] pb-28 sm:pb-24">
-        <div className="columns-2 sm:columns-2 md:columns-3 lg:columns-4 gap-[2px] sm:gap-[3px]">
+      <main className="w-full px-1.5 sm:px-2 md:px-3 pb-4 sm:pb-6">
+        <div className="columns-2 sm:columns-2 md:columns-3 lg:columns-4 gap-1.5 sm:gap-2 [column-fill:_balance]">
           {media.map((item) =>
             renderCard(
               item,
-              'break-inside-avoid mb-[2px] sm:mb-[3px]',
-              'w-full h-auto block object-cover rounded-none transition-transform duration-500 ease-out group-hover:scale-[1.02] cursor-pointer'
+              'break-inside-avoid w-full h-auto mb-1.5 sm:mb-2',
+              'w-full h-auto block object-cover object-center rounded-none transition-transform duration-500 ease-out group-hover:scale-[1.02] cursor-pointer'
             )
           )}
         </div>
@@ -399,8 +581,8 @@ export const UniversalPhotoGrid: React.FC<UniversalPhotoGridProps> = ({
   // ─────────────────────────────────────────────────────────────
   if (gridDesign === 'collage') {
     return (
-      <main className="w-full px-[2px] sm:px-[3px] pb-28 sm:pb-24">
-        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-[2px] sm:gap-[3px] auto-rows-[240px] xs:auto-rows-[280px] sm:auto-rows-[320px] md:auto-rows-[360px]">
+      <main className="w-full px-1.5 sm:px-2 md:px-3 pb-4 sm:pb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-1.5 sm:gap-2 grid-flow-dense auto-rows-[240px] xs:auto-rows-[280px] sm:auto-rows-[320px] md:auto-rows-[360px]">
           {media.map((item, idx) => {
             let spanClass = 'col-span-1 row-span-1';
             if (idx % 7 === 0) {
@@ -422,10 +604,10 @@ export const UniversalPhotoGrid: React.FC<UniversalPhotoGridProps> = ({
   // ─────────────────────────────────────────────────────────────
   if (gridDesign === 'grid') {
     return (
-      <main className="w-full px-[2px] sm:px-[3px] pb-28 sm:pb-24">
-        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-[2px] sm:gap-[3px]">
+      <main className="w-full px-1.5 sm:px-2 md:px-3 pb-4 sm:pb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-1.5 sm:gap-2">
           {media.map((item) =>
-            renderCard(item, 'aspect-[4/3] sm:aspect-[3/2]')
+            renderCard(item, 'w-full aspect-[4/3] sm:aspect-[3/2]')
           )}
         </div>
       </main>
@@ -436,16 +618,17 @@ export const UniversalPhotoGrid: React.FC<UniversalPhotoGridProps> = ({
   // 4. LARGE FEED: High-Impact Expansive Storytelling Feed
   // ─────────────────────────────────────────────────────────────
   return (
-    <main className="w-full px-[2px] sm:px-[3px] pb-28 sm:pb-24">
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-[2px] sm:gap-[3px]">
+    <main className="w-full px-1.5 sm:px-2 md:px-3 pb-4 sm:pb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 sm:gap-2">
         {media.map((item) =>
           renderCard(
             item,
-            '',
-            'w-full h-auto max-h-[85vh] block object-cover rounded-none transition-transform duration-500 ease-out group-hover:scale-[1.02] cursor-pointer'
+            'w-full h-auto flex items-center justify-center bg-neutral-900/10',
+            'w-full h-auto max-h-[85vh] block object-cover object-center rounded-none transition-transform duration-500 ease-out group-hover:scale-[1.02] cursor-pointer'
           )
         )}
       </div>
     </main>
   );
 };
+

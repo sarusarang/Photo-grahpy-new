@@ -166,34 +166,63 @@ export const ProjectEditModal: React.FC<ProjectEditModalProps> = ({
             </div>
           </div>
 
-          {/* Cover Image URL */}
+          {/* Cover Image */}
           <div>
-            <label className="block text-[11px] font-mono uppercase tracking-wider text-neutral-400 mb-1">
-              Cover Image URL *
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-[11px] font-mono uppercase tracking-wider text-neutral-400">
+                Cover Photo *
+              </label>
+              <label className="text-[11px] font-mono text-amber-400 hover:text-amber-300 cursor-pointer flex items-center gap-1">
+                <span>Upload File</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onload = (event) => {
+                        const res = event.target?.result as string;
+                        if (res) setCoverUrl(res);
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                />
+              </label>
+            </div>
             <div className="flex gap-2">
               <input
-                type="url"
+                type="text"
                 required
                 value={coverUrl}
                 onChange={(e) => setCoverUrl(e.target.value)}
-                placeholder="https://images.unsplash.com/..."
+                placeholder="https://... or upload a photo"
                 className="w-full px-3.5 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-600 focus:outline-none focus:border-amber-400 text-xs font-mono"
               />
             </div>
-            {/* Quick Presets */}
-            <div className="flex gap-2 mt-2 overflow-x-auto pb-1">
-              {CURATED_HERO_PRESETS.slice(0, 4).map((p, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => setCoverUrl(p.url)}
-                  className="shrink-0 w-16 h-10 rounded-lg overflow-hidden border border-neutral-800 hover:border-amber-400 transition-colors"
-                  title={p.title}
-                >
-                  <img src={p.url} alt={p.title} className="w-full h-full object-cover" />
-                </button>
-              ))}
+            {/* Quick Preview & Presets */}
+            <div className="flex items-center gap-2 mt-2">
+              {coverUrl && (
+                <div className="w-12 h-10 rounded-lg overflow-hidden border border-amber-400/50 shrink-0">
+                  <img src={coverUrl} alt="Cover preview" className="w-full h-full object-cover" />
+                </div>
+              )}
+              <div className="flex gap-1.5 overflow-x-auto pb-1 text-[10px] text-neutral-400 items-center">
+                <span className="shrink-0 text-neutral-500">Presets:</span>
+                {CURATED_HERO_PRESETS.slice(0, 4).map((p, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setCoverUrl(p.url)}
+                    className="shrink-0 w-12 h-8 rounded-md overflow-hidden border border-neutral-800 hover:border-amber-400 transition-colors"
+                    title={p.title}
+                  >
+                    <img src={p.url} alt={p.title} className="w-full h-full object-cover" />
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 

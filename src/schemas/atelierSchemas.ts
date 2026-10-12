@@ -164,14 +164,20 @@ export type EventQrSettingsFormData = z.infer<typeof eventQrSettingsSchema>;
 
 export const watermarkSettingsSchema = z.object({
   enable_watermark: z.boolean().default(true),
+  watermark_type: z.enum(['text', 'image']).default('text'),
   watermark_text: z
     .string()
-    .min(1, 'Watermark text cannot be empty')
-    .max(80, 'Watermark text cannot exceed 80 characters'),
+    .max(100, 'Watermark text cannot exceed 100 characters')
+    .optional()
+    .default(''),
   watermark_opacity: z.coerce.number().min(0.05).max(1).default(0.45),
   watermark_position: z
     .enum(['bottom-right', 'bottom-left', 'top-right', 'center', 'tiled'])
     .default('bottom-right'),
+  watermark_font_size: z.enum(['sm', 'md', 'lg', 'xl']).default('md'),
+  watermark_font_color: z.string().default('#FFFFFF'),
+  watermark_font_style: z.enum(['serif', 'sans', 'script', 'mono']).default('serif'),
+  watermark_image: z.any().optional().nullable(),
 });
 
 export type WatermarkSettingsFormData = z.infer<typeof watermarkSettingsSchema>;

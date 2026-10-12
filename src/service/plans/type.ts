@@ -28,6 +28,7 @@ export interface StudioPlan {
   gallery_expiry_days?: number;
   face_search_enabled?: boolean;
   watermark_enabled?: boolean;
+  ai_culling_enabled?: boolean;
   max_events?: number;
   allowed_templates?: string[];
   allowed_portfolio_templates?: string[];
@@ -70,6 +71,7 @@ export interface CurrentSubscriptionPlanSummary {
   allowed_templates?: string[];
   face_search_enabled?: boolean;
   watermark_enabled?: boolean;
+  ai_culling_enabled?: boolean;
   gallery_expiry_days?: number;
   max_events?: number;
   max_portfolio_posts?: number;
@@ -148,4 +150,9 @@ export interface CancelAutoRenewResponse {
   status: string;
   message: string;
   auto_renew: boolean;
+}
+
+export interface AddStorageAddonResponse {
+  status: string;
+  subscription?: CurrentSubscription;
 }

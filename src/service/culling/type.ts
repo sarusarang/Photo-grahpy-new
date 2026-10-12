@@ -1,13 +1,4 @@
-export interface CullingPlanTier {
-  id: string;
-  name: string;
-  price: number;
-  photosLimit: number;
-  badge: string;
-  description: string;
-  is_active?: boolean;
-  order?: number;
-}
+// ─── Culling Photo Types ──────────────────────────────────────────────────────
 
 export interface CullingPhotoItem {
   id: string;
@@ -34,13 +25,13 @@ export interface CullingClusterGroup {
   items: CullingPhotoItem[];
 }
 
+// ─── Session Types ────────────────────────────────────────────────────────────
+
 export interface CullingSession {
   id: string;
   title: string;
-  status: 'draft' | 'analyzing' | 'completed' | 'archived';
-  is_paid: boolean;
-  payment_required_amount: number;
-  currency: string;
+  /** draft | analyzing | completed | archived */
+  status: string;
   total_photos: number;
   duplicate_count: number;
   keeper_count: number;
@@ -52,33 +43,70 @@ export interface CullingSession {
   all_items: CullingPhotoItem[];
 }
 
-export interface CreateCullingPaymentOrderPayload {
-  session_id: string;
-  tier_id?: string; // e.g. 'cull_single_300' | 'cull_wedding_1200' | 'cull_pro_unlimited'
-  amount_inr?: number;
-  photo_count?: number;
+// ─── Active Session Response ──────────────────────────────────────────────────
+
+export interface ActiveCullingSessionResponse {
+  id: string;
+  title?: string;
+  /** pending | analyzing | completed | moved_to_gallery | cancelled */
+  status: string;
+  photo_count: number;
+  photos: Array<{
+    id: string;
+    name: string;
+    previewUrl: string;
+    sizeBytes: number;
+    sizeMB: number;
+    sharpnessScore: number;
+    rawSharpnessVariance?: number;
+    clusterId?: string;
+    isBestPick?: boolean;
+    status: 'keep' | 'discard';
+    similarityWithBest?: number;
+    hash: string;
+  }>;
+  clusters: Array<{
+    id: string;
+    title: string;
+    averageSimilarity: number;
+    bestPickId: string;
+    photoIds: string[];
+    totalPhotos: number;
+    duplicatesCount: number;
+    wastedBytes: number;
+  }>;
 }
 
-export interface CullingPaymentOrder {
-  order_id: string;
-  key_id: string;
-  amount: number; // in smallest unit (paisa, e.g. 19900 = ₹199)
-  currency: string;
+// ─── Sync Payload ─────────────────────────────────────────────────────────────
+
+export interface SyncCullingSessionPayload {
   session_id: string;
-  tier_name: string;
-  prefill?: {
-    name?: string;
-    email?: string;
-    contact?: string;
-  };
+  photos: Array<{
+    id: string;
+    name: string;
+    previewUrl?: string;
+    sizeBytes: number;
+    sizeMB?: number;
+    sharpnessScore: number;
+    clusterId?: string;
+    isBestPick?: boolean;
+    status: 'keep' | 'discard';
+    similarityWithBest?: number;
+    hash?: string;
+  }>;
+  clusters: Array<{
+    id: string;
+    title: string;
+    averageSimilarity: number;
+    bestPickId: string;
+    photoIds: string[];
+    totalPhotos: number;
+    duplicatesCount: number;
+    wastedBytes: number;
+  }>;
 }
 
-export interface VerifyCullingPaymentPayload {
-  session_id: string;
-  razorpay_order_id: string;
-  razorpay_payment_id: string;
-  razorpay_signature: string;
-}
+// ─── Move to Gallery Types ────────────────────────────────────────────────────
 
 export interface MoveCullingToGalleryPayload {
   session_id?: string;
@@ -108,69 +136,24 @@ export interface MoveCullingToGalleryResponse {
   message: string;
 }
 
-export interface ActiveCullingSessionResponse {
+// ─── Upload & Action Response Types ──────────────────────────────────────────
+
+export interface CullingUploadedPhoto {
   id: string;
-  title?: string;
-  status: 'pending_payment' | 'paid' | 'analyzing' | 'completed' | 'moved_to_gallery' | 'cancelled';
-  is_paid: boolean;
-  tier?: {
-    id: string;
-    name: string;
-    price: number;
-    photosLimit: number;
-  } | null;
-  photo_count: number;
-  photos: Array<{
-    id: string;
-    name: string;
-    previewUrl: string;
-    sizeBytes: number;
-    sizeMB: number;
-    sharpnessScore: number;
-    rawSharpnessVariance?: number;
-    clusterId?: string;
-    isBestPick?: boolean;
-    status: 'keep' | 'discard';
-    similarityWithBest?: number;
-    hash: string;
-  }>;
-  clusters: Array<{
-    id: string;
-    title: string;
-    averageSimilarity: number;
-    bestPickId: string;
-    photoIds: string[];
-    totalPhotos: number;
-    duplicatesCount: number;
-    wastedBytes: number;
-  }>;
+  name: string;
+  previewUrl: string;
+  sizeBytes: number;
+  sizeMB: number;
 }
 
-export interface SyncCullingSessionPayload {
-  session_id: string;
-  tier_id?: string;
-  is_paid?: boolean;
-  photos: Array<{
-    id: string;
-    name: string;
-    previewUrl?: string;
-    sizeBytes: number;
-    sizeMB?: number;
-    sharpnessScore: number;
-    clusterId?: string;
-    isBestPick?: boolean;
-    status: 'keep' | 'discard';
-    similarityWithBest?: number;
-    hash?: string;
-  }>;
-  clusters: Array<{
-    id: string;
-    title: string;
-    averageSimilarity: number;
-    bestPickId: string;
-    photoIds: string[];
-    totalPhotos: number;
-    duplicatesCount: number;
-    wastedBytes: number;
-  }>;
+export interface UploadCullingPhotosResponse {
+  message: string;
+  session_id?: string;
+  photos: CullingUploadedPhoto[];
 }
+
+export interface CullingActionResponse {
+  success: boolean;
+  message: string;
+}
+

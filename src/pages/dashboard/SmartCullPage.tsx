@@ -4,13 +4,10 @@ import {
   UploadCloud,
   CheckCircle2,
   Trash2,
-  Undo2,
   FolderKanban,
   Trophy,
   Layers,
   ArrowRight,
-  ShieldCheck,
-  CreditCard,
   Maximize2,
   Eye,
   Sliders,
@@ -22,8 +19,12 @@ import {
   Loader2,
   Download,
   FileImage,
+  Lock,
+  Zap,
+  Images,
+  Copy,
+  X,
 } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
 import {
   runAICullPipeline,
   type AnalyzedPhoto,
@@ -32,56 +33,48 @@ import {
 } from '@/utils/deduplicationEngine';
 import { downloadMultipleAsZip, resolveImageUrl } from '@/utils/downloadUtils';
 import { CullingUploadModal } from '@/components/culling/CullingUploadModal';
-import { CullingPaymentModal } from '@/components/culling/CullingPaymentModal';
 import { MoveCullToGalleryModal } from '@/components/culling/MoveCullToGalleryModal';
 import { ClusterCompareModal } from '@/components/culling/ClusterCompareModal';
+import { PlanUpgradeModal } from '@/components/billing/PlanUpgradeModal';
 import {
   UploadCullingPhotosApi,
-  GetCullingPricingTiersApi,
-  DEFAULT_CULLING_TIERS,
   GetActiveCullingSessionApi,
   SyncCullingSessionApi,
   DiscardCullingSessionApi,
-  saveLocalCullingSession,
-  loadLocalCullingSession,
-  clearLocalCullingSession,
+  TriggerAICullingAnalysisApi,
 } from '@/service/culling/CullingApi';
 import { useToast } from '@/components/ui/Toast';
+import { usePlanQuota } from '@/hooks/usePlanQuota';
+
+const PAGE_CHUNK_SIZE = 40;
 
 export const SmartCullPage: React.FC = () => {
   const { showToast } = useToast();
+  const {
+    aiCullingEnabled,
+    planName,
+    tier,
+    isNoPlan,
+    isExpired,
+    isLoading: isPlanLoading,
+    validateStorageQuota,
+    availableStorageDisplay,
+    isStorageFull,
+  } = usePlanQuota();
 
-  // Dynamic Plans from Django Backend (with fallback)
-  const { data: tiers = DEFAULT_CULLING_TIERS } = useQuery({
-    queryKey: ['culling-pricing-tiers'],
-    queryFn: GetCullingPricingTiersApi,
-    staleTime: 1000 * 60 * 5,
-  });
-
-  const minStartingPrice = useMemo(() => {
-    if (!tiers || tiers.length === 0) return 149;
-    return Math.min(...tiers.map((t) => t.price));
-  }, [tiers]);
-
-  // Session & Payment State with local cache restoration
-  const cached = useMemo(() => loadLocalCullingSession(), []);
-
-  const [sessionId, setSessionId] = useState<string>(
-    () => cached?.sessionId || `cull_session_${Date.now()}`
-  );
-  const [isSessionPaid, setIsSessionPaid] = useState<boolean>(
-    () => cached?.isSessionPaid || false
-  );
-  const [paidDetails, setPaidDetails] = useState<{ tier: string; amount: number } | null>(
-    () => cached?.paidDetails || null
-  );
-
-  // Modals Visibility
+  // State
+  const [sessionId, setSessionId] = useState<string>(() => `cull_session_${Date.now()}`);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
-  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [isMoveGalleryModalOpen, setIsMoveGalleryModalOpen] = useState(false);
   const [isCompareModalOpen, setIsCompareModalOpen] = useState(false);
   const [activeCompareClusterId, setActiveCompareClusterId] = useState<string | null>(null);
+  const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
+  const [apiError, setApiError] = useState<{
+    title: string;
+    message: string;
+    status?: number;
+    details?: string;
+  } | null>(null);
 
   // ZIP Download & Session Discard State
   const [isZipping, setIsZipping] = useState(false);
@@ -89,31 +82,33 @@ export const SmartCullPage: React.FC = () => {
   const [showPostZipModal, setShowPostZipModal] = useState(false);
   const [isDiscardModalOpen, setIsDiscardModalOpen] = useState(false);
   const [isDiscarding, setIsDiscarding] = useState(false);
+  const [previewPhoto, setPreviewPhoto] = useState<AnalyzedPhoto | null>(null);
 
-  // Culling Processing & Data State
+  // Processing & Data State
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisProgress, setAnalysisProgress] = useState(0);
   const [analysisStatusText, setAnalysisStatusText] = useState('');
+  const [isRestoring, setIsRestoring] = useState(true);
 
-  const [photos, setPhotos] = useState<AnalyzedPhoto[]>(() => cached?.photos || []);
-  const [clusters, setClusters] = useState<DuplicateCluster[]>(() => cached?.clusters || []);
+  const [photos, setPhotos] = useState<AnalyzedPhoto[]>([]);
+  const [clusters, setClusters] = useState<DuplicateCluster[]>([]);
   const [similarityThreshold, setSimilarityThreshold] = useState<number>(88);
+
+  // View & Pagination
+  const [activeTab, setActiveTab] = useState<'all' | 'keepers' | 'duplicates' | 'clusters'>('clusters');
+  const [visibleCount, setVisibleCount] = useState<number>(PAGE_CHUNK_SIZE);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
 
   // Query backend for active session on mount
   useEffect(() => {
     let isMounted = true;
+    setIsRestoring(true);
+
     GetActiveCullingSessionApi()
       .then((activeSession) => {
         if (!isMounted) return;
         if (activeSession && activeSession.photos.length > 0) {
           setSessionId(activeSession.id);
-          setIsSessionPaid(activeSession.is_paid);
-          if (activeSession.tier) {
-            setPaidDetails({
-              tier: activeSession.tier.name,
-              amount: activeSession.tier.price,
-            });
-          }
           const mappedPhotos: AnalyzedPhoto[] = activeSession.photos.map((p) => {
             const sizeBytes = p.sizeBytes || 0;
             const sizeMB =
@@ -140,19 +135,13 @@ export const SmartCullPage: React.FC = () => {
           });
           setPhotos(mappedPhotos);
           setClusters(activeSession.clusters);
-          saveLocalCullingSession({
-            sessionId: activeSession.id,
-            isSessionPaid: activeSession.is_paid,
-            paidDetails: activeSession.tier
-              ? { tier: activeSession.tier.name, amount: activeSession.tier.price }
-              : null,
-            photos: mappedPhotos,
-            clusters: activeSession.clusters,
-          });
         }
       })
       .catch((err) => {
-        console.warn('[SmartCull] Failed to fetch active backend session:', err);
+        console.warn('[SmartCull] Failed to fetch active session:', err);
+      })
+      .finally(() => {
+        if (isMounted) setIsRestoring(false);
       });
 
     return () => {
@@ -160,1070 +149,1012 @@ export const SmartCullPage: React.FC = () => {
     };
   }, []);
 
-  // Active View Tab: 'clusters' | 'all' | 'keepers' | 'duplicates'
-  const [activeTab, setActiveTab] = useState<'clusters' | 'all' | 'keepers' | 'duplicates'>('clusters');
-
-  // Progressive Infinite Scrolling Configuration
-  const CLUSTERS_PAGE_SIZE = 8;
-  const PHOTOS_PAGE_SIZE = 36;
-  const CLUSTERS_INCREMENT = 6;
-  const PHOTOS_INCREMENT = 24;
-
-  const [visibleClusterCount, setVisibleClusterCount] = useState<number>(CLUSTERS_PAGE_SIZE);
-  const [visiblePhotoCount, setVisiblePhotoCount] = useState<number>(PHOTOS_PAGE_SIZE);
-
-  const containerRef = useRef<HTMLDivElement>(null);
-  const sentinelRef = useRef<HTMLDivElement>(null);
-
-  // Guard opening upload modal if a batch is already active
-  const handleOpenUpload = useCallback(() => {
-    if (photos.length > 0) {
-      showToast(
-        'Batch In Progress',
-        `An active batch of ${photos.length} photos is currently in progress. Each plan covers one batch upload. Please move to gallery, download your ZIP, or discard this session to start a new shoot.`,
-        'info'
-      );
-      return;
-    }
-    setIsUploadModalOpen(true);
-  }, [photos.length, showToast]);
-
-  // Handle uploaded files from CullingUploadModal
-  const handleFilesSelected = useCallback(
-    async (files: File[]) => {
-      setIsAnalyzing(true);
-      setAnalysisProgress(5);
-      setAnalysisStatusText('Uploading photos to backend staging & preparing AI analysis...');
-
-      try {
-        // Concurrent staging upload to Django backend
-        const uploadPromise = UploadCullingPhotosApi(sessionId, files).catch((err) => {
-          console.warn('[SmartCull] Staging upload notice:', err);
-          return null;
-        });
-
-        const fileItems = files.map((file, idx) => ({
-          id: `photo_${Date.now()}_${idx}`,
-          file,
-          previewUrl: URL.createObjectURL(file),
-          name: file.name,
-          sizeBytes: file.size,
-        }));
-
-        const result: CullingResult = await runAICullPipeline(
-          fileItems,
-          similarityThreshold,
-          (percent, text) => {
-            setAnalysisProgress(percent);
-            setAnalysisStatusText(text);
-          }
-        );
-
-        // Await upload response so we can attach backend server URLs
-        const uploadRes = await uploadPromise;
-        let finalPhotos = result.allPhotos;
-        let finalClusters = result.clusters;
-
-        if (uploadRes?.photos && uploadRes.photos.length > 0) {
-          const idMap = new Map<string, string>(); // oldId -> newId
-
-          finalPhotos = result.allPhotos.map((p, idx) => {
-            const serverMatch =
-              uploadRes.photos!.find((sp: any) => sp.name === p.name) ||
-              uploadRes.photos![idx];
-            if (serverMatch) {
-              idMap.set(p.id, serverMatch.id);
-              return {
-                ...p,
-                id: serverMatch.id,
-                previewUrl: serverMatch.previewUrl || p.previewUrl,
-              };
-            }
-            return p;
-          });
-
-          // Remap cluster photoIds and bestPickId to the backend IDs
-          finalClusters = result.clusters.map((c) => ({
-            ...c,
-            bestPickId: idMap.get(c.bestPickId) || c.bestPickId,
-            photoIds: c.photoIds.map((pid) => idMap.get(pid) || pid),
-          }));
-        }
-
-        setPhotos(finalPhotos);
-        setClusters(finalClusters);
-        setIsUploadModalOpen(false);
-
-        // Save to resilient local cache immediately
-        saveLocalCullingSession({
-          sessionId,
-          isSessionPaid,
-          paidDetails,
-          photos: finalPhotos,
-          clusters: finalClusters,
-        });
-
-        // Persist to Django backend
-        SyncCullingSessionApi({
-          session_id: sessionId,
-          tier_id: paidDetails?.tier,
-          is_paid: isSessionPaid,
-          photos: finalPhotos,
-          clusters: finalClusters,
-        }).catch((err) => {
-          console.warn('[SmartCull] Backend sync notice:', err);
-        });
-
-        showToast(
-          'AI Culling Complete',
-          `Found ${result.clusters.length} duplicate cluster(s). Identified ${result.totalDuplicates} duplicate photo(s) to remove.`,
-          'success'
-        );
-      } catch (err: any) {
-        showToast('Analysis Error', err?.message || 'Failed to analyze photos.', 'error');
-      } finally {
-        setIsAnalyzing(false);
-      }
-    },
-    [sessionId, isSessionPaid, paidDetails, similarityThreshold, showToast]
-  );
-
-  // Manual Override: Set a specific photo as "Best Pick"
-  const handleSetBestPick = useCallback(
-    (targetPhotoId: string) => {
-      let updatedPhotos: AnalyzedPhoto[] = [];
-      let updatedClusters: DuplicateCluster[] = [];
-
-      setPhotos((prev) => {
-        const target = prev.find((p) => p.id === targetPhotoId);
-        if (!target || !target.clusterId) return prev;
-
-        updatedPhotos = prev.map((p) => {
-          if (p.clusterId === target.clusterId) {
-            if (p.id === targetPhotoId) {
-              return { ...p, isBestPick: true, status: 'keep' };
-            } else {
-              return { ...p, isBestPick: false, status: 'discard' };
-            }
-          }
-          return p;
-        });
-        return updatedPhotos;
-      });
-
-      setClusters((prev) => {
-        updatedClusters = prev.map((c) => {
-          const match = photos.find((p) => p.id === targetPhotoId);
-          if (match && match.clusterId === c.id) {
-            return { ...c, bestPickId: targetPhotoId };
-          }
-          return c;
-        });
-        return updatedClusters;
-      });
-
-      // Sync changes to local cache and backend
-      setTimeout(() => {
-        setPhotos((currentPhotos) => {
-          setClusters((currentClusters) => {
-            saveLocalCullingSession({
-              sessionId,
-              isSessionPaid,
-              paidDetails,
-              photos: currentPhotos,
-              clusters: currentClusters,
-            });
-            SyncCullingSessionApi({
-              session_id: sessionId,
-              tier_id: paidDetails?.tier,
-              is_paid: isSessionPaid,
-              photos: currentPhotos,
-              clusters: currentClusters,
-            }).catch(() => {});
-            return currentClusters;
-          });
-          return currentPhotos;
-        });
-      }, 50);
-
-      showToast('Best Pick Updated', 'Selected photo is now marked as the keeper.', 'info');
-    },
-    [photos, sessionId, isSessionPaid, paidDetails, showToast]
-  );
-
-  // Manual Override: Toggle Keep / Discard for an individual photo
-  const handleToggleStatus = useCallback(
-    (photoId: string) => {
-      setPhotos((prev) => {
-        const updated: AnalyzedPhoto[] = prev.map((p) => {
-          if (p.id === photoId) {
-            const nextStatus: 'keep' | 'discard' = p.status === 'keep' ? 'discard' : 'keep';
-            return { ...p, status: nextStatus };
-          }
-          return p;
-        });
-
-        saveLocalCullingSession({
-          sessionId,
-          isSessionPaid,
-          paidDetails,
-          photos: updated,
-          clusters,
-        });
-
-        SyncCullingSessionApi({
-          session_id: sessionId,
-          tier_id: paidDetails?.tier,
-          is_paid: isSessionPaid,
-          photos: updated,
-          clusters,
-        }).catch(() => {});
-
-        return updated;
-      });
-    },
-    [sessionId, isSessionPaid, paidDetails, clusters]
-  );
-
-  // Batch Select All Discarded
-  const handleKeepAll = () => {
-    const updated = photos.map((p) => ({ ...p, status: 'keep' as const }));
-    setPhotos(updated);
-    saveLocalCullingSession({
-      sessionId,
-      isSessionPaid,
-      paidDetails,
-      photos: updated,
-      clusters,
-    });
-    SyncCullingSessionApi({
-      session_id: sessionId,
-      tier_id: paidDetails?.tier,
-      is_paid: isSessionPaid,
-      photos: updated,
-      clusters,
-    }).catch(() => {});
-    showToast('All Kept', 'Marked all photos as keepers.', 'info');
-  };
-
-  const handleResetToAI = () => {
-    const updated = photos.map((p) => ({
-      ...p,
-      status: (p.clusterId && !p.isBestPick ? 'discard' : 'keep') as 'keep' | 'discard',
-    }));
-    setPhotos(updated);
-    saveLocalCullingSession({
-      sessionId,
-      isSessionPaid,
-      paidDetails,
-      photos: updated,
-      clusters,
-    });
-    SyncCullingSessionApi({
-      session_id: sessionId,
-      tier_id: paidDetails?.tier,
-      is_paid: isSessionPaid,
-      photos: updated,
-      clusters,
-    }).catch(() => {});
-    showToast('Reset Complete', 'Restored AI recommended selections.', 'info');
-  };
-
-  // Move to Gallery: All photos in this session were already paid upfront during upload
-  const handleInitiateMoveToGallery = () => {
-    if (photos.length === 0) {
-      showToast('No Photos', 'Please upload and cull photos first.', 'warning');
-      return;
-    }
-
-    if (!isSessionPaid) {
-      setIsPaymentModalOpen(true);
-      return;
-    }
-
-    setIsMoveGalleryModalOpen(true);
-  };
-
-  // Payment Success Handler (invoked during upload checkout)
-  const handlePaymentSuccess = (details: { tier: string; amount: number }) => {
-    setIsSessionPaid(true);
-    setPaidDetails(details);
-    setIsPaymentModalOpen(false);
-    saveLocalCullingSession({
-      sessionId,
-      isSessionPaid: true,
-      paidDetails: details,
-      photos,
-      clusters,
-    });
-  };
-
-  // After moving to gallery: purge and delete all photos from the culling staging session
-  const handleMoveSuccess = useCallback(() => {
-    photos.forEach((p) => {
-      if (p.previewUrl && p.previewUrl.startsWith('blob:')) {
-        URL.revokeObjectURL(p.previewUrl);
-      }
-    });
-    setPhotos([]);
-    setClusters([]);
-    setActiveCompareClusterId(null);
-    setIsCompareModalOpen(false);
-    setActiveTab('clusters');
-    setIsSessionPaid(false);
-    setPaidDetails(null);
-    clearLocalCullingSession();
-    // Signal backend that staging storage is freed
-    DiscardCullingSessionApi(sessionId).catch(() => {});
-    setSessionId(`cull_session_${Date.now()}`);
-  }, [photos, sessionId]);
-
-  // Aggregates
+  // Computed metrics
   const totalPhotos = photos.length;
   const keepers = useMemo(() => photos.filter((p) => p.status === 'keep'), [photos]);
   const duplicates = useMemo(() => photos.filter((p) => p.status === 'discard'), [photos]);
-  const totalWastedBytes = useMemo(
-    () => duplicates.reduce((acc, p) => acc + p.sizeBytes, 0),
-    [duplicates]
-  );
-  const totalWastedMB = Math.round((totalWastedBytes / (1024 * 1024)) * 10) / 10;
-  const totalBytes = useMemo(() => photos.reduce((acc, p) => acc + p.sizeBytes, 0), [photos]);
-  const percentSaved = totalBytes > 0 ? Math.round((totalWastedBytes / totalBytes) * 100) : 0;
 
-  // Download approved keepers as ZIP archive using browser bundling engine
-  const handleDownloadKeepersZip = useCallback(async () => {
+  const totalSavedBytes = useMemo(() => {
+    return duplicates.reduce((acc, p) => acc + (p.sizeBytes || 0), 0);
+  }, [duplicates]);
+
+  const totalSavedMB = useMemo(() => {
+    if (totalSavedBytes > 0) {
+      return (totalSavedBytes / (1024 * 1024)).toFixed(1);
+    }
+    const mbSum = duplicates.reduce((acc, p) => acc + (p.sizeMB || 0), 0);
+    return mbSum.toFixed(1);
+  }, [duplicates, totalSavedBytes]);
+
+  const storageReducedPercentage = useMemo(() => {
+    if (totalPhotos === 0) return 0;
+    return Math.round((duplicates.length / totalPhotos) * 100);
+  }, [duplicates.length, totalPhotos]);
+
+  // Tab Filtering
+  const activePhotoList = useMemo(() => {
+    switch (activeTab) {
+      case 'keepers':
+        return keepers;
+      case 'duplicates':
+        return duplicates;
+      case 'all':
+      default:
+        return photos;
+    }
+  }, [activeTab, keepers, duplicates, photos]);
+
+  // Reset pagination when active tab changes
+  useEffect(() => {
+    setVisibleCount(PAGE_CHUNK_SIZE);
+  }, [activeTab]);
+
+  // Intersection Observer for Infinite Scroll
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setVisibleCount((prev) => prev + PAGE_CHUNK_SIZE);
+        }
+      },
+      { threshold: 0.1, rootMargin: '200px' }
+    );
+
+    if (sentinelRef.current) {
+      observer.observe(sentinelRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, [activeTab, photos.length, clusters.length]);
+
+  const visiblePhotos = useMemo(
+    () => activePhotoList.slice(0, visibleCount),
+    [activePhotoList, visibleCount]
+  );
+  const visibleClusters = useMemo(
+    () => clusters.slice(0, visibleCount),
+    [clusters, visibleCount]
+  );
+
+  const hasMore =
+    activeTab === 'clusters'
+      ? visibleClusters.length < clusters.length
+      : visiblePhotos.length < activePhotoList.length;
+
+  const loadMore = useCallback(() => {
+    setVisibleCount((prev) => prev + PAGE_CHUNK_SIZE);
+  }, []);
+
+  // Sync to backend helper
+  const syncToBackend = useCallback(
+    async (updatedPhotos: AnalyzedPhoto[], updatedClusters: DuplicateCluster[]) => {
+      try {
+        await SyncCullingSessionApi({
+          session_id: sessionId,
+          photos: updatedPhotos.map((p) => ({
+            id: p.id,
+            name: p.name,
+            previewUrl: p.previewUrl,
+            sizeBytes: p.sizeBytes,
+            sizeMB: p.sizeMB,
+            sharpnessScore: p.sharpnessScore,
+            status: p.status,
+            isBestPick: p.isBestPick,
+            clusterId: p.clusterId,
+            hash: p.hash,
+            similarityWithBest: p.similarityWithBest,
+          })),
+          clusters: updatedClusters.map((c) => ({
+            id: c.id,
+            title: c.title,
+            averageSimilarity: c.averageSimilarity,
+            bestPickId: c.bestPickId,
+            photoIds: c.photoIds,
+            totalPhotos: c.totalPhotos,
+            duplicatesCount: c.duplicatesCount,
+            wastedBytes: c.wastedBytes,
+          })),
+        });
+      } catch (err) {
+        console.warn('[SmartCull] Failed to sync session to backend:', err);
+      }
+    },
+    [sessionId]
+  );
+
+  // File Upload & Pipeline Execution (100% Backend-Driven)
+  const handleFilesSelected = async (files: File[]) => {
+    if (files.length === 0) return;
+
+    if (!aiCullingEnabled || isNoPlan || isExpired) {
+      showToast('Plan Required', 'AI Smart Cull requires an active Studio plan. Please choose or renew your plan.', 'warning');
+      setIsUpgradeModalOpen(true);
+      return;
+    }
+
+    // Strict Storage Quota Validation
+    const quotaCheck = validateStorageQuota(files);
+    if (!quotaCheck.valid) {
+      showToast(
+        quotaCheck.errorTitle || 'Storage Quota Exceeded',
+        quotaCheck.errorMessage || 'The selected photos exceed your studio cloud storage quota.',
+        'error'
+      );
+      setIsUpgradeModalOpen(true);
+      return;
+    }
+
+    setApiError(null);
+    setIsAnalyzing(true);
+    setAnalysisProgress(5);
+    setAnalysisStatusText(`Uploading ${files.length} photos to studio staging storage...`);
+
+    try {
+      // 1. Upload files to backend staging storage in chunks (prevents 413 Content Too Large)
+      const uploadRes = await UploadCullingPhotosApi(
+        sessionId,
+        files,
+        (pct, statusText) => {
+          setAnalysisProgress(Math.round(pct * 0.45)); // 0% - 45%
+          setAnalysisStatusText(statusText);
+        }
+      );
+
+      if (uploadRes?.session_id) {
+        setSessionId(uploadRes.session_id);
+      }
+
+      const uploadedPhotos = uploadRes?.photos || [];
+      if (uploadedPhotos.length === 0) {
+        throw new Error('Backend upload finished, but no photo records were returned by the server.');
+      }
+
+      const activeSid = uploadRes?.session_id || sessionId;
+
+      // 2. Trigger Server-Side AI Analysis on Backend
+      setAnalysisProgress(50);
+      setAnalysisStatusText(`Running AI Analysis on studio server...`);
+
+      let backendAnalyzedSession = null;
+      try {
+        backendAnalyzedSession = await TriggerAICullingAnalysisApi(activeSid, similarityThreshold);
+      } catch (beErr: any) {
+        console.error('[SmartCull] Server analysis error:', beErr);
+        throw beErr;
+      }
+
+      if (backendAnalyzedSession && backendAnalyzedSession.photos.length > 0) {
+        const mappedBackendPhotos: AnalyzedPhoto[] = backendAnalyzedSession.photos.map((p) => ({
+          id: p.id,
+          name: p.name,
+          previewUrl: resolveImageUrl(p.previewUrl || ''),
+          sizeBytes: p.sizeBytes,
+          sizeMB: p.sizeMB,
+          sharpnessScore: p.sharpnessScore,
+          rawSharpnessVariance: p.rawSharpnessVariance ?? p.sharpnessScore ?? 0,
+          clusterId: p.clusterId,
+          isBestPick: Boolean(p.isBestPick),
+          status: p.status,
+          similarityWithBest: p.similarityWithBest,
+          hash: p.hash || '',
+        }));
+
+        setPhotos(mappedBackendPhotos);
+        setClusters(backendAnalyzedSession.clusters);
+        setAnalysisProgress(100);
+        setAnalysisStatusText('Backend AI analysis complete!');
+        showToast(
+          `AI Culling complete! Loaded ${backendAnalyzedSession.clusters.length} burst sets from backend.`,
+          'success'
+        );
+        setIsUploadModalOpen(false);
+        return;
+      }
+
+      // If backend analysis returned empty or null, inform the user with error fallback
+      throw new Error(
+        `Photos were uploaded to backend staging storage, but the server-side analysis endpoint (/api/culling/sessions/${activeSid}/analyze/) returned 404 or an empty response. Please register the backend analyze route.`
+      );
+    } catch (error: any) {
+      console.error('[SmartCull] Backend API Error:', error);
+      const statusCode = error?.response?.status || error?.status;
+      const serverMsg =
+        error?.response?.data?.message ||
+        error?.response?.data?.error ||
+        error?.response?.data?.detail ||
+        error?.message ||
+        'Failed to process photos with backend culling service.';
+
+      const errorTitle =
+        statusCode === 413
+          ? 'Upload Size Too Large'
+          : statusCode === 404
+          ? 'Service Temporarily Unavailable'
+          : 'Unable to Process Photos';
+
+      const userMessage =
+        statusCode === 413
+          ? 'The selected batch exceeds the upload limit. Please try selecting a smaller batch of photos.'
+          : statusCode === 404
+          ? 'The smart culling service is momentarily unreachable. Please try again shortly.'
+          : serverMsg || 'An error occurred while analyzing photos. Please check your connection and retry.';
+
+      setApiError({
+        title: errorTitle,
+        message: userMessage,
+        status: statusCode,
+      });
+
+      showToast(userMessage, 'error');
+      setIsUploadModalOpen(false);
+    } finally {
+      setIsAnalyzing(false);
+      setAnalysisProgress(0);
+      setAnalysisStatusText('');
+    }
+  };
+
+  // Status Toggles
+  const handleToggleStatus = (photoId: string) => {
+    const updated = photos.map((p) => {
+      if (p.id === photoId) {
+        return {
+          ...p,
+          status: (p.status === 'keep' ? 'discard' : 'keep') as 'keep' | 'discard',
+        };
+      }
+      return p;
+    });
+    setPhotos(updated);
+    syncToBackend(updated, clusters);
+  };
+
+  const handleSetBestPick = (photoId: string) => {
+    const target = photos.find((p) => p.id === photoId);
+    if (!target || !target.clusterId) return;
+
+    const updatedPhotos = photos.map((p) => {
+      if (p.clusterId === target.clusterId) {
+        if (p.id === photoId) {
+          return { ...p, isBestPick: true, status: 'keep' as const };
+        }
+        return { ...p, isBestPick: false, status: 'discard' as const };
+      }
+      return p;
+    });
+
+    const updatedClusters = clusters.map((c) => {
+      if (c.id === target.clusterId) {
+        return { ...c, bestPickId: photoId };
+      }
+      return c;
+    });
+
+    setPhotos(updatedPhotos);
+    setClusters(updatedClusters);
+    syncToBackend(updatedPhotos, updatedClusters);
+    showToast(`Marked ${target.name} as Best Pick!`, 'info');
+  };
+
+  // Discard Session
+  const handleDiscardSession = async (silent = false) => {
+    setIsDiscarding(true);
+    try {
+      await DiscardCullingSessionApi(sessionId);
+      setPhotos([]);
+      setClusters([]);
+      setSessionId(`cull_session_${Date.now()}`);
+      setIsDiscardModalOpen(false);
+      setShowPostZipModal(false);
+      if (!silent) {
+        showToast('Session discarded and staging storage freed.', 'info');
+      }
+    } catch (err: any) {
+      showToast(err.message || 'Failed to discard session.', 'error');
+    } finally {
+      setIsDiscarding(false);
+    }
+  };
+
+  // ZIP Download
+  const handleDownloadKeepersZip = async () => {
     if (keepers.length === 0) {
-      showToast('No Keepers', 'No photos are marked as Keep in this session.', 'error');
+      showToast('No approved keeper photos to download.', 'error');
       return;
     }
 
     setIsZipping(true);
     setZipProgress(5);
-
     try {
-      const items = keepers.map((photo, index) => ({
-        url: photo.previewUrl,
-        filename: photo.name || `keeper_${index + 1}.jpg`,
-        title: photo.name,
+      const itemsToDownload = keepers.map((k) => ({
+        url: k.previewUrl,
+        name: k.name,
       }));
 
-      const zipFilename = `AI_Keepers_${sessionId.slice(-6)}.zip`;
-
       await downloadMultipleAsZip({
-        items,
-        zipFilename,
-        onProgress: (percent) => {
-          setZipProgress(percent);
-        },
+        items: itemsToDownload,
+        zipFilename: `AI_Culled_Keepers_${Date.now()}.zip`,
+        onProgress: (pct: number) => setZipProgress(pct),
       });
 
-      showToast(
-        'Download Complete',
-        `Successfully downloaded ${keepers.length} keepers in ${zipFilename}.`,
-        'success'
-      );
-      // Prompt user whether to finish & clear session storage to upload next
+      showToast(`Downloaded ${keepers.length} keeper photos as ZIP!`, 'success');
       setShowPostZipModal(true);
     } catch (err: any) {
-      console.error('[SmartCull] ZIP download failed:', err);
-      showToast('Download Failed', err?.message || 'Failed to generate ZIP archive.', 'error');
+      showToast(err.message || 'Failed to create ZIP download.', 'error');
     } finally {
       setIsZipping(false);
       setZipProgress(0);
     }
-  }, [keepers, sessionId, showToast]);
+  };
 
-  // Discard active batch: frees staging storage, wipes cache, and resets session state
-  const handleDiscardSession = useCallback(
-    async (silent: boolean = false) => {
-      setIsDiscarding(true);
-      try {
-        await DiscardCullingSessionApi(sessionId);
-      } catch (err) {
-        console.warn('[SmartCull] Error discarding backend session:', err);
-      } finally {
-        photos.forEach((p) => {
-          if (p.previewUrl && p.previewUrl.startsWith('blob:')) {
-            URL.revokeObjectURL(p.previewUrl);
-          }
-        });
-        setPhotos([]);
-        setClusters([]);
-        setActiveCompareClusterId(null);
-        setIsCompareModalOpen(false);
-        setActiveTab('clusters');
-        setIsSessionPaid(false);
-        setPaidDetails(null);
-        clearLocalCullingSession();
-        setIsDiscardModalOpen(false);
-        setShowPostZipModal(false);
-        setIsDiscarding(false);
-        setSessionId(`cull_session_${Date.now()}`);
+  const handleMoveSuccess = () => {
+    showToast('Photos moved to gallery successfully!', 'success');
+    setIsMoveGalleryModalOpen(false);
+    setPhotos([]);
+    setClusters([]);
+    setSessionId(`cull_session_${Date.now()}`);
+  };
 
-        if (!silent) {
-          showToast(
-            'Session Discarded',
-            'Active culling batch deleted and staging storage cleared. You can now select a plan and upload a new shoot.',
-            'info'
-          );
-        }
-      }
-    },
-    [sessionId, photos, showToast]
-  );
+  // Active Cluster for comparison
+  const activeCluster = useMemo(() => {
+    if (!activeCompareClusterId) return null;
+    return clusters.find((c) => c.id === activeCompareClusterId) || null;
+  }, [activeCompareClusterId, clusters]);
 
-  // Active Compare Cluster
-  const activeCluster = useMemo(
-    () => clusters.find((c) => c.id === activeCompareClusterId) || null,
-    [clusters, activeCompareClusterId]
-  );
-  const activeClusterPhotos = useMemo(
-    () => photos.filter((p) => p.clusterId === activeCompareClusterId),
-    [photos, activeCompareClusterId]
-  );
-
-  // Active photo list depending on tab selection
-  const activePhotoList = useMemo(() => {
-    if (activeTab === 'all') return photos;
-    if (activeTab === 'keepers') return keepers;
-    if (activeTab === 'duplicates') return duplicates;
-    return [];
-  }, [activeTab, photos, keepers, duplicates]);
-
-  // Sliced lists for progressive infinite scroll rendering
-  const visibleClusters = useMemo(
-    () => clusters.slice(0, visibleClusterCount),
-    [clusters, visibleClusterCount]
-  );
-  const visiblePhotos = useMemo(
-    () => activePhotoList.slice(0, visiblePhotoCount),
-    [activePhotoList, visiblePhotoCount]
-  );
-
-  // Reset infinite scroll pagination when switching tabs or changing dataset size
-  useEffect(() => {
-    setVisibleClusterCount(CLUSTERS_PAGE_SIZE);
-    setVisiblePhotoCount(PHOTOS_PAGE_SIZE);
-  }, [activeTab, photos.length, clusters.length]);
-
-  const hasMore = useMemo(() => {
-    if (activeTab === 'clusters') {
-      return visibleClusterCount < clusters.length;
-    }
-    return visiblePhotoCount < activePhotoList.length;
-  }, [activeTab, visibleClusterCount, clusters.length, visiblePhotoCount, activePhotoList.length]);
-
-  const loadMore = useCallback(() => {
-    if (activeTab === 'clusters') {
-      setVisibleClusterCount((prev) => Math.min(prev + CLUSTERS_INCREMENT, clusters.length));
-    } else {
-      setVisiblePhotoCount((prev) => Math.min(prev + PHOTOS_INCREMENT, activePhotoList.length));
-    }
-  }, [activeTab, clusters.length, activePhotoList.length]);
-
-  // IntersectionObserver for bottom sentinel element
-  useEffect(() => {
-    const sentinel = sentinelRef.current;
-    if (!sentinel || !hasMore) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) {
-          loadMore();
-        }
-      },
-      {
-        root: null,
-        rootMargin: '300px',
-        threshold: 0.05,
-      }
-    );
-
-    observer.observe(sentinel);
-    return () => observer.disconnect();
-  }, [hasMore, loadMore]);
-
-  // Fallback scroll listener on containerRef
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container || !hasMore) return;
-
-    const handleScroll = () => {
-      const { scrollTop, scrollHeight, clientHeight } = container;
-      if (scrollHeight - scrollTop - clientHeight < 400) {
-        loadMore();
-      }
-    };
-
-    container.addEventListener('scroll', handleScroll, { passive: true });
-    return () => container.removeEventListener('scroll', handleScroll);
-  }, [hasMore, loadMore]);
+  const activeClusterPhotos = useMemo(() => {
+    if (!activeCluster) return [];
+    return photos.filter((p) => p.clusterId === activeCluster.id);
+  }, [activeCluster, photos]);
 
   return (
-    <div ref={containerRef} className="flex-1 overflow-y-auto bg-[#0a0a0e] text-neutral-100 min-h-screen">
-      {/* Top Banner / Hero Bar */}
-      <div className="border-b border-white/10 bg-[#101117]/80 backdrop-blur-xl sticky top-0 z-30 px-6 py-4">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2.5">
-              <div className="p-2 rounded-xl bg-gradient-to-tr from-amber-500/20 to-orange-500/20 border border-amber-500/30 text-amber-400">
-                <Sparkles className="w-5 h-5" />
-              </div>
-              <h1 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
-                AI Smart Cull & Deduplicator
-                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                  Studio AI
-                </span>
-              </h1>
+    <div className="min-h-screen bg-[#0d0e12] text-neutral-200">
+      {/* Top Banner / Studio Plan Gate Notice */}
+      {!aiCullingEnabled && !isPlanLoading && (
+        <div className="bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-transparent border-b border-amber-500/20 px-4 sm:px-8 py-3.5 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-amber-500/20 text-amber-400">
+              <Lock className="w-4 h-4" />
             </div>
-            <p className="text-xs text-neutral-400 mt-1">
-              Perceptual difference hashing & Laplacian focus sharpness detection. Eliminate burst duplicates and move winners directly into your gallery.
+            <div>
+              <p className="text-xs sm:text-sm font-semibold text-white flex items-center gap-2">
+                <span>AI Smart Culling is locked on your current plan</span>
+                {planName && (
+                  <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-white/10 text-neutral-300">
+                    {planName}
+                  </span>
+                )}
+              </p>
+              <p className="text-[11px] text-neutral-400">
+                Upgrade your Studio Subscription to enable unlimited AI photo culling, facial sharpness scoring, and instant gallery transfers.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsUpgradeModalOpen(true)}
+            className="px-4 py-1.5 rounded-xl bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-300 hover:to-orange-300 text-black text-xs font-bold transition-all shadow-md shadow-amber-500/20 cursor-pointer flex items-center gap-1.5"
+          >
+            <Zap className="w-3.5 h-3.5 fill-current" />
+            <span>Upgrade Studio Plan</span>
+          </button>
+        </div>
+      )}
+
+      {/* Main Container */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        {/* User-friendly Error Alert */}
+        {apiError && (
+          <div className="p-5 sm:p-6 rounded-3xl bg-neutral-900/90 border border-neutral-800 text-white space-y-4 animate-in fade-in duration-200 shadow-xl">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-start gap-3.5">
+                <div className="p-2.5 rounded-2xl bg-amber-500/10 text-amber-400 border border-amber-500/20 shrink-0 mt-0.5">
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="text-sm sm:text-base font-bold text-white">
+                    {apiError.title}
+                  </h3>
+                  <p className="text-xs sm:text-sm text-neutral-300 leading-relaxed max-w-2xl">
+                    {apiError.message}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setApiError(null)}
+                className="text-neutral-400 hover:text-white transition-colors cursor-pointer text-xs shrink-0"
+              >
+                Dismiss
+              </button>
+            </div>
+
+            <div className="flex items-center gap-3 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setApiError(null);
+                  setIsUploadModalOpen(true);
+                }}
+                className="px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-md shadow-amber-400/10"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>Retry Upload</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setApiError(null)}
+                className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-neutral-300 text-xs font-medium transition-colors cursor-pointer"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        )}
+        {/* Header */}
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-6 border-b border-white/10">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              {aiCullingEnabled ? (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-semibold">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Main Plan Included • {planName || 'Studio Plan'}</span>
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setIsUpgradeModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 text-xs font-semibold cursor-pointer transition-colors"
+                >
+                  <Lock className="w-3.5 h-3.5 text-amber-400" />
+                  <span>AI Culling Locked • Upgrade {planName || 'Plan'}</span>
+                </button>
+              )}
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-neutral-300 text-xs font-mono">
+                <HardDrive className="w-3.5 h-3.5 text-amber-400" />
+                <span>Storage Quota: {availableStorageDisplay} Free</span>
+              </span>
+            </div>
+
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight flex items-center gap-3">
+              AI Smart Cull & Deduplicator
+            </h1>
+            <p className="text-sm text-neutral-400 max-w-2xl">
+              Upload raw shoot batches without limits. Our AI analyzes blur, facial sharpness, closed eyes, and burst clusters, automatically recommending the best picks and saving gigabytes of cloud storage.
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
-            {/* When batch is active: Show Batch Pill + Download ZIP + Move to Gallery + Discard */}
-            {photos.length > 0 ? (
+          {/* Action Buttons */}
+          <div className="flex flex-wrap items-center gap-3">
+            {totalPhotos > 0 && (
               <>
-                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-xs text-neutral-300">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Batch Active ({photos.length} Photos)</span>
-                </div>
-
                 <button
-                  onClick={handleDownloadKeepersZip}
-                  disabled={isZipping || keepers.length === 0}
-                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-semibold border border-white/10 transition-colors cursor-pointer disabled:opacity-50"
-                  title="Download approved keeper photos as ZIP archive"
-                >
-                  {isZipping ? (
-                    <>
-                      <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" />
-                      <span>Zipping ({zipProgress}%)...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Download className="w-3.5 h-3.5 text-amber-400" />
-                      <span>Download ZIP ({keepers.length})</span>
-                    </>
-                  )}
-                </button>
-
-                <button
-                  onClick={handleInitiateMoveToGallery}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-400 to-teal-400 hover:from-emerald-300 hover:to-teal-300 text-black text-xs font-semibold shadow-lg shadow-emerald-500/20 transition-all cursor-pointer"
-                >
-                  <FolderKanban className="w-4 h-4" />
-                  <span>Move to Gallery ({keepers.length})</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
-
-                <button
+                  type="button"
                   onClick={() => setIsDiscardModalOpen(true)}
-                  title="Discard this batch and free storage"
-                  className="p-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 transition-colors cursor-pointer"
+                  disabled={isDiscarding}
+                  className="px-3.5 py-2.5 rounded-xl bg-white/5 hover:bg-red-500/10 border border-white/10 hover:border-red-500/30 text-neutral-300 hover:text-red-400 text-xs font-semibold transition-colors flex items-center gap-2 cursor-pointer"
+                  title="Discard this culling session and free staging storage"
                 >
                   <Trash2 className="w-4 h-4" />
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  onClick={handleOpenUpload}
-                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-400 text-xs font-semibold transition-colors cursor-pointer"
-                  title="Payment is completed upfront when uploading photos"
-                >
-                  <Sparkles className="w-4 h-4" />
-                  <span>Pay-On-Upload • From ₹{minStartingPrice}</span>
+                  <span className="hidden sm:inline">Discard Batch</span>
                 </button>
 
                 <button
-                  onClick={handleOpenUpload}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-300 hover:to-orange-300 text-black text-xs font-semibold shadow-lg shadow-amber-500/20 transition-all cursor-pointer"
-                >
-                  <UploadCloud className="w-4 h-4" />
-                  <span>Upload Photos</span>
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <div className="max-w-7xl mx-auto p-6 space-y-6">
-        {/* If no photos uploaded yet: Hero Onboarding */}
-        {photos.length === 0 ? (
-          <div className="space-y-8 py-8">
-            {/* Hero Card */}
-            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-b from-[#161720] to-[#101117] border border-white/10 p-8 sm:p-12 text-center">
-              <div className="w-20 h-20 mx-auto rounded-3xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center mb-6 shadow-xl shadow-amber-500/10">
-                <Sparkles className="w-10 h-10" />
-              </div>
-
-              <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight max-w-xl mx-auto mb-3">
-                Cut Photography Culling Time by 80% with Instant AI
-              </h2>
-              <p className="text-sm text-neutral-400 max-w-2xl mx-auto mb-8 leading-relaxed">
-                Upload your RAW or JPEG burst shoots. Our dual-algorithm engine groups duplicate takes, rates focal sharpness using 2D Laplacian edge variance, keeps the razor-sharp winners, and removes the rest.
-              </p>
-
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                <button
-                  onClick={handleOpenUpload}
-                  className="w-full sm:w-auto px-8 py-3.5 rounded-2xl bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-300 hover:to-orange-300 text-black font-semibold text-sm shadow-xl shadow-amber-500/25 flex items-center justify-center gap-2.5 transition-all transform hover:-translate-y-0.5 cursor-pointer"
-                >
-                  <UploadCloud className="w-5 h-5" />
-                  Select Photos & Start AI Cull (From ₹{minStartingPrice})
-                </button>
-              </div>
-              <p className="text-xs text-neutral-400 mt-3 text-center">
-                Pay upfront per upload batch • {tiers.map((t) => `${t.name} (₹${t.price})`).join(' • ')}
-              </p>
-
-              {/* Feature Pills */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-3xl mx-auto mt-12 pt-8 border-t border-white/10 text-left">
-                <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/5">
-                  <div className="text-amber-400 font-bold text-sm mb-1">64-bit dHash AI</div>
-                  <p className="text-xs text-neutral-400">
-                    Calculates structural perceptual fingerprints invariant to exposure, lighting, or compression.
-                  </p>
-                </div>
-                <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/5">
-                  <div className="text-emerald-400 font-bold text-sm mb-1">Laplacian Sharpness</div>
-                  <p className="text-xs text-neutral-400">
-                    Runs 3x3 convolution edge variance to identify micro-focus and detect out-of-focus burst shots.
-                  </p>
-                </div>
-                <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/5">
-                  <div className="text-teal-400 font-bold text-sm mb-1">1-Click Gallery Move</div>
-                  <p className="text-xs text-neutral-400">
-                    Move your culled winners straight into an existing or new client gallery just like Live Events!
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        ) : (
-          /* Active Culling Session UI */
-          <div className="space-y-6">
-            {/* Storage & Session Lifecycle Notice */}
-            <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/25 flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-xl bg-amber-500/20 text-amber-400 shrink-0">
-                  <HardDrive className="w-5 h-5" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-semibold text-white">
-                      Active Staging Batch • Connected to Cloud Storage
-                    </h3>
-                    <span className="text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                      {isSessionPaid ? 'Paid & Active' : 'Active Batch'}
-                    </span>
-                  </div>
-                  <p className="text-xs text-neutral-400 mt-0.5">
-                    Batch #{sessionId.slice(-6)} • {photos.length} photos staged in user storage. Once finished, move to gallery or download as ZIP to clear this session and start fresh.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 self-start md:self-auto">
-                <button
+                  type="button"
                   onClick={handleDownloadKeepersZip}
                   disabled={isZipping || keepers.length === 0}
-                  className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-semibold border border-white/10 flex items-center gap-2 transition-colors cursor-pointer disabled:opacity-50"
+                  className="px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white text-xs font-bold transition-all flex items-center gap-2 cursor-pointer"
                 >
                   {isZipping ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin text-amber-400" />
-                      <span>Zipping ({zipProgress}%)...</span>
+                      <span>Packaging ZIP ({zipProgress}%)...</span>
                     </>
                   ) : (
                     <>
-                      <Download className="w-4 h-4 text-amber-400" />
-                      <span>Download Keepers ZIP ({keepers.length})</span>
+                      <Download className="w-4 h-4 text-emerald-400" />
+                      <span>Download Keepers ({keepers.length})</span>
                     </>
                   )}
                 </button>
 
                 <button
-                  onClick={() => setIsDiscardModalOpen(true)}
-                  title="Discard this batch and free storage"
-                  className="p-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 transition-colors cursor-pointer"
+                  type="button"
+                  onClick={() => setIsMoveGalleryModalOpen(true)}
+                  disabled={keepers.length === 0}
+                  className="px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-lg shadow-emerald-500/20"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <FolderKanban className="w-4 h-4" />
+                  <span>Move to Gallery</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
                 </button>
-              </div>
-            </div>
-            {/* Paywall Banner (if unpaid) */}
-            {!isSessionPaid && (
-              <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-transparent border border-amber-500/30 flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2.5 rounded-xl bg-amber-500/20 text-amber-400 shrink-0">
-                    <Sparkles className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-semibold text-white">
-                      AI Culling Ready • One-Time Pay-As-You-Go Unlock
-                    </h3>
-                    <p className="text-xs text-neutral-400">
-                      Pay ₹{minStartingPrice} to unlock full resolution export and move all {keepers.length} approved keepers directly into your gallery.
-                    </p>
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => setIsPaymentModalOpen(true)}
-                  className="px-5 py-2.5 bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-300 hover:to-orange-300 text-black font-semibold text-xs rounded-xl shadow-lg shadow-amber-500/20 shrink-0 transition-all cursor-pointer"
-                >
-                  Unlock Session (₹{minStartingPrice})
-                </button>
-              </div>
+              </>
             )}
 
-            {/* Metrics Overview Bar */}
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-              <div className="p-4 rounded-2xl bg-[#14151e] border border-white/10">
-                <span className="text-[11px] uppercase tracking-wider text-neutral-400 font-semibold">
-                  Total Uploaded
-                </span>
-                <div className="text-2xl font-bold text-white mt-1">{totalPhotos}</div>
-                <span className="text-[11px] text-neutral-500">{(totalBytes / (1024 * 1024)).toFixed(1)} MB processed</span>
-              </div>
+            <button
+              type="button"
+              onClick={() => {
+                if (!aiCullingEnabled || isNoPlan || isExpired) {
+                  setIsUpgradeModalOpen(true);
+                } else if (isStorageFull) {
+                  showToast('Storage Limit Reached', 'Your storage quota is currently full. Please upgrade your plan storage.', 'error');
+                  setIsUpgradeModalOpen(true);
+                } else {
+                  setIsUploadModalOpen(true);
+                }
+              }}
+              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-300 hover:to-orange-300 text-black text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-lg shadow-amber-500/20"
+            >
+              {!aiCullingEnabled || isNoPlan || isExpired ? (
+                <>
+                  <Lock className="w-4 h-4 text-black" />
+                  <span>Upgrade Plan to Unlock</span>
+                </>
+              ) : (
+                <>
+                  <UploadCloud className="w-4 h-4" />
+                  <span>{totalPhotos > 0 ? 'Upload More Photos' : 'Upload Photos'}</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
 
-              <div className="p-4 rounded-2xl bg-[#14151e] border border-white/10">
-                <span className="text-[11px] uppercase tracking-wider text-amber-400 font-semibold">
-                  Duplicate Clusters
-                </span>
-                <div className="text-2xl font-bold text-amber-400 mt-1">{clusters.length}</div>
-                <span className="text-[11px] text-neutral-500">Burst sequences</span>
-              </div>
+        {/* Restoring indicator */}
+        {isRestoring && (
+          <div className="p-8 rounded-2xl bg-white/[0.02] border border-white/5 flex items-center justify-center gap-3 text-neutral-400 text-sm">
+            <Loader2 className="w-5 h-5 animate-spin text-amber-400" />
+            <span>Restoring active culling session from studio staging...</span>
+          </div>
+        )}
 
-              <div className="p-4 rounded-2xl bg-[#14151e] border border-red-500/20 bg-red-950/10">
-                <span className="text-[11px] uppercase tracking-wider text-red-400 font-semibold">
-                  To Remove
-                </span>
-                <div className="text-2xl font-bold text-red-400 mt-1">{duplicates.length}</div>
-                <span className="text-[11px] text-red-400/70 font-mono">Inferior/blurry takes</span>
-              </div>
+        {/* Empty State */}
+        {!isRestoring && totalPhotos === 0 && (
+          <div className="p-12 sm:p-16 rounded-3xl bg-gradient-to-b from-white/[0.03] to-transparent border border-white/10 text-center space-y-6">
+            <div className="w-20 h-20 mx-auto rounded-3xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 shadow-xl shadow-amber-500/5">
+              <Sparkles className="w-10 h-10" />
+            </div>
 
-              <div className="p-4 rounded-2xl bg-[#14151e] border border-emerald-500/20 bg-emerald-950/10">
-                <span className="text-[11px] uppercase tracking-wider text-emerald-400 font-semibold">
-                  Approved Keepers
-                </span>
-                <div className="text-2xl font-bold text-emerald-400 mt-1">{keepers.length}</div>
-                <span className="text-[11px] text-emerald-400/70 font-mono">Sharpest picks</span>
-              </div>
+            <div className="space-y-2 max-w-lg mx-auto">
+              <h2 className="text-xl sm:text-2xl font-bold text-white">
+                {!aiCullingEnabled ? 'AI Smart Cull is Included in Studio Plans' : 'No Photos in Active Culling Session'}
+              </h2>
+              <p className="text-xs sm:text-sm text-neutral-400 leading-relaxed">
+                {!aiCullingEnabled
+                  ? `AI Culling is included in our Studio Pro & Elite tiers. Your current plan (${planName || 'Standard'}) does not have this feature active. Upgrade your plan to process unlimited photos with automatic duplicate grouping and sharpness scoring.`
+                  : 'Upload your raw camera batch to get started. Just like gallery uploads, you can upload as many photos as you need with zero individual fees.'}
+              </p>
+            </div>
 
-              <div className="col-span-2 sm:col-span-1 p-4 rounded-2xl bg-[#14151e] border border-white/10">
-                <span className="text-[11px] uppercase tracking-wider text-neutral-400 font-semibold">
-                  Storage Cleaned
-                </span>
-                <div className="text-2xl font-bold text-white mt-1">
-                  {totalWastedMB} <span className="text-xs font-normal text-neutral-400">MB</span>
+            <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  if (!aiCullingEnabled || isNoPlan || isExpired) {
+                    setIsUpgradeModalOpen(true);
+                  } else {
+                    setIsUploadModalOpen(true);
+                  }
+                }}
+                className="px-6 py-3 rounded-2xl bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-300 hover:to-orange-300 text-black text-sm font-bold transition-all flex items-center gap-2 cursor-pointer shadow-xl shadow-amber-500/20"
+              >
+                {!aiCullingEnabled ? (
+                  <>
+                    <Lock className="w-5 h-5 text-black" />
+                    <span>Upgrade Plan to Enable AI Culling</span>
+                  </>
+                ) : (
+                  <>
+                    <UploadCloud className="w-5 h-5" />
+                    <span>Upload Shoot Photos</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Feature Highlights Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-10 text-left border-t border-white/10 mt-8">
+              <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/5 space-y-2">
+                <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center font-bold text-sm">
+                  1
                 </div>
-                <span className="text-[11px] text-neutral-500">{percentSaved}% storage reduction</span>
+                <h3 className="text-sm font-bold text-white">Burst Sequence Grouping</h3>
+                <p className="text-xs text-neutral-400">
+                  Perceptual AI groups similar poses, expressions, and burst sequences automatically.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/5 space-y-2">
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center font-bold text-sm">
+                  2
+                </div>
+                <h3 className="text-sm font-bold text-white">Sharpness & Eye Scoring</h3>
+                <p className="text-xs text-neutral-400">
+                  Detects micro-blur and picks the sharpest keeper so you don't have to zoom in 50 times.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/5 space-y-2">
+                <div className="w-8 h-8 rounded-lg bg-sky-500/10 text-sky-400 flex items-center justify-center font-bold text-sm">
+                  3
+                </div>
+                <h3 className="text-sm font-bold text-white">1-Click Client Delivery</h3>
+                <p className="text-xs text-neutral-400">
+                  Export approved keepers directly into any client gallery or section in seconds.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Active Culling Session Content */}
+        {!isRestoring && totalPhotos > 0 && (
+          <div className="space-y-6">
+            {/* Session Stats Banner */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Total Uploaded */}
+              <div className="p-5 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-white/20 transition-all flex items-center justify-between gap-4 shadow-sm">
+                <div className="space-y-1 min-w-0">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Total Uploaded</p>
+                  <p className="text-2xl sm:text-3xl font-black text-white flex items-baseline gap-2">
+                    <span>{totalPhotos}</span>
+                    <span className="text-xs font-normal font-mono text-neutral-400">photos</span>
+                  </p>
+                </div>
+                <div className="w-12 h-12 rounded-2xl bg-white/[0.08] border border-white/10 text-neutral-200 flex items-center justify-center shrink-0 shadow-inner">
+                  <Images className="w-5 h-5 text-neutral-300" />
+                </div>
+              </div>
+
+              {/* Approved Keepers */}
+              <div className="p-5 rounded-2xl bg-emerald-500/5 border border-emerald-500/20 hover:border-emerald-500/30 transition-all flex items-center justify-between gap-4 shadow-sm">
+                <div className="space-y-1 min-w-0">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-emerald-400">Approved Keepers</p>
+                  <p className="text-2xl sm:text-3xl font-black text-emerald-300 flex items-baseline gap-2">
+                    <span>{keepers.length}</span>
+                    <span className="text-xs font-normal font-mono text-emerald-400/80">photos</span>
+                  </p>
+                </div>
+                <div className="w-12 h-12 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shrink-0 shadow-sm shadow-emerald-500/20">
+                  <CheckCircle2 className="w-5 h-5" />
+                </div>
+              </div>
+
+              {/* Duplicates Detected */}
+              <div className="p-5 rounded-2xl bg-red-500/5 border border-red-500/20 hover:border-red-500/30 transition-all flex items-center justify-between gap-4 shadow-sm">
+                <div className="space-y-1 min-w-0">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-red-400">Duplicates Detected</p>
+                  <p className="text-2xl sm:text-3xl font-black text-red-300 flex items-baseline gap-2">
+                    <span>{duplicates.length}</span>
+                    <span className="text-xs font-normal font-mono text-red-400/80">photos</span>
+                  </p>
+                </div>
+                <div className="w-12 h-12 rounded-2xl bg-red-500/15 border border-red-500/30 text-red-400 flex items-center justify-center shrink-0 shadow-sm shadow-red-500/20">
+                  <Copy className="w-5 h-5" />
+                </div>
+              </div>
+
+              {/* Cloud Storage Saved */}
+              <div className="p-5 rounded-2xl bg-amber-500/5 border border-amber-500/20 hover:border-amber-500/30 transition-all flex items-center justify-between gap-4 shadow-sm">
+                <div className="space-y-1 min-w-0">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-amber-400">Cloud Storage Saved</p>
+                  <p className="text-2xl sm:text-3xl font-black text-amber-300 flex items-baseline gap-1.5 flex-wrap">
+                    <span>{totalSavedMB} MB</span>
+                    <span className="text-xs font-normal font-mono text-amber-400/80">
+                      ({storageReducedPercentage}%)
+                    </span>
+                  </p>
+                </div>
+                <div className="w-12 h-12 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center justify-center shrink-0 shadow-sm shadow-amber-500/20">
+                  <HardDrive className="w-5 h-5" />
+                </div>
               </div>
             </div>
 
-            {/* Navigation Filter Tabs & Action Toolbar */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-4">
-              <div className="flex items-center gap-2 overflow-x-auto scrollbar-none">
+            {/* Filter Tabs & Controls */}
+            <div className="flex flex-wrap items-center justify-between gap-4 p-2 rounded-2xl bg-white/[0.02] border border-white/10">
+              <div className="flex flex-wrap items-center gap-2">
                 <button
+                  type="button"
                   onClick={() => setActiveTab('clusters')}
-                  className={`px-4 py-2 rounded-xl text-xs font-semibold tracking-wide transition-all flex items-center gap-1.5 ${
+                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
                     activeTab === 'clusters'
-                      ? 'bg-amber-500 text-black shadow-md'
-                      : 'bg-white/5 text-neutral-400 hover:text-white hover:bg-white/10'
+                      ? 'bg-amber-400 text-black shadow-md shadow-amber-500/20'
+                      : 'bg-transparent text-neutral-300 hover:bg-white/5'
                   }`}
                 >
                   <Layers className="w-3.5 h-3.5" />
-                  Duplicate Clusters ({clusters.length})
+                  <span>Duplicate Clusters ({clusters.length})</span>
                 </button>
 
                 <button
-                  onClick={() => setActiveTab('all')}
-                  className={`px-4 py-2 rounded-xl text-xs font-semibold tracking-wide transition-all ${
-                    activeTab === 'all'
-                      ? 'bg-white/20 text-white shadow-md'
-                      : 'bg-white/5 text-neutral-400 hover:text-white hover:bg-white/10'
-                  }`}
-                >
-                  All Photos ({totalPhotos})
-                </button>
-
-                <button
+                  type="button"
                   onClick={() => setActiveTab('keepers')}
-                  className={`px-4 py-2 rounded-xl text-xs font-semibold tracking-wide transition-all flex items-center gap-1.5 ${
+                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
                     activeTab === 'keepers'
-                      ? 'bg-emerald-500 text-black shadow-md'
-                      : 'bg-white/5 text-neutral-400 hover:text-white hover:bg-white/10'
+                      ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20'
+                      : 'bg-transparent text-neutral-300 hover:bg-white/5'
                   }`}
                 >
                   <CheckCircle2 className="w-3.5 h-3.5" />
-                  Keepers ({keepers.length})
+                  <span>Keepers ({keepers.length})</span>
                 </button>
 
                 <button
+                  type="button"
                   onClick={() => setActiveTab('duplicates')}
-                  className={`px-4 py-2 rounded-xl text-xs font-semibold tracking-wide transition-all flex items-center gap-1.5 ${
+                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
                     activeTab === 'duplicates'
-                      ? 'bg-red-500 text-white shadow-md'
-                      : 'bg-white/5 text-neutral-400 hover:text-white hover:bg-white/10'
+                      ? 'bg-red-500 text-white shadow-md shadow-red-500/20'
+                      : 'bg-transparent text-neutral-300 hover:bg-white/5'
                   }`}
                 >
                   <Trash2 className="w-3.5 h-3.5" />
-                  Duplicates to Discard ({duplicates.length})
+                  <span>Duplicates ({duplicates.length})</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('all')}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+                    activeTab === 'all'
+                      ? 'bg-white/20 text-white shadow-md'
+                      : 'bg-transparent text-neutral-300 hover:bg-white/5'
+                  }`}
+                >
+                  <FileImage className="w-3.5 h-3.5" />
+                  <span>All Photos ({photos.length})</span>
                 </button>
               </div>
 
-              {/* Batch Actions */}
-              <div className="flex items-center gap-2 text-xs">
-                <button
-                  onClick={handleResetToAI}
-                  className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-neutral-400 hover:text-white transition-colors"
-                >
-                  Reset to AI Picks
-                </button>
-                <button
-                  onClick={handleKeepAll}
-                  className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-neutral-400 hover:text-white transition-colors"
-                >
-                  Keep All
-                </button>
+              {/* Threshold control */}
+              <div className="flex items-center gap-3 px-3 py-1.5 text-xs text-neutral-400">
+                <Sliders className="w-3.5 h-3.5 text-amber-400" />
+                <span>Sensitivity: {similarityThreshold}%</span>
               </div>
             </div>
 
-            {/* TAB CONTENT: DUPLICATE CLUSTERS VIEW */}
+            {/* Clusters View */}
             {activeTab === 'clusters' && (
               <div className="space-y-6">
-                {clusters.length === 0 ? (
-                  <div className="p-12 text-center rounded-2xl bg-[#14151e] border border-white/10 text-neutral-400">
-                    <CheckCircle2 className="w-12 h-12 text-emerald-400 mx-auto mb-3" />
-                    <h3 className="text-base font-semibold text-white">No Duplicate Clusters Found!</h3>
-                    <p className="text-xs mt-1">
-                      Every photo in this batch appears structurally distinct and sharp. All {photos.length} photos have been designated as keepers.
-                    </p>
-                  </div>
-                ) : (
-                  visibleClusters.map((cluster) => {
-                    const clusterItems = photos.filter((p) => p.clusterId === cluster.id);
-                    const winner = clusterItems.find((p) => p.isBestPick) || clusterItems[0];
-                    const clusterDuplicates = clusterItems.filter((p) => !p.isBestPick);
+                {visibleClusters.map((cluster) => {
+                  const clusterPhotos = photos.filter((p) => p.clusterId === cluster.id);
+                  const bestPick = clusterPhotos.find((p) => p.isBestPick) || clusterPhotos[0];
+                  const alternates = clusterPhotos.filter((p) => p.id !== bestPick?.id);
 
-                    return (
-                      <div
-                        key={cluster.id}
-                        className="rounded-2xl bg-[#13141a] border border-white/10 overflow-hidden shadow-xl"
-                      >
-                        {/* Cluster Header */}
-                        <div className="px-5 py-3.5 bg-[#171822] border-b border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                          <div className="flex items-center gap-3">
-                            <span className="text-sm font-semibold text-white flex items-center gap-2">
-                              {cluster.title}
-                              <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30">
-                                {cluster.averageSimilarity}% Similarity
-                              </span>
-                            </span>
-                            <span className="text-xs text-neutral-400">
-                              {cluster.totalPhotos} photos in burst • 1 keeper, {cluster.duplicatesCount} duplicate(s)
-                            </span>
+                  return (
+                    <div
+                      key={cluster.id}
+                      className="p-5 rounded-2xl bg-white/[0.02] border border-white/10 space-y-4 hover:border-white/20 transition-all"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-white/5">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400">
+                            <Sparkles className="w-4 h-4" />
                           </div>
-
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => {
-                                setActiveCompareClusterId(cluster.id);
-                                setIsCompareModalOpen(true);
-                              }}
-                              className="px-3 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-300 text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
-                            >
-                              <Maximize2 className="w-3.5 h-3.5" />
-                              Side-by-Side Compare
-                            </button>
+                          <div>
+                            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                              <span>{cluster.title}</span>
+                              <span className="text-[11px] font-mono font-medium px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                {cluster.averageSimilarity}% Match
+                              </span>
+                            </h3>
+                            <p className="text-[11px] text-neutral-400">
+                              {clusterPhotos.length} photos in sequence • 1 keeper, {clusterPhotos.length - 1} duplicates
+                            </p>
                           </div>
                         </div>
 
-                        {/* Cluster Photos Grid */}
-                        <div className="p-5 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                          {clusterItems.map((photo) => {
-                            const isWinner = photo.isBestPick;
-                            const isDiscarded = photo.status === 'discard';
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveCompareClusterId(cluster.id);
+                            setIsCompareModalOpen(true);
+                          }}
+                          className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-semibold text-neutral-200 transition-colors flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <Maximize2 className="w-3.5 h-3.5" />
+                          <span>Compare Side-by-Side</span>
+                        </button>
+                      </div>
 
-                            return (
+                      {/* Photo Thumbnails */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5">
+                        {clusterPhotos.map((photo) => {
+                          const isBest = photo.isBestPick;
+                          const isDiscarded = photo.status === 'discard';
+
+                          return (
+                            <div
+                              key={photo.id}
+                              className={`group relative rounded-2xl overflow-hidden border bg-[#111218] transition-all duration-300 shadow-md hover:shadow-xl flex flex-col ${
+                                isBest
+                                  ? 'border-amber-400/80 ring-2 ring-amber-400/25 shadow-amber-500/10'
+                                  : isDiscarded
+                                  ? 'border-red-500/30 opacity-75 hover:opacity-100'
+                                  : 'border-white/10 hover:border-white/20'
+                              }`}
+                            >
                               <div
-                                key={photo.id}
-                                className={`group relative rounded-xl overflow-hidden border-2 transition-all flex flex-col bg-neutral-950 ${
-                                  isWinner
-                                    ? 'border-emerald-500 shadow-lg shadow-emerald-500/10 ring-2 ring-emerald-500/20'
-                                    : isDiscarded
-                                    ? 'border-red-500/40 opacity-80 hover:opacity-100'
-                                    : 'border-white/20'
-                                }`}
+                                className="aspect-[4/5] bg-neutral-950 relative overflow-hidden cursor-pointer"
+                                onClick={() => setPreviewPhoto(photo)}
                               >
-                                {/* Top Badge */}
-                                <div className="absolute top-2 left-2 z-10">
-                                  {isWinner ? (
-                                    <span className="px-2 py-1 rounded-md bg-emerald-500 text-black text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 shadow">
-                                      <Trophy className="w-3 h-3" />
-                                      Best Pick
-                                    </span>
-                                  ) : isDiscarded ? (
-                                    <span className="px-2 py-1 rounded-md bg-red-500/90 text-white text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 shadow">
-                                      <Trash2 className="w-3 h-3" />
+                                <img
+                                  src={photo.previewUrl}
+                                  alt={photo.name}
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
+                                  loading="lazy"
+                                />
+
+                                {/* Best Pick Badge */}
+                                {isBest && (
+                                  <div className="absolute top-3 left-3 px-2.5 py-1 rounded-xl bg-amber-400 text-neutral-950 text-xs font-black flex items-center gap-1.5 shadow-lg shadow-black/50">
+                                    <Trophy className="w-3.5 h-3.5 fill-current" />
+                                    <span>BEST PICK</span>
+                                  </div>
+                                )}
+
+                                {/* Status Badge */}
+                                <div className="absolute top-3 right-3">
+                                  {isDiscarded ? (
+                                    <span className="px-2.5 py-1 rounded-xl bg-red-500/90 text-white text-xs font-bold shadow-md backdrop-blur-md">
                                       Duplicate
                                     </span>
                                   ) : (
-                                    <span className="px-2 py-1 rounded-md bg-white/20 backdrop-blur-md text-white text-[10px] font-bold uppercase tracking-wider shadow">
-                                      Kept
+                                    <span className="px-2.5 py-1 rounded-xl bg-emerald-500/90 text-white text-xs font-bold shadow-md backdrop-blur-md">
+                                      Keeper
                                     </span>
                                   )}
                                 </div>
 
-                                {/* Sharpness Score Badge */}
-                                <div className="absolute top-2 right-2 z-10 px-1.5 py-0.5 rounded bg-black/80 backdrop-blur-md text-[10px] font-mono text-neutral-300 font-bold border border-white/10">
-                                  Sharp: {photo.sharpnessScore}%
-                                </div>
-
-                                {/* Photo Thumbnail */}
-                                <div className="aspect-[4/3] w-full overflow-hidden bg-neutral-900 relative">
-                                  {photo.previewUrl ? (
-                                    <img
-                                      src={resolveImageUrl(photo.previewUrl)}
-                                      alt={photo.name}
-                                      loading="lazy"
-                                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                                      onError={(e) => {
-                                        const target = e.currentTarget;
-                                        target.style.display = 'none';
-                                        const fallbackEl = target.nextElementSibling as HTMLElement;
-                                        if (fallbackEl) fallbackEl.classList.remove('hidden');
-                                      }}
-                                    />
-                                  ) : null}
-                                  <div className={`img-fallback absolute inset-0 flex flex-col items-center justify-center p-3 text-center bg-neutral-900 text-neutral-400 ${photo.previewUrl ? 'hidden' : 'flex'}`}>
-                                    <FileImage className="w-8 h-8 text-neutral-600 mb-1" />
-                                    <span className="text-[10px] text-neutral-400 truncate max-w-full font-mono">{photo.name}</span>
-                                    <span className="text-[9px] text-amber-500/80 mt-0.5 font-mono">Backend Photo</span>
-                                  </div>
-                                </div>
-
-                                {/* Actions Footer */}
-                                <div className="p-2.5 bg-[#161720] border-t border-white/10 flex flex-col gap-1.5">
-                                  <div className="flex items-center justify-between text-[11px] text-neutral-400">
-                                    <span className="truncate max-w-[110px]" title={photo.name}>
-                                      {photo.name}
-                                    </span>
-                                    <span>{photo.sizeMB} MB</span>
-                                  </div>
-
-                                  <div className="flex items-center gap-1 pt-1 border-t border-white/5">
-                                    {!isWinner ? (
-                                      <button
-                                        onClick={() => handleSetBestPick(photo.id)}
-                                        className="flex-1 py-1 rounded-md bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-[10px] font-semibold transition-colors text-center cursor-pointer"
-                                      >
-                                        Make Winner
-                                      </button>
-                                    ) : (
-                                      <span className="flex-1 py-1 text-center text-emerald-400 text-[10px] font-bold">
-                                        ✓ Kept as Best
-                                      </span>
-                                    )}
-
-                                    {!isWinner && (
-                                      <button
-                                        onClick={() => handleToggleStatus(photo.id)}
-                                        className={`px-2 py-1 rounded-md text-[10px] font-semibold transition-colors cursor-pointer ${
-                                          isDiscarded
-                                            ? 'bg-white/10 hover:bg-white/20 text-neutral-200'
-                                            : 'bg-red-500/20 hover:bg-red-500/30 text-red-400'
-                                        }`}
-                                      >
-                                        {isDiscarded ? 'Keep' : 'Discard'}
-                                      </button>
-                                    )}
-                                  </div>
+                                {/* Hover Inspect */}
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center pointer-events-none">
+                                  <span className="p-3 rounded-full bg-black/60 backdrop-blur-md text-white border border-white/20 transform scale-90 group-hover:scale-100 transition-transform">
+                                    <Maximize2 className="w-5 h-5" />
+                                  </span>
                                 </div>
                               </div>
-                            );
-                          })}
-                        </div>
+
+                              <div className="p-3.5 bg-[#14151d] border-t border-white/5 flex items-center justify-between gap-2">
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-xs font-bold text-white truncate" title={photo.name}>
+                                    {photo.name}
+                                  </p>
+                                  <p className="text-[11px] font-mono text-neutral-400">
+                                    {photo.sizeMB ? `${photo.sizeMB} MB` : 'In sequence'}
+                                  </p>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleToggleStatus(photo.id);
+                                  }}
+                                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
+                                    isDiscarded
+                                      ? 'bg-emerald-500/15 hover:bg-emerald-500 text-emerald-400 hover:text-white border border-emerald-500/30'
+                                      : 'bg-red-500/15 hover:bg-red-500 text-red-400 hover:text-white border border-red-500/30'
+                                  }`}
+                                >
+                                  {isDiscarded ? (
+                                    <>
+                                      <Check className="w-3 h-3 stroke-[2.5]" />
+                                      <span>Keep</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Trash2 className="w-3 h-3" />
+                                      <span>Remove</span>
+                                    </>
+                                  )}
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
-                    );
-                  })
-                )}
+                    </div>
+                  );
+                })}
               </div>
             )}
 
-            {/* TAB CONTENT: ALL / KEEPERS / DUPLICATES GRID VIEW */}
+            {/* Flat Photos View (Keepers, Duplicates, or All) */}
             {activeTab !== 'clusters' && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5 sm:gap-6">
                 {visiblePhotos.map((photo) => {
-                  const isWinner = photo.isBestPick;
                   const isDiscarded = photo.status === 'discard';
+                  const isBest = photo.isBestPick;
 
                   return (
                     <div
                       key={photo.id}
-                      className={`group relative rounded-xl overflow-hidden border-2 transition-all flex flex-col bg-[#13141a] ${
-                        isWinner
-                          ? 'border-emerald-500 shadow-md shadow-emerald-500/10'
+                      className={`group relative rounded-2xl overflow-hidden border bg-[#111218] transition-all duration-300 shadow-lg hover:shadow-2xl flex flex-col ${
+                        isBest
+                          ? 'border-amber-400/80 ring-2 ring-amber-400/25 shadow-amber-500/10'
                           : isDiscarded
-                          ? 'border-red-500/30 opacity-75 hover:opacity-100'
-                          : 'border-white/15'
+                          ? 'border-red-500/30 opacity-80 hover:opacity-100'
+                          : 'border-white/10 hover:border-white/25'
                       }`}
                     >
-                      <div className="absolute top-1.5 left-1.5 z-10">
-                        {isWinner ? (
-                          <span className="px-1.5 py-0.5 rounded bg-emerald-500 text-black text-[9px] font-bold uppercase tracking-wider">
-                            Best
-                          </span>
-                        ) : isDiscarded ? (
-                          <span className="px-1.5 py-0.5 rounded bg-red-500 text-white text-[9px] font-bold uppercase tracking-wider">
-                            Duplicate
-                          </span>
-                        ) : (
-                          <span className="px-1.5 py-0.5 rounded bg-white/20 text-white text-[9px] font-bold uppercase tracking-wider">
-                            Unique
-                          </span>
-                        )}
-                      </div>
+                      {/* Generous Height & Width Image Container */}
+                      <div
+                        className="relative aspect-[4/5] w-full bg-neutral-950 overflow-hidden cursor-pointer"
+                        onClick={() => setPreviewPhoto(photo)}
+                      >
+                        <img
+                          src={photo.previewUrl}
+                          alt={photo.name}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
+                          loading="lazy"
+                        />
 
-                      <div className="absolute top-1.5 right-1.5 z-10 px-1 py-0.5 rounded bg-black/80 text-[9px] font-mono text-neutral-300">
-                        {photo.sharpnessScore}%
-                      </div>
+                        {/* Top Badges */}
+                        <div className="absolute top-3 inset-x-3 flex items-center justify-between pointer-events-none z-10">
+                          {isBest ? (
+                            <div className="px-2.5 py-1 rounded-xl bg-amber-400 text-neutral-950 text-xs font-black flex items-center gap-1.5 shadow-lg shadow-black/50 backdrop-blur-md">
+                              <Trophy className="w-3.5 h-3.5 fill-current" />
+                              <span>BEST PICK</span>
+                            </div>
+                          ) : (
+                            <span />
+                          )}
 
-                      <div className="aspect-[4/3] w-full overflow-hidden bg-neutral-900 relative">
-                        {photo.previewUrl ? (
-                          <img
-                            src={resolveImageUrl(photo.previewUrl)}
-                            alt={photo.name}
-                            loading="lazy"
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                            onError={(e) => {
-                              const target = e.currentTarget;
-                              target.style.display = 'none';
-                              const fallbackEl = target.nextElementSibling as HTMLElement;
-                              if (fallbackEl) fallbackEl.classList.remove('hidden');
-                            }}
-                          />
-                        ) : null}
-                        <div className={`img-fallback absolute inset-0 flex flex-col items-center justify-center p-2 text-center bg-neutral-900 text-neutral-400 ${photo.previewUrl ? 'hidden' : 'flex'}`}>
-                          <FileImage className="w-6 h-6 text-neutral-600 mb-1" />
-                          <span className="text-[9px] text-neutral-400 truncate max-w-full font-mono">{photo.name}</span>
+                          <div className="pointer-events-auto">
+                            {isDiscarded ? (
+                              <span className="px-2.5 py-1 rounded-xl bg-red-500/90 text-white text-xs font-bold shadow-md backdrop-blur-md">
+                                Duplicate
+                              </span>
+                            ) : (
+                              <span className="px-2.5 py-1 rounded-xl bg-emerald-500/90 text-white text-xs font-bold shadow-md backdrop-blur-md">
+                                Keeper
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Hover Overlay with Inspect Icon */}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center pointer-events-none">
+                          <span className="p-3 rounded-full bg-black/60 backdrop-blur-md text-white border border-white/20 transform scale-90 group-hover:scale-100 transition-transform">
+                            <Maximize2 className="w-5 h-5" />
+                          </span>
                         </div>
                       </div>
 
-                      <div className="p-2 flex items-center justify-between text-[10px] text-neutral-400 bg-[#161720]">
-                        <span className="truncate max-w-[80px]">{photo.name}</span>
+                      {/* Card Info & Actions Footer */}
+                      <div className="p-4 bg-[#14151d] border-t border-white/5 flex items-center justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-bold text-white truncate" title={photo.name}>
+                            {photo.name}
+                          </p>
+                          <p className="text-[11px] font-mono text-neutral-400">
+                            {photo.sizeMB ? `${photo.sizeMB} MB` : 'Analyzed frame'}
+                          </p>
+                        </div>
+
                         <button
-                          onClick={() => handleToggleStatus(photo.id)}
-                          className={`font-semibold hover:underline cursor-pointer ${
-                            isDiscarded ? 'text-emerald-400' : 'text-red-400'
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggleStatus(photo.id);
+                          }}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 shadow-sm ${
+                            isDiscarded
+                              ? 'bg-emerald-500/15 hover:bg-emerald-500 text-emerald-400 hover:text-white border border-emerald-500/30'
+                              : 'bg-red-500/15 hover:bg-red-500 text-red-400 hover:text-white border border-red-500/30'
                           }`}
                         >
-                          {isDiscarded ? 'Keep' : 'Remove'}
+                          {isDiscarded ? (
+                            <>
+                              <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                              <span>Keep</span>
+                            </>
+                          ) : (
+                            <>
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>Remove</span>
+                            </>
+                          )}
                         </button>
                       </div>
                     </div>
@@ -1232,7 +1163,7 @@ export const SmartCullPage: React.FC = () => {
               </div>
             )}
 
-            {/* Infinite Scroll Sentinel & Progressive Loading Indicator */}
+            {/* Infinite Scroll Sentinel */}
             <div ref={sentinelRef} className="pt-6 pb-12 flex flex-col items-center justify-center">
               {hasMore ? (
                 <div className="flex flex-col items-center gap-3">
@@ -1269,27 +1200,17 @@ export const SmartCullPage: React.FC = () => {
         )}
       </div>
 
-      {/* Upload Modal with Upfront Payment on Uploading */}
+      {/* Upload Modal (Connected to Main Plan Quota) */}
       <CullingUploadModal
         isOpen={isUploadModalOpen}
         onClose={() => setIsUploadModalOpen(false)}
         onFilesSelected={handleFilesSelected}
-        sessionId={sessionId}
-        isSessionPaid={isSessionPaid}
-        paidDetails={paidDetails}
-        onPaymentSuccess={handlePaymentSuccess}
         isAnalyzing={isAnalyzing}
         analysisProgress={analysisProgress}
         analysisStatusText={analysisStatusText}
-      />
-
-      {/* Pay-Per-Use Modal (Fallback / Direct Access) */}
-      <CullingPaymentModal
-        isOpen={isPaymentModalOpen}
-        onClose={() => setIsPaymentModalOpen(false)}
-        sessionId={sessionId}
-        photoCount={photos.length}
-        onPaymentSuccess={handlePaymentSuccess}
+        validateStorageQuota={validateStorageQuota}
+        planName={planName}
+        availableStorageDisplay={availableStorageDisplay}
       />
 
       {/* Move to Gallery Modal */}
@@ -1321,7 +1242,7 @@ export const SmartCullPage: React.FC = () => {
             <div>
               <h3 className="text-base font-bold text-white">Discard Active Culling Session?</h3>
               <p className="text-xs text-neutral-400 mt-1 leading-relaxed">
-                This will permanently delete all {totalPhotos} culled photos from your staging storage. Your plan session will be closed and cannot be recovered.
+                This will permanently delete all {totalPhotos} culled photos from your staging storage. Your session will be closed and cannot be recovered.
               </p>
             </div>
             <div className="flex items-center justify-end gap-3 pt-2">
@@ -1366,7 +1287,7 @@ export const SmartCullPage: React.FC = () => {
             <div>
               <h3 className="text-base font-bold text-white">ZIP Download Complete!</h3>
               <p className="text-xs text-neutral-400 mt-1 leading-relaxed">
-                All {keepers.length} approved keeper photos have been downloaded to your computer. Each plan covers one batch upload. Would you like to finish & clear this session from staging storage to start your next shoot?
+                All {keepers.length} approved keeper photos have been downloaded to your computer. Would you like to clear this session from staging storage to start your next shoot?
               </p>
             </div>
             <div className="flex items-center justify-end gap-3 pt-2">
@@ -1389,6 +1310,50 @@ export const SmartCullPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Main Studio Plan Upgrade Modal */}
+      <PlanUpgradeModal
+        isOpen={isUpgradeModalOpen}
+        onClose={() => setIsUpgradeModalOpen(false)}
+      />
+
+      {/* Full-Frame Lightbox Preview Modal */}
+      {previewPhoto && (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex flex-col items-center justify-between p-4 animate-in fade-in duration-200"
+          onClick={() => setPreviewPhoto(null)}
+        >
+          <div className="w-full max-w-5xl flex items-center justify-between text-white py-2">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-bold truncate">{previewPhoto.name}</span>
+              {previewPhoto.isBestPick && (
+                <span className="px-2 py-0.5 rounded bg-amber-400 text-black text-[10px] font-extrabold flex items-center gap-1">
+                  <Trophy className="w-3 h-3 fill-current" />
+                  <span>BEST</span>
+                </span>
+              )}
+            </div>
+            <button
+              onClick={() => setPreviewPhoto(null)}
+              className="p-2 rounded-xl text-neutral-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+          <div className="relative max-h-[82vh] max-w-5xl w-full flex items-center justify-center p-2" onClick={(e) => e.stopPropagation()}>
+            <img
+              src={previewPhoto.previewUrl}
+              alt={previewPhoto.name}
+              className="max-h-[80vh] max-w-full rounded-2xl object-contain shadow-2xl"
+            />
+          </div>
+          <div className="py-2 text-xs font-mono text-neutral-400">
+            Click outside or press close to exit full screen
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+
+export default SmartCullPage;

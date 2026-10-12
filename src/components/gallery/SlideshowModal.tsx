@@ -5,6 +5,7 @@ import { CinemaSlide } from './slideshow/CinemaSlide';
 import { CinemaHeader } from './slideshow/CinemaHeader';
 import { CinemaFooter } from './slideshow/CinemaFooter';
 import { audioManager } from '../../services/audioManager';
+import { CURATED_TRACKS, type Track } from '../../services/musicService';
 import { useSmoothScroll } from '../common/SmoothScroll';
 import { useFullscreen } from '../../hooks/useFullscreen';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
@@ -18,17 +19,30 @@ export const SlideshowModal: React.FC<SlideshowModalProps> = ({
   clientName = 'Celebration of Love',
   selectedTrack,
   onChangeTrack,
+  onTrackAutoAdvance,
   watermarkEnabled = false,
   watermarkText,
   watermarkOpacity,
   watermarkPosition,
   watermarkImage,
+  watermarkType,
+  watermarkFontSize,
+  watermarkFontColor,
+  watermarkFontStyle,
 }) => {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [isPlaying, setIsPlaying] = useState(true);
+  const [currentTrack, setCurrentTrack] = useState<Track | null>(selectedTrack || CURATED_TRACKS[0]);
   const [speed, setSpeed] = useState<number>(4.5); // seconds per slide
   const [progress, setProgress] = useState<number>(0);
   const [controlsVisible, setControlsVisible] = useState<boolean>(true);
+
+  // Sync currentTrack whenever parent updates selectedTrack
+  useEffect(() => {
+    if (selectedTrack) {
+      setCurrentTrack(selectedTrack);
+    }
+  }, [selectedTrack]);
 
   // Default to true full screen full-bleed ('cover') and gold cinema tone
   const [fitMode, setFitMode] = useState<CinemaFitMode>('cover');
@@ -74,7 +88,7 @@ export const SlideshowModal: React.FC<SlideshowModalProps> = ({
     }
   }, [isOpen, lenis]);
 
-  // 3. Reset index & start audio playback
+  // 3. Reset index & start audio playback with auto-advance playlist
   useEffect(() => {
     if (isOpen) {
       setCurrentIndex(Math.min(Math.max(0, initialIndex), items.length - 1));
@@ -82,13 +96,62 @@ export const SlideshowModal: React.FC<SlideshowModalProps> = ({
       setProgress(0);
       setShowTitleCard(true);
 
-      if (selectedTrack) {
-        audioManager.playSoundtrack(selectedTrack, 1500);
+      const trackToPlay = selectedTrack || CURATED_TRACKS[0];
+      if (trackToPlay) {
+        audioManager.playSoundtrack(
+          trackToPlay,
+          1500,
+          CURATED_TRACKS,
+          (nextTrack) => {
+            setCurrentTrack(nextTrack);
+            onTrackAutoAdvance?.(nextTrack);
+          }
+        );
       }
     } else {
       audioManager.stopSoundtrack(500);
     }
-  }, [isOpen, initialIndex, items.length, selectedTrack]);
+
+    return () => {
+      audioManager.stopSoundtrack(0);
+    };
+  }, [isOpen, initialIndex, items.length, selectedTrack, onTrackAutoAdvance]);
+
+  // 4. Automatically pause audio & slide timer when mobile screen turns off / tab is backgrounded
+  useEffect(() => {
+    if (!isOpen) return;
+
+    let wasPlayingBeforeHidden = isPlaying;
+
+    const handleVisibilityChange = () => {
+      if (typeof document !== 'undefined') {
+        if (document.hidden || document.visibilityState === 'hidden') {
+          wasPlayingBeforeHidden = isPlaying;
+          audioManager.pauseSoundtrack();
+        } else if (document.visibilityState === 'visible') {
+          if (wasPlayingBeforeHidden && isPlaying) {
+            audioManager.resumeSoundtrack();
+          }
+        }
+      }
+    };
+
+    const handlePageHide = () => {
+      audioManager.pauseSoundtrack();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('pagehide', handlePageHide);
+    window.addEventListener('blur', handleVisibilityChange);
+    window.addEventListener('freeze', handlePageHide);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pagehide', handlePageHide);
+      window.removeEventListener('blur', handleVisibilityChange);
+      window.removeEventListener('freeze', handlePageHide);
+    };
+  }, [isOpen, isPlaying]);
 
   // Audio manager state sync
   useEffect(() => {
@@ -135,6 +198,11 @@ export const SlideshowModal: React.FC<SlideshowModalProps> = ({
     const totalSteps = (speed * 1000) / intervalStep;
 
     const timer = setInterval(() => {
+      // Pause slide progress when screen is off or tab hidden
+      if (typeof document !== 'undefined' && (document.hidden || document.visibilityState === 'hidden')) {
+        return;
+      }
+
       setProgress((prev) => {
         if (prev >= 100) {
           handleNext();
@@ -220,7 +288,7 @@ export const SlideshowModal: React.FC<SlideshowModalProps> = ({
         progress={progress}
         clientName={clientName}
         galleryTitle={galleryTitle}
-        selectedTrack={selectedTrack}
+        selectedTrack={currentTrack || selectedTrack}
         isPlaying={isPlaying}
         isAudioMuted={isAudioMuted}
         volume={volume}
@@ -254,6 +322,10 @@ export const SlideshowModal: React.FC<SlideshowModalProps> = ({
               watermarkOpacity={watermarkOpacity}
               watermarkPosition={watermarkPosition}
               watermarkImage={watermarkImage}
+              watermarkType={watermarkType}
+              watermarkFontSize={watermarkFontSize}
+              watermarkFontColor={watermarkFontColor}
+              watermarkFontStyle={watermarkFontStyle}
             />
           );
         })}

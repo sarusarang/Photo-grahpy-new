@@ -18,6 +18,10 @@ interface CinemaSlideProps {
   watermarkOpacity?: number;
   watermarkPosition?: string;
   watermarkImage?: string | null;
+  watermarkType?: string;
+  watermarkFontSize?: string;
+  watermarkFontColor?: string;
+  watermarkFontStyle?: string;
 }
 
 export const CinemaSlide: React.FC<CinemaSlideProps> = ({
@@ -34,6 +38,10 @@ export const CinemaSlide: React.FC<CinemaSlideProps> = ({
   watermarkOpacity,
   watermarkPosition,
   watermarkImage,
+  watermarkType,
+  watermarkFontSize,
+  watermarkFontColor,
+  watermarkFontStyle,
 }) => {
   // Cycle 4 cinematic camera motions
   const motionClass = `cinema-motion-${index % 4}`;
@@ -84,6 +92,10 @@ export const CinemaSlide: React.FC<CinemaSlideProps> = ({
             imageUrl={watermarkImage}
             opacity={watermarkOpacity}
             position={watermarkPosition}
+            watermarkType={watermarkType}
+            fontSize={watermarkFontSize}
+            fontColor={watermarkFontColor}
+            fontStyle={watermarkFontStyle}
             size="md"
           />
         )}

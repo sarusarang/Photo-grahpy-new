@@ -21,6 +21,7 @@ import {
   DeleteGalleryMediaApi,
   BulkDeleteGalleryMediaApi,
   ToggleMediaFavoriteApi,
+  BulkToggleMediaFavoriteApi,
   SetGalleryCoverImageApi,
   SetMasonrySlotBannerApi,
   AddGallerySectionApi,
@@ -85,6 +86,8 @@ import {
   DeletePortfolioProjectApi,
   GetPublicPortfolioApi,
   GetPortfolioAnalyticsApi,
+  GetPublicTenantPortfolioApi,
+  ClaimSubdomainApi,
 } from '@/service/portfolio/PortfolioApi';
 import {
   GetGalleryAnalyticsApi,
@@ -485,13 +488,15 @@ export const useBulkUploadGalleryMedia = (galleryId: string) => {
       type,
       onProgress,
       signal,
+      pauseController,
     }: {
       files: File[];
       sectionTitle?: string;
       type?: 'photo' | 'video';
-      onProgress?: (percent: number, statusText?: string) => void;
+      onProgress?: (percent: number, statusText?: string, metrics?: any) => void;
       signal?: AbortSignal;
-    }) => BulkUploadGalleryMediaApi(galleryId, files, sectionTitle, type, onProgress, signal),
+      pauseController?: import('@/utils/batchUploadRunner').BatchUploadPauseController;
+    }) => BulkUploadGalleryMediaApi(galleryId, files, sectionTitle, type, onProgress, signal, pauseController),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['gallery', galleryId] });
       queryClient.invalidateQueries({ queryKey: ['galleries'] });
@@ -562,6 +567,30 @@ export const useToggleMediaFavorite = () => {
       const galleryId = typeof vars === 'string' ? undefined : vars.galleryId;
       if (galleryId) {
         queryClient.invalidateQueries({ queryKey: ['gallery', galleryId] });
+      } else {
+        queryClient.invalidateQueries({ queryKey: ['gallery'] });
+      }
+    },
+  });
+};
+
+export const useBulkToggleMediaFavorite = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      galleryId,
+      mediaIds,
+      isFavorite,
+      selectAll,
+    }: {
+      galleryId: string;
+      mediaIds: string[];
+      isFavorite: boolean;
+      selectAll?: boolean;
+    }) => BulkToggleMediaFavoriteApi(galleryId, mediaIds, isFavorite, selectAll),
+    onSuccess: (_data, vars) => {
+      if (vars.galleryId) {
+        queryClient.invalidateQueries({ queryKey: ['gallery', vars.galleryId] });
       } else {
         queryClient.invalidateQueries({ queryKey: ['gallery'] });
       }
@@ -969,13 +998,15 @@ export const useBulkUploadEventMedia = (eventId: string) => {
       type,
       onProgress,
       signal,
+      pauseController,
     }: {
       files: File[];
       sectionTitle?: string;
       type?: 'photo' | 'video';
-      onProgress?: (percent: number, statusText?: string) => void;
+      onProgress?: (percent: number, statusText?: string, metrics?: any) => void;
       signal?: AbortSignal;
-    }) => BulkUploadEventMediaApi(eventId, files, sectionTitle, type, onProgress, signal),
+      pauseController?: import('@/utils/batchUploadRunner').BatchUploadPauseController;
+    }) => BulkUploadEventMediaApi(eventId, files, sectionTitle, type, onProgress, signal, pauseController),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['event', eventId] });
       queryClient.invalidateQueries({ queryKey: ['events'] });
@@ -1112,6 +1143,25 @@ export const usePortfolioAnalytics = () => {
   return useQuery({
     queryKey: ['portfolio', 'analytics'],
     queryFn: GetPortfolioAnalyticsApi,
+  });
+};
+
+export const usePublicTenantPortfolio = (subdomain?: string) => {
+  return useQuery({
+    queryKey: ['public', 'tenant-portfolio', subdomain],
+    queryFn: () => GetPublicTenantPortfolioApi(subdomain),
+    staleTime: 1000 * 60 * 2, // 2 mins
+  });
+};
+
+export const useClaimSubdomain = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (subdomain: string) => ClaimSubdomainApi(subdomain),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['portfolio', 'config'] });
+      queryClient.invalidateQueries({ queryKey: ['profile', 'me'] });
+    },
   });
 };
 

@@ -19,7 +19,12 @@ export interface GalleryHeroBannerProps {
   watermarkText?: string;
   watermarkOpacity?: number;
   watermarkPosition?: string;
+  watermark_image?: string | null;
   watermarkImage?: string | null;
+  watermarkType?: string;
+  watermarkFontSize?: string;
+  watermarkFontColor?: string;
+  watermarkFontStyle?: string;
 }
 
 /**
@@ -62,6 +67,10 @@ export const GalleryHeroBanner: React.FC<GalleryHeroBannerProps> = ({
   watermarkOpacity,
   watermarkPosition,
   watermarkImage,
+  watermarkType,
+  watermarkFontSize,
+  watermarkFontColor,
+  watermarkFontStyle,
 }) => {
   const activeCover = coverImage || getInitialGalleryCover(template);
   const formattedDate = formatHeroShootDate(shootDate);
@@ -88,6 +97,10 @@ export const GalleryHeroBanner: React.FC<GalleryHeroBannerProps> = ({
               imageUrl={watermarkImage}
               opacity={watermarkOpacity}
               position={watermarkPosition}
+              watermarkType={watermarkType}
+              fontSize={watermarkFontSize}
+              fontColor={watermarkFontColor}
+              fontStyle={watermarkFontStyle}
               size="lg"
             />
           )}
@@ -151,6 +164,10 @@ export const GalleryHeroBanner: React.FC<GalleryHeroBannerProps> = ({
                 imageUrl={watermarkImage}
                 opacity={watermarkOpacity}
                 position={watermarkPosition}
+                watermarkType={watermarkType}
+                fontSize={watermarkFontSize}
+                fontColor={watermarkFontColor}
+                fontStyle={watermarkFontStyle}
                 size="md"
               />
             )}
@@ -228,6 +245,10 @@ export const GalleryHeroBanner: React.FC<GalleryHeroBannerProps> = ({
               imageUrl={watermarkImage}
               opacity={watermarkOpacity}
               position={watermarkPosition}
+              watermarkType={watermarkType}
+              fontSize={watermarkFontSize}
+              fontColor={watermarkFontColor}
+              fontStyle={watermarkFontStyle}
               size="lg"
             />
           )}
@@ -288,6 +309,10 @@ export const GalleryHeroBanner: React.FC<GalleryHeroBannerProps> = ({
                 imageUrl={watermarkImage}
                 opacity={watermarkOpacity}
                 position={watermarkPosition}
+                watermarkType={watermarkType}
+                fontSize={watermarkFontSize}
+                fontColor={watermarkFontColor}
+                fontStyle={watermarkFontStyle}
                 size="md"
               />
             )}

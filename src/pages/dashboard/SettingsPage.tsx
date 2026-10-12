@@ -19,7 +19,6 @@ import {
   useStudioPlans,
   useCurrentSubscription,
   usePlanUpgradeFlow,
-  useCancelAutoRenew,
   useResumeSubscription,
 } from '@/service/plans/usePlans';
 import { usePlanQuota } from '@/hooks/usePlanQuota';
@@ -55,7 +54,7 @@ import {
 } from 'lucide-react';
 
 export const SettingsPage: React.FC = () => {
-  const { photographer, user, updateProfile, logout, isLoggingOut } = useAuth();
+  const { photographer, user, logout, isLoggingOut } = useAuth();
   const { subscription, upgradeSubscription } = useGallery();
   const { showToast } = useToast();
   const navigate = useNavigate();

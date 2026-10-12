@@ -1,5 +1,5 @@
 import { Howl, Howler } from 'howler';
-import type { Track } from './musicService';
+import { CURATED_TRACKS, type Track } from './musicService';
 
 class AudioManager {
   private soundtrackHowl: Howl | null = null;
@@ -8,12 +8,51 @@ class AudioManager {
   private nativeSoundtrackAudio: HTMLAudioElement | null = null;
   private currentTrack: Track | null = null;
   private previewTrack: Track | null = null;
+  private playlist: Track[] = CURATED_TRACKS;
+  private onTrackChangeCallback: ((nextTrack: Track) => void) | null = null;
+  private isPausedBySlideshow: boolean = false;
   private volume: number = 0.8;
   private isMuted: boolean = false;
   private listeners: Set<() => void> = new Set();
+  private wasSoundtrackPlayingBeforeHidden: boolean = false;
 
   constructor() {
     Howler.autoUnlock = true;
+
+    // Mobile screen off & tab background visibility guardian
+    if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+      const handleVisibilityChange = () => {
+        if (document.hidden || document.visibilityState === 'hidden') {
+          // Mobile screen turned off or app backgrounded: immediately pause music
+          if (this.isSoundtrackPlaying()) {
+            this.wasSoundtrackPlayingBeforeHidden = true;
+            this.pauseSoundtrack();
+          }
+          if (this.previewTrack) {
+            this.stopPreview();
+          }
+        } else if (document.visibilityState === 'visible') {
+          // Screen turned back on: resume if was previously playing
+          if (this.wasSoundtrackPlayingBeforeHidden) {
+            this.wasSoundtrackPlayingBeforeHidden = false;
+            this.resumeSoundtrack();
+          }
+        }
+      };
+
+      const handlePageHide = () => {
+        if (this.isSoundtrackPlaying()) {
+          this.pauseSoundtrack();
+        }
+        if (this.previewTrack) {
+          this.stopPreview();
+        }
+      };
+
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+      window.addEventListener('pagehide', handlePageHide);
+      window.addEventListener('freeze', handlePageHide);
+    }
   }
 
   public subscribe(listener: () => void): () => void {
@@ -159,8 +198,21 @@ class AudioManager {
   // ─────────────────────────────────────────
   // SOUNDTRACK PLAYER (Movie Slideshow)
   // ─────────────────────────────────────────
-  public playSoundtrack(track: Track, fadeInMs: number = 1200) {
+  public playSoundtrack(
+    track: Track,
+    fadeInMs: number = 1200,
+    playlist?: Track[],
+    onTrackChange?: (nextTrack: Track) => void
+  ) {
     this.stopPreview();
+    this.isPausedBySlideshow = false;
+
+    if (playlist && playlist.length > 0) {
+      this.playlist = playlist;
+    }
+    if (onTrackChange) {
+      this.onTrackChangeCallback = onTrackChange;
+    }
 
     // If already playing this track, resume if paused
     if (this.currentTrack?.id === track.id) {
@@ -205,7 +257,7 @@ class AudioManager {
         src: [track.audioUrl],
         html5: true,
         format: ['m4a', 'aac', 'mp3'],
-        loop: true,
+        loop: false, // Auto-advance to next track when finished
         volume: 0,
         onplay: () => {
           if (!this.isMuted && fadeInMs > 0 && this.soundtrackHowl) {
@@ -214,6 +266,9 @@ class AudioManager {
             this.soundtrackHowl.volume(this.volume);
           }
           this.notify();
+        },
+        onend: () => {
+          this.handleTrackEnded();
         },
         onloaderror: (_id, err) => {
           console.warn('Howler soundtrack load issue, falling back to native Audio:', err);
@@ -233,6 +288,25 @@ class AudioManager {
     }
   }
 
+  private handleTrackEnded() {
+    // If the slideshow is currently paused, stopped, or hidden, do NOT advance
+    if (this.isPausedBySlideshow || !this.currentTrack) {
+      return;
+    }
+
+    const currentIndex = this.playlist.findIndex((t) => t.id === this.currentTrack?.id);
+    const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % this.playlist.length : 0;
+    const nextTrack = this.playlist[nextIndex];
+
+    if (nextTrack) {
+      this.playSoundtrack(nextTrack, 1500, this.playlist, this.onTrackChangeCallback || undefined);
+      if (this.onTrackChangeCallback) {
+        this.onTrackChangeCallback(nextTrack);
+      }
+      this.notify();
+    }
+  }
+
   private playNativeSoundtrackFallback(track: Track) {
     if (this.soundtrackHowl) {
       this.soundtrackHowl.unload();
@@ -241,8 +315,11 @@ class AudioManager {
 
     try {
       this.nativeSoundtrackAudio = new Audio(track.audioUrl);
-      this.nativeSoundtrackAudio.loop = true;
+      this.nativeSoundtrackAudio.loop = false;
       this.nativeSoundtrackAudio.volume = this.isMuted ? 0 : this.volume;
+      this.nativeSoundtrackAudio.onended = () => {
+        this.handleTrackEnded();
+      };
       this.nativeSoundtrackAudio.play().catch((err) => {
         console.warn('Native soundtrack play blocked:', err);
       });
@@ -253,17 +330,19 @@ class AudioManager {
   }
 
   public pauseSoundtrack() {
-    if (this.soundtrackHowl && this.soundtrackHowl.playing()) {
+    this.isPausedBySlideshow = true;
+    if (this.soundtrackHowl) {
       this.soundtrackHowl.pause();
       this.notify();
     }
-    if (this.nativeSoundtrackAudio && !this.nativeSoundtrackAudio.paused) {
+    if (this.nativeSoundtrackAudio) {
       this.nativeSoundtrackAudio.pause();
       this.notify();
     }
   }
 
   public resumeSoundtrack() {
+    this.isPausedBySlideshow = false;
     if (this.soundtrackHowl && !this.soundtrackHowl.playing()) {
       this.soundtrackHowl.play();
       this.notify();
@@ -275,6 +354,9 @@ class AudioManager {
   }
 
   public stopSoundtrack(fadeOutMs: number = 800) {
+    this.isPausedBySlideshow = false;
+    this.onTrackChangeCallback = null;
+    this.wasSoundtrackPlayingBeforeHidden = false;
     if (this.soundtrackHowl) {
       const h = this.soundtrackHowl;
       if (fadeOutMs > 0 && h.playing()) {

@@ -1,5 +1,6 @@
 import { CommonApi } from '@/lib/CommonApi';
 import type {
+  GetNotificationsParams,
   NotificationsListResponse,
   MarkReadResponse,
   GenericNotificationActionResponse,
@@ -7,15 +8,15 @@ import type {
   StudioNotificationSettings,
 } from './type';
 
+export * from './type';
+
 /**
  * 1. Retrieve Studio Notifications List from Backend
  * Endpoint: GET /api/notifications/
  */
-export const GetNotificationsApi = async (params?: {
-  is_read?: boolean;
-  type?: string;
-  limit?: number;
-}): Promise<NotificationsListResponse> => {
+export const GetNotificationsApi = async (
+  params?: GetNotificationsParams
+): Promise<NotificationsListResponse> => {
   const searchParams = new URLSearchParams();
   if (params?.is_read !== undefined) {
     searchParams.append('is_read', String(params.is_read));

@@ -36,8 +36,6 @@ export const ClientGalleryNavbar: React.FC<ClientGalleryNavbarProps> = ({
   isPreparingZip = false,
   zipProgress = 0,
   expiryText,
-  gridDesign,
-  onSelectGridDesign,
   onStartSlideshow,
   onDownloadAll,
   onCreateStoryVideo,

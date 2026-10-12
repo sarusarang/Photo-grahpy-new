@@ -5,6 +5,7 @@ export type InquiryEventType =
   | 'commercial'
   | 'portrait'
   | 'maternity'
+  | 'workshop'
   | 'other';
 
 export type InquiryStatus = 'new' | 'contacted' | 'booked' | 'archived';

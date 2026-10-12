@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo, useEffect } from 'react';
+import React, { useState, useRef, useMemo, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import {
   X,
@@ -12,6 +12,7 @@ import {
   AlertTriangle,
   ZapOff,
   ChevronDown,
+  Minus,
 } from 'lucide-react';
 import { useToast } from '../ui/Toast';
 import { useQueryClient } from '@tanstack/react-query';
@@ -19,6 +20,12 @@ import { usePlanQuota } from '@/hooks/usePlanQuota';
 import { useBulkUploadEventMedia } from '@/hooks/useAtelierQueries';
 import { useUploadGuard } from '@/hooks/useUploadGuard';
 import type { LiveEvent } from '@/types/event';
+import { UploadProgressCard, MinimizedUploadWidget } from '@/components/common/upload';
+import {
+  createPauseController,
+  type BatchUploadPauseController,
+  type UploadProgressMetrics,
+} from '@/utils/batchUploadRunner';
 
 export interface QueuedUploadFile {
   id: string;
@@ -48,6 +55,17 @@ export interface EventBatchUploadPanelProps {
   onUploadComplete?: () => void;
   onClose?: () => void;
   hideFooter?: boolean;
+  onMinimize?: () => void;
+  onUploadProgressChange?: (
+    isUploading: boolean,
+    progress: number,
+    statusText: string,
+    metrics: UploadProgressMetrics | null,
+    queuedCount: number,
+    isPaused?: boolean,
+    onPause?: () => void,
+    onResume?: () => void
+  ) => void;
 }
 
 export const EventBatchUploadPanel: React.FC<EventBatchUploadPanelProps> = ({
@@ -55,6 +73,8 @@ export const EventBatchUploadPanel: React.FC<EventBatchUploadPanelProps> = ({
   onUploadComplete,
   onClose,
   hideFooter = false,
+  onMinimize,
+  onUploadProgressChange,
 }) => {
   const { showToast } = useToast();
   const queryClient = useQueryClient();
@@ -137,8 +157,52 @@ export const EventBatchUploadPanel: React.FC<EventBatchUploadPanelProps> = ({
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadStatusText, setUploadStatusText] = useState('');
+  const [uploadMetrics, setUploadMetrics] = useState<UploadProgressMetrics | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const pauseControllerRef = useRef<BatchUploadPauseController | null>(null);
+  const [isPaused, setIsPaused] = useState(false);
+
+  const handlePauseUpload = useCallback(() => {
+    if (pauseControllerRef.current) {
+      pauseControllerRef.current.pause();
+      setIsPaused(true);
+      showToast('Upload Paused', 'Upload paused. Click Resume to continue.', 'info');
+    }
+  }, [showToast]);
+
+  const handleResumeUpload = useCallback(() => {
+    if (pauseControllerRef.current) {
+      pauseControllerRef.current.resume();
+      setIsPaused(false);
+      showToast('Upload Resumed', 'Continuing upload...', 'info');
+    }
+  }, [showToast]);
+
+  useEffect(() => {
+    onUploadProgressChange?.(
+      isUploading,
+      uploadProgress,
+      uploadStatusText,
+      uploadMetrics,
+      (activeTab === 'photos' ? queuedPhotos : queuedVideos).length,
+      isPaused,
+      handlePauseUpload,
+      handleResumeUpload
+    );
+  }, [
+    isUploading,
+    uploadProgress,
+    uploadStatusText,
+    uploadMetrics,
+    activeTab,
+    queuedPhotos.length,
+    queuedVideos.length,
+    isPaused,
+    handlePauseUpload,
+    handleResumeUpload,
+    onUploadProgressChange,
+  ]);
 
   // Storage quota calculations (100% Dynamic & Validated from Backend)
   const {
@@ -310,10 +374,15 @@ export const EventBatchUploadPanel: React.FC<EventBatchUploadPanelProps> = ({
 
   // Cancel Upload Handler
   const handleCancelUpload = () => {
+    if (pauseControllerRef.current) {
+      pauseControllerRef.current.resume();
+      pauseControllerRef.current = null;
+    }
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
+    setIsPaused(false);
     setIsUploading(false);
     setUploadProgress(0);
     setUploadStatusText('');
@@ -339,7 +408,10 @@ export const EventBatchUploadPanel: React.FC<EventBatchUploadPanelProps> = ({
       return;
     }
     const controller = new AbortController();
+    const pauseCtrl = createPauseController();
     abortControllerRef.current = controller;
+    pauseControllerRef.current = pauseCtrl;
+    setIsPaused(false);
 
     setUploadError(null);
     setIsUploading(true);
@@ -352,9 +424,11 @@ export const EventBatchUploadPanel: React.FC<EventBatchUploadPanelProps> = ({
         sectionTitle: selectedSection,
         type: isPhotos ? 'photo' : 'video',
         signal: controller.signal,
-        onProgress: (percent, statusText) => {
+        pauseController: pauseCtrl,
+        onProgress: (percent: number, statusText?: string, metrics?: any) => {
           setUploadProgress(percent);
           if (statusText) setUploadStatusText(statusText);
+          if (metrics) setUploadMetrics(metrics);
         },
       });
 
@@ -379,7 +453,9 @@ export const EventBatchUploadPanel: React.FC<EventBatchUploadPanelProps> = ({
       showToast('Upload Failed', msg, 'error');
     } finally {
       setIsUploading(false);
+      setIsPaused(false);
       abortControllerRef.current = null;
+      pauseControllerRef.current = null;
       await syncEventStateImmediately();
       onUploadComplete?.();
     }
@@ -545,39 +621,19 @@ export const EventBatchUploadPanel: React.FC<EventBatchUploadPanelProps> = ({
         </div>
       </div>
 
-      {/* Active Uploading Status Card */}
+      {/* Active Uploading Status Card with Live Speed, Elapsed/ETA & MB Uploaded */}
       {isUploading && (
-        <div className="p-4 sm:p-5 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-3 animate-in fade-in duration-200">
-          <div className="flex items-center justify-between text-xs font-mono">
-            <div className="flex items-center gap-2 text-amber-500 font-bold">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              <span>{uploadStatusText || 'Uploading media files to cloud...'}</span>
-            </div>
-            <span className="font-bold text-amber-500">{uploadProgress}%</span>
-          </div>
-
-          {/* Progress Bar */}
-          <div className="w-full h-2.5 rounded-full bg-neutral-200 dark:bg-neutral-800 overflow-hidden">
-            <div
-              className="h-full bg-gradient-to-r from-amber-500 to-amber-300 transition-all duration-300 rounded-full"
-              style={{ width: `${uploadProgress}%` }}
-            />
-          </div>
-
-          <div className="flex items-center justify-between pt-1">
-            <span className="text-[11px] font-mono text-neutral-500 dark:text-neutral-400">
-              Target Section: <strong className="text-neutral-800 dark:text-neutral-200">{selectedSection}</strong>
-            </span>
-
-            <button
-              type="button"
-              onClick={handleCancelUpload}
-              className="px-3 py-1 rounded-xl bg-rose-500/15 hover:bg-rose-500 text-rose-500 hover:text-white border border-rose-500/30 text-[11px] font-mono font-bold transition-all cursor-pointer flex items-center gap-1.5"
-            >
-              <ZapOff className="w-3 h-3" />
-              <span>Cancel Upload</span>
-            </button>
-          </div>
+        <div className="mt-2">
+          <UploadProgressCard
+            progress={uploadProgress}
+            statusText={uploadStatusText}
+            metrics={uploadMetrics}
+            targetSection={selectedSection}
+            isPaused={isPaused}
+            onPause={handlePauseUpload}
+            onResume={handleResumeUpload}
+            onCancel={handleCancelUpload}
+          />
         </div>
       )}
 
@@ -865,15 +921,76 @@ export const EventUploadMediaModal: React.FC<EventUploadMediaModalProps> = ({
   event,
   onUploadComplete,
 }) => {
+  const [isMinimized, setIsMinimized] = useState(false);
+  const [isWidgetDismissed, setIsWidgetDismissed] = useState(false);
+  const [uploadInfo, setUploadInfo] = useState<{
+    isUploading: boolean;
+    progress: number;
+    statusText: string;
+    metrics: UploadProgressMetrics | null;
+    queuedCount: number;
+    isPaused?: boolean;
+    onPause?: () => void;
+    onResume?: () => void;
+  }>({
+    isUploading: false,
+    progress: 0,
+    statusText: '',
+    metrics: null,
+    queuedCount: 0,
+    isPaused: false,
+  });
+
+  useEffect(() => {
+    if (isOpen) {
+      setIsMinimized(false);
+      setIsWidgetDismissed(false);
+    }
+  }, [isOpen]);
+
   // Lock background scroll & handle escape key
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || isMinimized) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') {
+        if (uploadInfo.isUploading) {
+          setIsMinimized(true);
+        } else {
+          onClose();
+        }
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  }, [isOpen, isMinimized, uploadInfo.isUploading, onClose]);
+
+  // Floating Minimized Widget
+  if (!isWidgetDismissed && (isMinimized || (!isOpen && uploadInfo.isUploading))) {
+    return (
+      <MinimizedUploadWidget
+        isOpen={true}
+        isUploading={uploadInfo.isUploading}
+        progress={uploadInfo.progress}
+        statusText={uploadInfo.statusText}
+        metrics={uploadInfo.metrics}
+        title={event.title || 'Live Event Media'}
+        sourceType="event"
+        itemCount={uploadInfo.queuedCount}
+        isPaused={uploadInfo.isPaused}
+        onPause={uploadInfo.onPause}
+        onResume={uploadInfo.onResume}
+        onExpand={() => {
+          setIsMinimized(false);
+          setIsWidgetDismissed(false);
+        }}
+        onClose={() => {
+          setIsWidgetDismissed(true);
+          setIsMinimized(false);
+          onClose();
+        }}
+      />
+    );
+  }
 
   if (!isOpen) return null;
 
@@ -883,7 +1000,10 @@ export const EventUploadMediaModal: React.FC<EventUploadMediaModalProps> = ({
       aria-modal="true"
       className="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-4 md:p-6 bg-black/80 backdrop-blur-md overflow-y-auto"
       onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (e.target === e.currentTarget) {
+          if (uploadInfo.isUploading) setIsMinimized(true);
+          else onClose();
+        }
       }}
     >
       <div
@@ -906,23 +1026,48 @@ export const EventUploadMediaModal: React.FC<EventUploadMediaModalProps> = ({
                 </span>
               </div>
               <h2 className="text-base sm:text-lg font-serif font-bold text-neutral-900 dark:text-white">
-                Upload Photographs & 4K Videos
+                Upload Photographs &amp; 4K Videos
               </h2>
             </div>
           </div>
 
-          <button
-            onClick={onClose}
-            className="p-2 rounded-full text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setIsMinimized(true)}
+              className="p-2 rounded-full text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
+              title="Minimize upload window"
+            >
+              <Minus className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (uploadInfo.isUploading) {
+                  setIsMinimized(true);
+                } else {
+                  onClose();
+                }
+              }}
+              className="p-2 rounded-full text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
+              title={uploadInfo.isUploading ? 'Minimize and continue in background' : 'Close'}
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Content Body & Sticky Action Footer (matching gallery upload modal) */}
         <EventBatchUploadPanel
           event={event}
-          onClose={onClose}
+          onClose={() => {
+            if (uploadInfo.isUploading) setIsMinimized(true);
+            else onClose();
+          }}
+          onMinimize={() => setIsMinimized(true)}
+          onUploadProgressChange={(isUploading, progress, statusText, metrics, queuedCount, isPaused, onPause, onResume) => {
+            setUploadInfo({ isUploading, progress, statusText, metrics, queuedCount, isPaused, onPause, onResume });
+          }}
           onUploadComplete={() => {
             onUploadComplete?.();
             onClose();

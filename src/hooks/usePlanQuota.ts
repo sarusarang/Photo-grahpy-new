@@ -56,6 +56,7 @@ export interface PlanQuotaInfo {
   // AI & Discovery features
   faceSearchEnabled: boolean;
   watermarkEnabled: boolean;
+  aiCullingEnabled: boolean;
 
   // Storage metrics & validation
   storageUsedBytes: number;
@@ -85,9 +86,13 @@ export interface PlanQuotaInfo {
   portfolioPostsUsed: number;
   portfolioPostsRemaining: number;
   canCreatePortfolioPost: boolean;
+  allowedPortfolioTemplates: string[];
+  isPortfolioTemplateAllowed: (templateId: string) => boolean;
 
   // Inquiries
   hasFullInquiryAccess: boolean;
+  maxInquiries: number;
+  inquiryAccessDisplay: string;
 
   // Raw subscription & entitlement status
   subscription?: CurrentSubscription;
@@ -238,7 +243,7 @@ export const usePlanQuota = (options?: { enabled?: boolean }): PlanQuotaInfo => 
       : galleryUsage?.limit ??
         rawPlan?.max_galleries ??
         matchedCatalogPlan?.max_galleries ??
-        (isUnlimitedGalleries ? 0 : 50);
+        0;
 
     const galleriesUsed = galleryUsage?.used ?? liveGalleriesCount;
 
@@ -275,7 +280,7 @@ export const usePlanQuota = (options?: { enabled?: boolean }): PlanQuotaInfo => 
       : eventUsage?.limit ??
         rawPlan?.max_events ??
         matchedCatalogPlan?.max_events ??
-        (isUnlimitedEvents ? 0 : 25);
+        0;
 
     const eventsUsed = eventUsage?.used ?? liveEventsCount;
     const eventsRemaining = isNoPlan
@@ -304,7 +309,7 @@ export const usePlanQuota = (options?: { enabled?: boolean }): PlanQuotaInfo => 
       : portfolioUsage?.limit ??
         rawPlan?.max_portfolio_posts ??
         matchedCatalogPlan?.max_portfolio_posts ??
-        (isUnlimitedPortfolio ? 0 : 30);
+        0;
 
     const portfolioPostsUsed = portfolioUsage?.used ?? 0;
     const portfolioPostsRemaining = isNoPlan
@@ -325,11 +330,43 @@ export const usePlanQuota = (options?: { enabled?: boolean }): PlanQuotaInfo => 
       ? []
       : Array.isArray(rawAllowed) && rawAllowed.length > 0
         ? (rawAllowed as GalleryTemplateId[])
-        : ['editorial', 'masonry'];
+        : [];
+
+    const TEMPLATE_ALIAS_MAP: Record<string, string[]> = {
+      'editorial-vogue': ['editorial', 'editorial-vogue', 'vogue'],
+      'darkroom-atelier': ['masonry', 'darkroom-atelier', 'atelier'],
+      'cinematic': ['cinematic', 'cinema'],
+      'minimal': ['minimal', 'minimalist'],
+      'editorial': ['editorial', 'editorial-vogue', 'vogue'],
+      'masonry': ['masonry', 'darkroom-atelier', 'atelier'],
+    };
 
     const isTemplateAllowed = (templateId: string): boolean => {
       if (isNoPlan) return false;
-      return allowedTemplates.includes(templateId as GalleryTemplateId);
+      const normalized = templateId.toLowerCase().trim();
+      const aliases = TEMPLATE_ALIAS_MAP[normalized] || [normalized];
+      return allowedTemplates.some((t) => {
+        const tNorm = String(t).toLowerCase().trim();
+        return aliases.includes(tNorm) || aliases.some((a) => a.includes(tNorm) || tNorm.includes(a));
+      });
+    };
+
+    // Allowed Portfolio Templates
+    const rawAllowedPortfolio = rawPlan?.allowed_portfolio_templates ?? matchedCatalogPlan?.allowed_portfolio_templates ?? rawPlan?.allowed_templates ?? matchedCatalogPlan?.allowed_templates;
+    const allowedPortfolioTemplates: string[] = isNoPlan
+      ? []
+      : Array.isArray(rawAllowedPortfolio) && rawAllowedPortfolio.length > 0
+        ? rawAllowedPortfolio
+        : [];
+
+    const isPortfolioTemplateAllowed = (templateId: string): boolean => {
+      if (isNoPlan) return false;
+      const normalized = templateId.toLowerCase().trim();
+      const aliases = TEMPLATE_ALIAS_MAP[normalized] || [normalized];
+      return allowedPortfolioTemplates.some((t) => {
+        const tNorm = t.toLowerCase().trim();
+        return aliases.includes(tNorm) || aliases.some((a) => a.includes(tNorm) || tNorm.includes(a));
+      });
     };
 
     // -------------------------------------------------------------
@@ -349,11 +386,27 @@ export const usePlanQuota = (options?: { enabled?: boolean }): PlanQuotaInfo => 
       false
     );
 
+    const aiCullingEnabled = !isNoPlan && !isExpired && Boolean(
+      (sub as any)?.ai_culling_enabled ??
+      (sub as any)?.plan?.ai_culling_enabled ??
+      rawPlan?.ai_culling_enabled ??
+      matchedCatalogPlan?.ai_culling_enabled ??
+      false
+    );
+
     const hasFullInquiryAccess = !isNoPlan && Boolean(
       rawPlan?.has_full_inquiry_access ??
       matchedCatalogPlan?.has_full_inquiry_access ??
-      true
+      (rawPlan?.max_inquiries === 0 || matchedCatalogPlan?.max_inquiries === 0 || rawPlan?.tier === 'premium')
     );
+
+    const maxInquiries = isNoPlan
+      ? 0
+      : (rawPlan?.max_inquiries ?? matchedCatalogPlan?.max_inquiries ?? 0);
+
+    const inquiryAccessDisplay = isNoPlan
+      ? 'No Access'
+      : ((rawPlan as any)?.inquiry_access ?? (matchedCatalogPlan as any)?.inquiry_access ?? (hasFullInquiryAccess ? 'All Inquiries' : 'Standard Inquiries'));
 
     // -------------------------------------------------------------
     // 6. Storage Quota Metrics (100% Dynamic & Validated)
@@ -571,6 +624,7 @@ export const usePlanQuota = (options?: { enabled?: boolean }): PlanQuotaInfo => 
       isTemplateAllowed,
       faceSearchEnabled,
       watermarkEnabled,
+      aiCullingEnabled,
       storageUsedBytes,
       storageLimitBytes,
       storageUsedGB,
@@ -591,7 +645,11 @@ export const usePlanQuota = (options?: { enabled?: boolean }): PlanQuotaInfo => 
       portfolioPostsUsed,
       portfolioPostsRemaining,
       canCreatePortfolioPost,
+      allowedPortfolioTemplates,
+      isPortfolioTemplateAllowed,
       hasFullInquiryAccess,
+      maxInquiries,
+      inquiryAccessDisplay,
       subscription: sub,
       isLoading: isEntitlementPending,
       isNoPlan,
@@ -613,5 +671,6 @@ export const usePlanQuota = (options?: { enabled?: boolean }): PlanQuotaInfo => 
     isLoadingSub,
     isLoadingPlans,
     isLoadingGalleries,
+    refetchSub,
   ]);
 };

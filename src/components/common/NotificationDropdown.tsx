@@ -19,15 +19,11 @@ import {
   MessageSquare,
   HardDrive,
   Crown,
-  Zap,
   ArrowRight,
-  Loader2,
   RefreshCw,
   AlertCircle,
   Sparkles,
   Image as ImageIcon,
-  Clock,
-  ShieldAlert,
 } from 'lucide-react';
 
 interface NotificationDropdownProps {
@@ -53,7 +49,6 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
     isLoading,
     isError,
     refetch,
-    isFetching,
   } = useNotifications({
     is_read: activeFilter === 'unread' ? false : undefined,
   });
@@ -120,7 +115,7 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
     }
   };
 
-  const getCategoryIcon = (type: NotificationType, priority?: string) => {
+  const getCategoryIcon = (type: NotificationType) => {
     switch (type) {
       case 'inquiry':
         return (
@@ -332,7 +327,7 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
                 }`}
               >
                 {/* Type Icon */}
-                {getCategoryIcon(item.type, item.priority)}
+                {getCategoryIcon(item.type)}
 
                 {/* Content */}
                 <div className="flex-1 min-w-0 space-y-1">

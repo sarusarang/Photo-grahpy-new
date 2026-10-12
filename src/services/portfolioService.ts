@@ -6,21 +6,21 @@ const PORTFOLIO_STORAGE_KEY = 'photo_saas_portfolio_config_v2';
 export const AVAILABLE_TEMPLATES: PortfolioTemplateMeta[] = [
   {
     id: 'editorial-vogue',
-    name: 'Editorial Vogue',
-    subtitle: 'High-Fashion & Luxury Editorial',
-    description: 'Clean editorial magazine typography, full-bleed hero banner, split-grid philosophy statement, and curated dynamic masonry works.',
-    styleBadge: 'Magazine Luxe',
+    name: 'Lumina Pure (Editorial)',
+    subtitle: 'High-Fashion Pure White & Minimalist',
+    description: 'Full-size bright editorial hero banner, crisp minimalist typography, clean about showcase, interactive works gallery with event photo uploads, and refined contact form.',
+    styleBadge: 'Editorial White',
     previewThumb: 'https://images.unsplash.com/photo-1519741497674-611481863552?w=800&auto=format&fit=crop&q=80',
-    highlights: ['Serif Magazine Layout', 'Full-Bleed Parallax Hero', 'Masonry Works Grid', 'Luxury Booking Form'],
+    highlights: ['Full-Size White Hero Banner', 'High-Fashion Typography', 'Expandable Event Photos', 'Refined Minimal Form'],
   },
   {
     id: 'darkroom-atelier',
-    name: 'Darkroom Atelier',
-    subtitle: 'Cinematic Noir & Film Showcase',
-    description: 'High-contrast darkroom moodboard, film-strip reel project inspection, atmospheric ambient lighting, and interactive contact drawer.',
-    styleBadge: 'Cinematic Noir',
+    name: 'Obsidian Noir (Masonry)',
+    subtitle: 'Cinematic Noir & Atmospheric Dark',
+    description: 'Full-size cinematic dark hero banner with glowing studio typography, intimate about narrative, expandable works with event photo uploads, and dark glassmorphic inquiry form.',
+    styleBadge: 'Cinematic Dark',
     previewThumb: 'https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?w=800&auto=format&fit=crop&q=80',
-    highlights: ['Film Reel Showcase', 'Atmospheric Ambient Glow', 'Interactive Audio Atmosphere', 'Full-Screen Contact Drawer'],
+    highlights: ['Full-Size Dark Hero Banner', 'Atmospheric Amber Glow', 'Expandable Event Photos', 'Dark Glassmorphic Form'],
   },
 ];
 
@@ -51,136 +51,120 @@ export const CURATED_HERO_PRESETS = [
   },
 ];
 
-export const DEFAULT_PORTFOLIO_PROJECTS: PortfolioProject[] = [
-  {
-    id: 'proj-1',
-    title: 'Ananya & Kabir • Royal Palace Udaipur',
-    category: 'weddings',
-    coverUrl: 'https://images.unsplash.com/photo-1583939003579-730e3918a45a?w=1200&auto=format&fit=crop&q=85',
-    year: '2026',
-    location: 'Taj Lake Palace, Udaipur',
-    description: 'A 3-day royal palace celebration capturing grand Rajput rituals and intimate lakeside moments.',
-    clientName: 'Ananya Sharma & Kabir Roy',
-    mediaCount: 142,
-    highlightMedia: [
-      'https://images.unsplash.com/photo-1583939003579-730e3918a45a?w=1000&auto=format&fit=crop&q=80',
-      'https://images.unsplash.com/photo-1519741497674-611481863552?w=1000&auto=format&fit=crop&q=80',
-      'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?w=1000&auto=format&fit=crop&q=80',
-    ],
-  },
-  {
-    id: 'proj-2',
-    title: 'Ethereal Silk • Haute Couture Editorial',
-    category: 'editorial',
-    coverUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=1200&auto=format&fit=crop&q=85',
-    year: '2026',
-    location: 'Studio Noir, Mumbai',
-    description: 'A high-concept fashion series exploring minimalist silhouettes, raw shadows, and silk motion.',
-    clientName: 'Vogue India Atelier',
-    mediaCount: 48,
-    highlightMedia: [
-      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=1000&auto=format&fit=crop&q=80',
-      'https://images.unsplash.com/photo-1509631179647-0177331693ae?w=1000&auto=format&fit=crop&q=80',
-    ],
-  },
-  {
-    id: 'proj-3',
-    title: 'Mediterranean Solitude • Pre-Wedding',
-    category: 'pre-wedding',
-    coverUrl: 'https://images.unsplash.com/photo-1469371670807-013ccf25f16a?w=1200&auto=format&fit=crop&q=85',
-    year: '2025',
-    location: 'Positano, Amalfi Coast',
-    description: 'Sun-drenched cliffside portraits celebrating love, vintage convertibles, and Italian coastlines.',
-    clientName: 'Rhea & Dev',
-    mediaCount: 86,
-    highlightMedia: [
-      'https://images.unsplash.com/photo-1469371670807-013ccf25f16a?w=1000&auto=format&fit=crop&q=80',
-      'https://images.unsplash.com/photo-1522673607200-164d1b6ce486?w=1000&auto=format&fit=crop&q=80',
-    ],
-  },
-  {
-    id: 'proj-4',
-    title: 'Monolithic Spaces • Architectural Digest',
-    category: 'commercial',
-    coverUrl: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1200&auto=format&fit=crop&q=85',
-    year: '2025',
-    location: 'Alibaug, Maharashtra',
-    description: 'Brutalist concrete villa documentation focusing on brutalist geometry, daylight, and nature.',
-    clientName: 'Architectural Digest India',
-    mediaCount: 35,
-    highlightMedia: [
-      'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1000&auto=format&fit=crop&q=80',
-      'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1000&auto=format&fit=crop&q=80',
-    ],
-  },
-  {
-    id: 'proj-5',
-    title: 'Rhea & Siddharth • Traditional South Indian',
-    category: 'weddings',
-    coverUrl: 'https://images.unsplash.com/photo-1606800052052-a08af7148866?w=1200&auto=format&fit=crop&q=85',
-    year: '2025',
-    location: 'Kumarakom Lake Resort, Kerala',
-    description: 'Lush backwater serenity, jasmine garlands, and candid temple rituals captured in gold tones.',
-    clientName: 'Rhea Kurien & Siddharth Nair',
-    mediaCount: 160,
-    highlightMedia: [
-      'https://images.unsplash.com/photo-1606800052052-a08af7148866?w=1000&auto=format&fit=crop&q=80',
-    ],
-  },
-  {
-    id: 'proj-6',
-    title: 'Verve Haute Horlogerie • Watch Campaign',
-    category: 'commercial',
-    coverUrl: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=1200&auto=format&fit=crop&q=85',
-    year: '2026',
-    location: 'Zurich & Mumbai',
-    description: 'Macro Swiss watch craftsmanship photography with dramatic studio lighting and water droplets.',
-    clientName: 'Verve Chrono Geneva',
-    mediaCount: 24,
-    highlightMedia: [
-      'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=1000&auto=format&fit=crop&q=80',
-    ],
-  },
-];
+export const DEFAULT_PORTFOLIO_PROJECTS: PortfolioProject[] = [];
 
 export const DEFAULT_PORTFOLIO_CONFIG: PortfolioConfig = {
   templateId: 'editorial-vogue',
-  studioName: 'Sarang Varma Studio',
-  artistName: 'Sarang Varma',
-  tagline: 'Visual Poetry • High-Fashion Weddings & Destination Documentaries',
-  bio: 'Documenting raw emotion, modern romanticism, and high-fashion aesthetics across India and worldwide destinations. Every frame is treated as a piece of timeless fine-art.',
-  aboutStory: 'Founded in 2018, our studio blends the candid honesty of photojournalism with the refined sophistication of high-fashion magazine editorials. We work with a select few couples and commercial clients each season to ensure bespoke attention to every detail.',
-  location: 'Mumbai & Kochi • Available Worldwide',
-  avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500&auto=format&fit=crop&q=80',
-  bannerUrl: 'https://images.unsplash.com/photo-1519741497674-611481863552?w=1800&auto=format&fit=crop&q=85',
-  contactEmail: 'hello@sarangvarma.com',
-  contactPhone: '+91 98201 44521',
-  instagramHandle: '@sarangvarmastudio',
-  youtubeHandle: '@sarangvarmacinema',
-  websiteUrl: 'https://sarangvarma.com',
+  studioName: '',
+  artistName: '',
+  tagline: '',
+  bio: '',
+  aboutStory: '',
+  location: '',
+  avatarUrl: '',
+  bannerUrl: '',
+  contactEmail: '',
+  contactPhone: '',
+  instagramHandle: '',
+  youtubeHandle: '',
+  websiteUrl: '',
   isBookingOpen: true,
-  pricingStartingAt: '₹4,50,000 / Day',
-  philosophyQuote: '“Photography is not about mere moments frozen in time; it is about how those moments felt when your breath was taken away.”',
-  philosophyAuthor: 'Sarang Varma, Creative Director',
+  pricingStartingAt: '',
+  philosophyQuote: '',
+  philosophyAuthor: '',
   accentColor: '#F59E0B',
-  featuredWorks: DEFAULT_PORTFOLIO_PROJECTS,
+  featuredWorks: [],
+  whatsappEnabled: true,
+  whatsappNumber: '',
+  whatsappPrefillMessage: "Hi, I'm interested in booking a photography session with your studio!",
+  whatsappButtonLabel: 'Chat on WhatsApp',
 };
 
 type PortfolioConfigListener = (config: PortfolioConfig) => void;
 const listeners: Set<PortfolioConfigListener> = new Set();
+
+export function normalizePortfolioConfig(
+  raw: any,
+  fallbackUser?: {
+    fullName?: string;
+    studioName?: string;
+    email?: string;
+    phone?: string;
+    location?: string;
+  }
+): PortfolioConfig {
+  const fallbackStudio = fallbackUser?.studioName || (fallbackUser?.fullName ? `${fallbackUser.fullName} Studio` : 'Studio Portfolio');
+  const fallbackArtist = fallbackUser?.fullName || 'Lead Photographer';
+
+  if (!raw || typeof raw !== 'object') {
+    const fallbackPhone = fallbackUser?.phone || '';
+    return {
+      ...DEFAULT_PORTFOLIO_CONFIG,
+      studioName: fallbackStudio,
+      artistName: fallbackArtist,
+      contactEmail: fallbackUser?.email || '',
+      contactPhone: fallbackPhone,
+      location: fallbackUser?.location || '',
+      featuredWorks: [],
+      whatsappNumber: fallbackPhone,
+    };
+  }
+
+  // Normalize works array strictly from server data - zero dummy items
+  const rawWorks = raw.featuredWorks || raw.featured_works || raw.works || [];
+  const normalizedWorks: PortfolioProject[] = Array.isArray(rawWorks)
+    ? rawWorks.map((w: any, idx: number) => ({
+        id: w.id || `proj-${idx + 1}`,
+        title: w.title || 'Untitled Project',
+        category: w.category || 'Showcase',
+        coverUrl: w.coverUrl || w.cover_url || '',
+        year: w.year || new Date().getFullYear().toString(),
+        location: w.location || '',
+        description: w.description || '',
+        clientName: w.clientName || w.client_name || '',
+        gallerySlug: w.gallerySlug || w.gallery_slug || '',
+        mediaCount: w.mediaCount || w.media_count || (w.highlightMedia?.length || w.highlight_media?.length || 0),
+        highlightMedia: Array.isArray(w.highlightMedia) ? w.highlightMedia : Array.isArray(w.highlight_media) ? w.highlight_media : (w.coverUrl || w.cover_url ? [w.coverUrl || w.cover_url] : []),
+      }))
+    : [];
+
+  const resolvedPhone = raw.contactPhone || raw.contact_phone || fallbackUser?.phone || '';
+  const resolvedWhatsApp = raw.whatsappNumber || raw.whatsapp_number || resolvedPhone;
+
+  return {
+    templateId: raw.templateId || raw.template_id || 'editorial-vogue',
+    studioName: raw.studioName || raw.studio_name || fallbackStudio,
+    artistName: raw.artistName || raw.artist_name || fallbackArtist,
+    tagline: raw.tagline || '',
+    bio: raw.bio || raw.biography || '',
+    aboutStory: raw.aboutStory || raw.about_story || '',
+    location: raw.location || fallbackUser?.location || '',
+    avatarUrl: raw.avatarUrl || raw.avatar_url || '',
+    bannerUrl: raw.bannerUrl || raw.banner_url || '',
+    contactEmail: raw.contactEmail || raw.contact_email || fallbackUser?.email || '',
+    contactPhone: resolvedPhone,
+    instagramHandle: raw.instagramHandle || raw.instagram_handle || '',
+    youtubeHandle: raw.youtubeHandle || raw.youtube_handle || '',
+    websiteUrl: raw.websiteUrl || raw.website_url || '',
+    isBookingOpen: raw.isBookingOpen ?? raw.is_booking_open ?? true,
+    pricingStartingAt: raw.pricingStartingAt || raw.pricing_starting_at || '',
+    philosophyQuote: raw.philosophyQuote || raw.philosophy_quote || '',
+    philosophyAuthor: raw.philosophyAuthor || raw.philosophy_author || fallbackArtist,
+    accentColor: raw.accentColor || raw.accent_color || '#F59E0B',
+    featuredWorks: normalizedWorks,
+    whatsappEnabled: raw.whatsappEnabled ?? raw.whatsapp_enabled ?? true,
+    whatsappNumber: resolvedWhatsApp,
+    whatsappPrefillMessage: raw.whatsappPrefillMessage || raw.whatsapp_prefill_message || "Hi, I'm interested in booking a photography session with your studio!",
+    whatsappButtonLabel: raw.whatsappButtonLabel || raw.whatsapp_button_label || 'Chat on WhatsApp',
+  };
+}
 
 export function getPortfolioConfig(): PortfolioConfig {
   try {
     const raw = localStorage.getItem(PORTFOLIO_STORAGE_KEY);
     if (!raw) return DEFAULT_PORTFOLIO_CONFIG;
     const parsed = JSON.parse(raw);
-    return {
-      ...DEFAULT_PORTFOLIO_CONFIG,
-      ...parsed,
-      featuredWorks: parsed.featuredWorks && parsed.featuredWorks.length > 0
-        ? parsed.featuredWorks
-        : DEFAULT_PORTFOLIO_CONFIG.featuredWorks,
-    };
+    return normalizePortfolioConfig(parsed);
   } catch {
     return DEFAULT_PORTFOLIO_CONFIG;
   }
@@ -222,31 +206,20 @@ export function getPortfolioAnalytics(): PortfolioAnalytics {
   const inquiries = getInquiries();
   const leadsCount = inquiries.length;
   const bookedCount = inquiries.filter((i) => i.status === 'booked').length;
-  const conversionRate = leadsCount > 0 ? Math.round((bookedCount / leadsCount) * 100) : 38;
+  const conversionRate = leadsCount > 0 ? Math.round((bookedCount / leadsCount) * 100) : 0;
 
   return {
-    totalViews: 3840 + leadsCount * 45,
-    uniqueVisitors: 2180 + leadsCount * 28,
+    totalViews: 0,
+    uniqueVisitors: 0,
     inquiryConversions: leadsCount,
-    conversionRate: Math.max(12, conversionRate),
-    avgEngagementDuration: '3m 42s',
+    conversionRate,
+    avgEngagementDuration: '—',
     viewsByDevice: {
-      mobile: 68,
-      desktop: 26,
-      tablet: 6,
+      mobile: 0,
+      desktop: 0,
+      tablet: 0,
     },
-    topProjects: [
-      { title: 'Ananya & Kabir • Royal Palace Udaipur', views: 1420, category: 'Weddings' },
-      { title: 'Ethereal Silk • Haute Couture Editorial', views: 980, category: 'Editorial' },
-      { title: 'Mediterranean Solitude • Pre-Wedding', views: 760, category: 'Pre-Wedding' },
-      { title: 'Monolithic Spaces • Architectural Digest', views: 540, category: 'Commercial' },
-    ],
-    recentVisitors: [
-      { id: 'v1', city: 'Mumbai', country: 'India', time: '4 mins ago', device: 'mobile' },
-      { id: 'v2', city: 'London', country: 'United Kingdom', time: '22 mins ago', device: 'desktop' },
-      { id: 'v3', city: 'Dubai', country: 'UAE', time: '1 hour ago', device: 'mobile' },
-      { id: 'v4', city: 'New York', country: 'United States', time: '3 hours ago', device: 'desktop' },
-      { id: 'v5', city: 'Delhi', country: 'India', time: '5 hours ago', device: 'mobile' },
-    ],
+    topProjects: [],
+    recentVisitors: [],
   };
 }

@@ -84,10 +84,14 @@ export interface PhotographerProfileResponse {
   profile_image?: string | null;
   default_template?: string;
   enable_watermark?: boolean;
+  watermark_type?: 'text' | 'image' | string;
   watermark_text?: string;
   watermark_image?: string | null;
   watermark_opacity?: number;
   watermark_position?: string;
+  watermark_font_size?: string;
+  watermark_font_color?: string;
+  watermark_font_style?: string;
   is_onboarded?: boolean;
   onboarding_step?: number;
   storage_used_bytes?: number;
@@ -133,3 +137,17 @@ export interface RemoveAvatarResponse {
     profile_image: null;
   };
 }
+
+export interface UpdateWatermarkPayload {
+  enable_watermark?: boolean;
+  watermark_type?: 'text' | 'image' | string;
+  watermark_text?: string;
+  watermark_opacity?: number;
+  watermark_position?: string;
+  watermark_font_size?: string;
+  watermark_font_color?: string;
+  watermark_font_style?: string;
+  watermark_image?: File | string | null;
+  remove_watermark_image?: boolean;
+}
+

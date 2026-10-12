@@ -44,6 +44,22 @@ const buildPhotographerProfile = (
   };
 };
 
+const DEFAULT_EMPTY_PROFILE: PhotographerProfile = {
+  id: '',
+  studioName: 'Studio',
+  fullName: '',
+  email: '',
+  phone: '',
+  location: '',
+  bio: '',
+  avatarUrl: '',
+  websiteUrl: '',
+  instagramHandle: '',
+  watermarkText: '© EX SHARE',
+  enableWatermark: false,
+  isOnboarded: false,
+};
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 /**
@@ -79,22 +95,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     return null;
   }, [checkLoginData]);
-
-const DEFAULT_EMPTY_PROFILE: PhotographerProfile = {
-  id: '',
-  studioName: 'Studio',
-  fullName: '',
-  email: '',
-  phone: '',
-  location: '',
-  bio: '',
-  avatarUrl: '',
-  websiteUrl: '',
-  instagramHandle: '',
-  watermarkText: '© EX SHARE',
-  enableWatermark: false,
-  isOnboarded: false,
-};
 
   const photographer = useMemo<PhotographerProfile>(() => {
     if (user) {

@@ -44,7 +44,7 @@ export const UpdateInquiryStatusApi = async (
  * Endpoint: DELETE /api/inquiries/{id}/
  */
 export const DeleteInquiryApi = async (inquiryId: string): Promise<DeleteInquiryResponse> => {
-  return CommonApi('DELETE', `/api/inquiries/${inquiryId}/`);
+  return CommonApi<DeleteInquiryResponse>('DELETE', `/api/inquiries/${inquiryId}/`);
 };
 
 /**
@@ -54,7 +54,7 @@ export const DeleteInquiryApi = async (inquiryId: string): Promise<DeleteInquiry
 export const SubmitPublicInquiryApi = async (
   payload: SubmitInquiryPayload
 ): Promise<SubmitInquiryResponse> => {
-  return CommonApi('POST', '/api/public/inquiries/', payload);
+  return CommonApi<SubmitInquiryResponse>('POST', '/api/public/inquiries/', payload);
 };
 
 /**
@@ -62,5 +62,5 @@ export const SubmitPublicInquiryApi = async (
  * Endpoint: GET /api/inquiries/analytics/
  */
 export const GetInquiriesAnalyticsApi = async (): Promise<InquiriesAnalyticsResponse> => {
-  return CommonApi('GET', '/api/inquiries/analytics/');
+  return CommonApi<InquiriesAnalyticsResponse>('GET', '/api/inquiries/analytics/');
 };

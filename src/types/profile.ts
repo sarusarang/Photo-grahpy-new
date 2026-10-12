@@ -13,4 +13,11 @@ export interface PhotographerProfile {
   watermarkText?: string;
   enableWatermark: boolean;
   isOnboarded: boolean;
+  watermarkType?: 'text' | 'image' | string;
+  watermarkImage?: string | null;
+  watermarkOpacity?: number;
+  watermarkPosition?: string;
+  watermarkFontSize?: 'sm' | 'md' | 'lg' | 'xl' | string;
+  watermarkFontColor?: string;
+  watermarkFontStyle?: 'serif' | 'sans' | 'script' | 'mono' | string;
 }

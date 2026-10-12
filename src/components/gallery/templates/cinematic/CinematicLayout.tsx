@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Play, Check, Sparkles, ArrowDown } from 'lucide-react';
+import { ArrowDown } from 'lucide-react';
 import { ClientSectionFilterBar } from '../../ClientSectionFilterBar';
 import { AIFaceSearchBox } from '../../AIFaceSearchBox';
 import { ClientGalleryFooter } from '../../ClientGalleryFooter';
@@ -60,6 +60,10 @@ export const CinematicLayout: React.FC<TemplateLayoutProps> = ({
   const watermarkText =
     gallery.watermark_text ||
     (resolvedPhotographer.startsWith('©') ? resolvedPhotographer : `© ${resolvedPhotographer}`);
+  const watermarkType = gallery.watermark_type || gallery.watermarkType;
+  const watermarkFontSize = gallery.watermark_font_size || gallery.watermarkFontSize;
+  const watermarkFontColor = gallery.watermark_font_color || gallery.watermarkFontColor;
+  const watermarkFontStyle = gallery.watermark_font_style || gallery.watermarkFontStyle;
 
   const videos = gallery.media.filter((m) => m.type === 'video');
   const bannerVideoUrl =
@@ -110,6 +114,10 @@ export const CinematicLayout: React.FC<TemplateLayoutProps> = ({
                   imageUrl={gallery.watermark_image}
                   opacity={gallery.watermark_opacity}
                   position={gallery.watermark_position}
+                  watermarkType={watermarkType}
+                  fontSize={watermarkFontSize}
+                  fontColor={watermarkFontColor}
+                  fontStyle={watermarkFontStyle}
                   size="lg"
                 />
               )}
@@ -202,6 +210,10 @@ export const CinematicLayout: React.FC<TemplateLayoutProps> = ({
         watermarkOpacity={gallery.watermark_opacity}
         watermarkPosition={gallery.watermark_position}
         watermarkImage={gallery.watermark_image}
+        watermarkType={watermarkType}
+        watermarkFontSize={watermarkFontSize}
+        watermarkFontColor={watermarkFontColor}
+        watermarkFontStyle={watermarkFontStyle}
       />
 
       {/* ─── CINEMATIC LETTERBOX FOOTER ─── */}

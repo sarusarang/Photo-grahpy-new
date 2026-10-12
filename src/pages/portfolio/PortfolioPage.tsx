@@ -5,15 +5,16 @@ import {
   getPortfolioConfig,
   savePortfolioConfig,
   subscribePortfolioConfig,
+  normalizePortfolioConfig,
   AVAILABLE_TEMPLATES,
 } from '../../services/portfolioService';
-import { EditorialVogueTemplate } from '../../components/portfolio/templates/EditorialVogueTemplate';
-import { DarkroomAtelierTemplate } from '../../components/portfolio/templates/DarkroomAtelierTemplate';
+import { getPortfolioTemplate } from '../../components/portfolio/templates/PortfolioTemplateRegistry';
 import { addInquiry } from '../../services/inquiryService';
 import type { PortfolioConfig } from '../../types/portfolio';
 import type { InquiryEventType } from '../../types/inquiry';
 import { useToast } from '../../components/ui/Toast';
 import { useSubmitPublicInquiry, usePublicPortfolio, useUpdatePortfolioConfig } from '@/hooks/useAtelierQueries';
+import { TrackPortfolioViewApi } from '@/service/portfolio/PortfolioApi';
 import { usePortfolioSeo } from '@/hooks/useSeo';
 import {
   Edit3,
@@ -21,35 +22,65 @@ import {
   Sparkles,
   ArrowLeft,
   Layers,
+  Loader2,
 } from 'lucide-react';
 
 export const PortfolioPage: React.FC = () => {
   const { photographerId } = useParams<{ photographerId: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, photographer } = useAuth();
   const { showToast } = useToast();
 
-  const { data: serverPortfolio } = usePublicPortfolio(photographerId || '');
+  const { data: serverPortfolio, isLoading: isServerLoading } = usePublicPortfolio(photographerId || '');
   const { mutateAsync: updatePortfolioApi } = useUpdatePortfolioConfig();
   const { mutateAsync: submitInquiryApi } = useSubmitPublicInquiry();
 
-  const [config, setConfig] = useState<PortfolioConfig>(() => getPortfolioConfig());
-  const [isEditMode, setIsEditMode] = useState(false);
+  const [config, setConfig] = useState<PortfolioConfig>(() =>
+    normalizePortfolioConfig(getPortfolioConfig(), {
+      fullName: photographer.fullName,
+      studioName: photographer.studioName,
+      email: photographer.email,
+      phone: photographer.phone,
+      location: photographer.location,
+    })
+  );
+  const [isEditMode, setIsEditMode] = useState(() => searchParams.get('edit') === 'true');
 
   // Dynamic SEO & OpenGraph Social Graph: updates portfolio title, description, and hero banner
   usePortfolioSeo(config, photographerId);
+
+  // Send real-time view telemetry to backend analytics on visitor arrival
+  useEffect(() => {
+    if (photographerId) {
+      TrackPortfolioViewApi(photographerId, {
+        page_section: 'home',
+      });
+    }
+  }, [photographerId]);
+
+  // Auto-enable edit mode if ?edit=true is present in the URL
+  useEffect(() => {
+    if (searchParams.get('edit') === 'true' && isAuthenticated) {
+      setIsEditMode(true);
+    }
+  }, [searchParams, isAuthenticated]);
 
   // Sync if server portfolio data is available
   useEffect(() => {
     if (serverPortfolio && typeof serverPortfolio === 'object') {
       queueMicrotask(() => {
-        setConfig((prev) => ({
-          ...prev,
-          ...serverPortfolio,
-        }));
+        setConfig(
+          normalizePortfolioConfig(serverPortfolio, {
+            fullName: photographer.fullName,
+            studioName: photographer.studioName,
+            email: photographer.email,
+            phone: photographer.phone,
+            location: photographer.location,
+          })
+        );
       });
     }
-  }, [serverPortfolio]);
+  }, [serverPortfolio, photographer.fullName, photographer.studioName, photographer.email, photographer.phone, photographer.location]);
 
   // Sync with portfolio config updates from other tabs/services
   useEffect(() => {
@@ -141,6 +172,15 @@ export const PortfolioPage: React.FC = () => {
     }
   };
 
+  if (isServerLoading && !serverPortfolio) {
+    return (
+      <div className="min-h-screen bg-[#070709] flex flex-col items-center justify-center text-white space-y-4">
+        <div className="w-10 h-10 rounded-full border-2 border-amber-400 border-t-transparent animate-spin" />
+        <span className="text-xs font-mono uppercase tracking-widest text-neutral-400">Loading Portfolio Experience...</span>
+      </div>
+    );
+  }
+
   return (
     <div className="relative min-h-screen">
       {/* ─── STUDIO AUTHOR CONTROL BAR (Authenticated Photographer Only) ─── */}
@@ -224,23 +264,14 @@ export const PortfolioPage: React.FC = () => {
           </div>
         </div>
       )}
-      {config.templateId === 'darkroom-atelier' ? (
-        <DarkroomAtelierTemplate
-          config={config}
-          onInquirySubmit={handleInquirySubmit}
-          isEditable={isEditMode}
-          onUpdateConfig={handleUpdateConfig}
-          onSwitchTemplate={handleSwitchTemplate}
-        />
-      ) : (
-        <EditorialVogueTemplate
-          config={config}
-          onInquirySubmit={handleInquirySubmit}
-          isEditable={isEditMode}
-          onUpdateConfig={handleUpdateConfig}
-          onSwitchTemplate={handleSwitchTemplate}
-        />
-      )}
+      {React.createElement(getPortfolioTemplate(config.templateId), {
+        config,
+        photographerSlug: photographerId,
+        onInquirySubmit: handleInquirySubmit,
+        isEditable: isEditMode,
+        onUpdateConfig: handleUpdateConfig,
+        onSwitchTemplate: handleSwitchTemplate,
+      })}
     </div>
   );
 };

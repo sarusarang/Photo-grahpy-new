@@ -8,7 +8,10 @@ import type {
   UpdatePersonalInformationResponse,
   UploadAvatarResponse,
   RemoveAvatarResponse,
+  UpdateWatermarkPayload,
 } from "./type";
+
+export * from "./type";
 
 /**
  * Inspect Current Onboarding State
@@ -251,24 +254,34 @@ export const RemoveProfileAvatarApi = async (): Promise<RemoveAvatarResponse> =>
  * 5. Update Watermark Configuration
  * Endpoint: PATCH /api/photographers/profiles/me/watermark/ or /api/photographers/profiles/me/
  */
-export const UpdateWatermarkApi = async (payload: {
-  enable_watermark?: boolean;
-  watermark_text?: string;
-  watermark_opacity?: number;
-  watermark_position?: string;
-  watermark_image?: File;
-}) => {
+export const UpdateWatermarkApi = async (payload: UpdateWatermarkPayload) => {
   if (payload.watermark_image instanceof File) {
     const formData = new FormData();
     Object.entries(payload).forEach(([k, v]) => {
-      if (v !== undefined) formData.append(k, v as any);
+      if (v !== undefined && v !== null) {
+        if (typeof v === 'boolean') {
+          formData.append(k, String(v));
+        } else {
+          formData.append(k, v as any);
+        }
+      }
     });
-    return CommonApi('PATCH', '/api/photographers/profiles/me/watermark/', formData);
+    try {
+      return await CommonApi('PATCH', '/api/photographers/profiles/me/watermark/', formData);
+    } catch {
+      return await CommonApi('PATCH', '/api/photographers/profiles/me/', formData);
+    }
   }
+
+  const cleanPayload: Record<string, any> = { ...payload };
+  if (cleanPayload.remove_watermark_image) {
+    cleanPayload.watermark_image = null;
+  }
+
   try {
-    return await CommonApi('PATCH', '/api/photographers/profiles/me/watermark/', payload);
+    return await CommonApi('PATCH', '/api/photographers/profiles/me/watermark/', cleanPayload);
   } catch {
-    return await CommonApi('PATCH', '/api/photographers/profiles/me/', payload);
+    return await CommonApi('PATCH', '/api/photographers/profiles/me/', cleanPayload);
   }
 };
 

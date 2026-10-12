@@ -7,9 +7,7 @@ import {
   Camera,
   FolderSync,
   Layers,
-  ArrowRight,
   ShieldCheck,
-  RefreshCw,
   Loader2,
 } from 'lucide-react';
 

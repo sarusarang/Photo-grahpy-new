@@ -8,7 +8,6 @@ import {
   RefreshCw,
   Mail,
   Loader2,
-  Maximize2,
   Lock,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -23,7 +22,7 @@ import { FullscreenButton } from '@/components/common/FullscreenButton';
 import { EventListSkeleton } from '@/components/common/LoadingSkeleton';
 import { ErrorState } from '@/components/common/ErrorState';
 import { useEventSeo } from '@/hooks/useSeo';
-import { downloadSingleImage, downloadMultipleAsZip } from '@/utils/downloadUtils';
+import { downloadSingleImage, downloadMultipleAsZip, getGalleryWatermarkOptions } from '@/utils/downloadUtils';
 import { UniversalPhotoGrid, type GalleryGridDesign } from '@/components/gallery/UniversalPhotoGrid';
 import { GalleryLayoutSwitcher } from '@/components/gallery/GalleryLayoutSwitcher';
 import type { MediaItem } from '@/types';
@@ -306,9 +305,11 @@ export const GuestEventPage: React.FC = () => {
         }))
         .filter((item) => Boolean(item.url));
 
+      const watermarkOpts = getGalleryWatermarkOptions(event as any);
       await downloadMultipleAsZip({
         items,
         zipFilename: `${event?.slug || 'event'}-my-photos.zip`,
+        watermarkOptions: watermarkOpts,
       });
       showToast(
         'Downloaded Photos',
@@ -328,7 +329,8 @@ export const GuestEventPage: React.FC = () => {
     if (!downloadUrl) return;
 
     showToast('Download Started', `Downloading "${item.title || 'photo'}"...`, 'info');
-    const success = await downloadSingleImage(downloadUrl, item.title || `${event?.slug || 'event'}-photo.jpg`);
+    const watermarkOpts = getGalleryWatermarkOptions(event as any);
+    const success = await downloadSingleImage(downloadUrl, item.title || `${event?.slug || 'event'}-photo.jpg`, watermarkOpts);
     if (success) {
       showToast('Photo Downloaded', item.title || 'Photograph saved to downloads.', 'success');
     }

@@ -59,10 +59,48 @@ const GuestEventPage = lazy(() =>
 const SmartCullPage = lazy(() =>
   import('./pages/dashboard/SmartCullPage').then((m) => ({ default: m.SmartCullPage }))
 );
+const PublicTenantPortfolioPage = lazy(() =>
+  import('./pages/PublicTenantPortfolioPage').then((m) => ({ default: m.PublicTenantPortfolioPage }))
+);
 
 import { SuspenseLoader } from './components/common/SuspenseLoader';
+import { detectTenantHost } from './utils/tenantResolver';
 
 export default function App() {
+  const tenant = detectTenantHost();
+
+  // ── Public Tenant Subdomain Mode (e.g. mridhul.exshare.ai or mridhul.localhost:5173) ──
+  if (tenant.isTenant) {
+    return (
+      <>
+        <Toaster
+          position="bottom-right"
+          richColors
+          theme="dark"
+          toastOptions={{
+            style: {
+              background: '#141419',
+              borderColor: '#262626',
+              color: '#ffffff',
+            },
+          }}
+        />
+        <Suspense fallback={<SuspenseLoader />}>
+          <Routes>
+            <Route path="/" element={<PublicTenantPortfolioPage subdomain={tenant.subdomain} />} />
+            <Route path="/inquiry" element={<PublicTenantPortfolioPage subdomain={tenant.subdomain} />} />
+            <Route path="/about" element={<PublicTenantPortfolioPage subdomain={tenant.subdomain} />} />
+            <Route path="/contact" element={<PublicTenantPortfolioPage subdomain={tenant.subdomain} />} />
+            {/* Direct client gallery deep links preserved on tenant host */}
+            <Route path="/gallery/:galleryId" element={<ClientGalleryPage />} />
+            <Route path="/events/:eventId" element={<GuestEventPage />} />
+            {/* Catch-all on tenant domain serves portfolio */}
+            <Route path="*" element={<PublicTenantPortfolioPage subdomain={tenant.subdomain} />} />
+          </Routes>
+        </Suspense>
+      </>
+    );
+  }
   return (
     <>
       <Toaster

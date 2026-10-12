@@ -16,6 +16,7 @@ import { createSectionSchema } from '@/schemas/atelierSchemas';
 
 interface GallerySectionControlBarProps {
   gallery: Gallery;
+  totalFavoritesCount?: number;
   selectedIds: string[];
   dashboardSectionFilter: string;
   showFavoritesOnly?: boolean;
@@ -38,6 +39,7 @@ interface GallerySectionControlBarProps {
 
 export const GallerySectionControlBar: React.FC<GallerySectionControlBarProps> = ({
   gallery,
+  totalFavoritesCount: totalFavoritesCountProp,
   selectedIds,
   dashboardSectionFilter,
   showFavoritesOnly = false,
@@ -47,9 +49,6 @@ export const GallerySectionControlBar: React.FC<GallerySectionControlBarProps> =
   isAllSelected: isAllSelectedProp,
   onSelectSectionFilter,
   onSelectAll,
-  onClearSelection,
-  onOpenBulkMove,
-  onOpenBulkDelete,
   onCreateSection,
   onRenameSection,
   onDeleteSection,
@@ -63,7 +62,12 @@ export const GallerySectionControlBar: React.FC<GallerySectionControlBarProps> =
   const [editingSectionName, setEditingSectionName] = useState<string | null>(null);
   const [renameInput, setRenameInput] = useState('');
 
-  const totalFavoritesCount = gallery.media.filter((m) => m.isFavorite).length;
+  const totalFavoritesCount =
+    totalFavoritesCountProp !== undefined
+      ? totalFavoritesCountProp
+      : typeof gallery.favoritesCount === 'number' && gallery.favoritesCount >= 0
+        ? Math.max(gallery.favoritesCount, gallery.media.filter((m) => m.isFavorite).length)
+        : gallery.media.filter((m) => m.isFavorite).length;
   const countToDisplay = filteredCount ?? (gallery.totalMediaCount || gallery.media.length);
   const isAllSelected =
     isAllSelectedProp ?? (countToDisplay > 0 && selectedIds.length >= countToDisplay);

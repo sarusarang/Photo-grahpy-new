@@ -11,7 +11,6 @@ import {
 } from 'lucide-react';
 import type { EventType, EventStatus } from '../../types/event';
 import { CURATED_EVENT_BANNERS, getExpiryDateHoursAhead } from './eventConstants';
-import { useEvent } from '../../context/EventContext';
 import { useToast } from '../ui/Toast';
 import { useNavigate } from 'react-router-dom';
 import { useCreateEvent } from '@/hooks/useAtelierQueries';
@@ -48,10 +47,10 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
   onClose,
   defaultStatus = 'live',
 }) => {
-  const { createEvent } = useEvent();
   const { showToast } = useToast();
   const navigate = useNavigate();
   const planQuota = usePlanQuota();
+  const { mutateAsync: apiCreateEvent, isPending } = useCreateEvent();
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
 
   const [title, setTitle] = useState('');
@@ -82,8 +81,6 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
   }, [isOpen, onClose]);
 
   if (!isOpen) return null;
-
-  const { mutateAsync: apiCreateEvent, isPending } = useCreateEvent();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

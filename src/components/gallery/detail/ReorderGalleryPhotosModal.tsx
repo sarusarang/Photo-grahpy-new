@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import {
   X,
@@ -7,14 +7,10 @@ import {
   ChevronsDown,
   ArrowUp,
   ArrowDown,
-  Check,
   RotateCcw,
-  Sparkles,
   GripVertical,
   Search,
-  SlidersHorizontal,
   ArrowDownAZ,
-  Calendar,
   Save,
   Loader2,
 } from 'lucide-react';

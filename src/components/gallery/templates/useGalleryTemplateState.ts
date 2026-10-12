@@ -38,7 +38,9 @@ export function useGalleryTemplateState({
         if (saved && ['default', 'masonry', 'collage', 'grid', 'large'].includes(saved)) {
           return saved;
         }
-      } catch {}
+      } catch {
+        // Storage access unavailable or restricted
+      }
     }
     return 'default';
   });
@@ -51,7 +53,9 @@ export function useGalleryTemplateState({
       setInternalGridDesignState(design);
       try {
         localStorage.setItem('ex_share_gallery_grid_design', design);
-      } catch {}
+      } catch {
+        // Storage access unavailable or restricted
+      }
     }
   };
 
@@ -100,8 +104,14 @@ export function useGalleryTemplateState({
   }, [gallery.media, searchQuery, activeFilter, aiMatchedIds]);
 
   // Counts for filter badges
-  const favoritesCount = useMemo(() => gallery.media.filter((m) => m.isFavorite).length, [gallery.media]);
-  const photosCount = useMemo(() => gallery.media.filter((m) => m.type !== 'video').length, [gallery.media]);
+  const favoritesCount = useMemo(
+    () =>
+      typeof gallery.favoritesCount === 'number' && gallery.favoritesCount >= 0
+        ? Math.max(gallery.favoritesCount, gallery.media.filter((m) => m.isFavorite).length)
+        : gallery.media.filter((m) => m.isFavorite).length,
+    [gallery.favoritesCount, gallery.media]
+  );
+  const photosCount = useMemo(() => gallery.totalMediaCount || gallery.media.filter((m) => m.type !== 'video').length, [gallery.totalMediaCount, gallery.media]);
   const videosCount = useMemo(() => gallery.media.filter((m) => m.type === 'video').length, [gallery.media]);
 
   const findOriginalIndex = (item: MediaItem) => {

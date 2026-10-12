@@ -1,10 +1,17 @@
 import { CommonApi } from '@/lib/CommonApi';
 import { getUploadBatchSize } from '@/utils/uploadConfig';
+import { executeBatchUpload, createAbortError } from '@/utils/batchUploadRunner';
 import type { LiveEvent, Gallery, MediaItem } from '@/types/atelier';
 import type {
   CreateEventPayload,
   MoveEventToGalleryPayload,
   GetEventsParams,
+  DeleteEventResponse,
+  DeleteEventMediaResponse,
+  BulkDeleteEventMediaResponse,
+  UpdateEventQRResponse,
+  BulkUploadEventMediaResponse,
+  GetEventDetailParams,
 } from './type';
 
 export * from './type';
@@ -90,7 +97,7 @@ const resolveEventByIdOrSlug = async (
  */
 export const GetEventDetailApi = (
   idOrSlug: string,
-  params?: { all_media?: boolean; section?: string }
+  params?: GetEventDetailParams
 ): Promise<LiveEvent> =>
   resolveEventByIdOrSlug(idOrSlug, false, params);
 
@@ -112,9 +119,9 @@ export const UpdateEventApi = async (
 export const DeleteEventApi = async (
   id: string,
   permanent: boolean = false
-): Promise<{ success: boolean; message?: string }> => {
+): Promise<DeleteEventResponse> => {
   const qs = permanent ? '?permanent=true' : '';
-  return CommonApi('DELETE', `/api/events/${id}/${qs}`);
+  return CommonApi<DeleteEventResponse>('DELETE', `/api/events/${id}/${qs}`);
 };
 
 /**
@@ -132,8 +139,11 @@ export const RestoreEventApi = async (
  * 7. Delete Individual Media from Event
  * Endpoint: DELETE /api/events/{eventId}/media/{mediaId}/
  */
-export const DeleteEventMediaApi = async (eventId: string, mediaId: string): Promise<{ success: boolean }> => {
-  return CommonApi('DELETE', `/api/events/${eventId}/media/${mediaId}/`);
+export const DeleteEventMediaApi = async (
+  eventId: string,
+  mediaId: string
+): Promise<DeleteEventMediaResponse> => {
+  return CommonApi<DeleteEventMediaResponse>('DELETE', `/api/events/${eventId}/media/${mediaId}/`);
 };
 
 /**
@@ -145,7 +155,7 @@ export const BulkDeleteEventMediaApi = async (
   eventId: string,
   mediaIds: string[],
   options?: { section?: string; deleteAll?: boolean }
-): Promise<{ deleted_count: number; freed_bytes?: number }> => {
+): Promise<BulkDeleteEventMediaResponse> => {
   const payload: any = { media_ids: mediaIds };
   if (options?.deleteAll) payload.delete_all = true;
   if (options?.section && options.section.toLowerCase() !== 'all') {
@@ -154,10 +164,18 @@ export const BulkDeleteEventMediaApi = async (
   if (!mediaIds?.length && !options?.deleteAll) return { deleted_count: 0 };
 
   try {
-    return await CommonApi('POST', `/api/events/${eventId}/media/bulk-delete/`, payload);
+    return await CommonApi<BulkDeleteEventMediaResponse>(
+      'POST',
+      `/api/events/${eventId}/media/bulk-delete/`,
+      payload
+    );
   } catch {
     try {
-      return await CommonApi('POST', `/api/events/${eventId}/bulk-delete/`, payload);
+      return await CommonApi<BulkDeleteEventMediaResponse>(
+        'POST',
+        `/api/events/${eventId}/bulk-delete/`,
+        payload
+      );
     } catch {
       const results = await Promise.allSettled(
         mediaIds.map((id) => DeleteEventMediaApi(eventId, id))
@@ -178,7 +196,7 @@ export const UpdateEventQRExpiryApi = async (
   expiresAt: string,
   pinCode?: string,
   allowGuestUploads?: boolean
-): Promise<{ status: string; qr_settings: any }> => {
+): Promise<UpdateEventQRResponse> => {
   const payload: Record<string, any> = {
     duration_hours: durationHours,
     expires_at: expiresAt,
@@ -269,173 +287,93 @@ export const BulkUploadEventMediaApi = async (
   files: File[],
   sectionTitle?: string,
   type?: 'photo' | 'video',
-  onProgress?: (percent: number, statusText?: string) => void,
-  signal?: AbortSignal
-): Promise<{ message?: string; total_uploaded: number; media: MediaItem[] }> => {
+  onProgress?: (percent: number, statusText?: string, metrics?: any) => void,
+  signal?: AbortSignal,
+  pauseController?: import('@/utils/batchUploadRunner').BatchUploadPauseController
+): Promise<BulkUploadEventMediaResponse> => {
   if (!files?.length) {
     return { message: 'No files to upload', total_uploaded: 0, media: [] };
   }
 
   const isVideoBatch = type === 'video' || files.some((f) => isVideoFile(f));
-  // Global configurable batch size from .env (VITE_UPLOAD_BATCH_SIZE / VITE_VIDEO_UPLOAD_BATCH_SIZE)
+  // Global configurable batch size from .env / .env.local (VITE_UPLOAD_BATCH_SIZE / VITE_VIDEO_UPLOAD_BATCH_SIZE)
   const BATCH_SIZE = getUploadBatchSize(isVideoBatch);
-
-  const uploadChunk = async (
-    chunkFiles: File[],
-    onChunkProgress?: (percent: number) => void
-  ): Promise<{ message?: string; total_uploaded: number; media: MediaItem[] }> => {
-    const formData = new FormData();
-    chunkFiles.forEach((f) => {
-      const isVid = type === 'video' || isVideoFile(f);
-      formData.append(isVid ? 'videos' : 'photos', f);
-    });
-
-    if (sectionTitle) formData.append('section_title', sectionTitle);
-    if (type) formData.append('type', type);
-    formData.append('event', eventId);
-    formData.append('event_id', eventId);
-
-    const res = await CommonApi<any>(
-      'POST',
-      `/api/events/${eventId}/upload/`,
-      formData,
-      {
-        signal,
-        timeout: 300000,
-        onUploadProgress: (progressEvent) => {
-          if (progressEvent.total && onChunkProgress) {
-            const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-            onChunkProgress(percent);
-          }
-        },
-      }
-    );
-
-    let mediaList: MediaItem[] = [];
-    if (Array.isArray(res)) {
-      mediaList = res;
-    } else if (res && Array.isArray(res.media)) {
-      mediaList = res.media;
-    } else if (res && Array.isArray(res.data)) {
-      mediaList = res.data;
-    } else if (res && res.id) {
-      mediaList = [res];
-    } else if (res && res.data && res.data.id) {
-      mediaList = [res.data];
-    }
-
-    return {
-      message: res?.message,
-      total_uploaded: res?.total_uploaded ?? mediaList.length,
-      media: mediaList,
-    };
-  };
-
-  // If the total files fit within a single batch, execute directly
-  if (files.length <= BATCH_SIZE) {
-    return await uploadChunk(files, (percent) => {
-      onProgress?.(percent, `Uploading ${files.length} item(s): ${percent}%`);
-    });
-  }
-
-  // Multi-batch pipeline for large uploads (e.g. 50, 100, 500+ items)
-  const chunks: File[][] = [];
-  for (let i = 0; i < files.length; i += BATCH_SIZE) {
-    chunks.push(files.slice(i, i + BATCH_SIZE));
-  }
-  const totalChunks = chunks.length;
 
   const allMedia: MediaItem[] = [];
   let totalUploaded = 0;
   let lastMessage: string | undefined = undefined;
 
-  for (let i = 0; i < totalChunks; i++) {
-    if (signal?.aborted) {
-      const cancelErr: any = new Error('Upload cancelled by user');
-      cancelErr.name = 'AbortError';
-      if (allMedia.length > 0) cancelErr.uploadedMedia = allMedia;
-      throw cancelErr;
-    }
+  await executeBatchUpload<File, BulkUploadEventMediaResponse>({
+    items: files,
+    batchSize: BATCH_SIZE,
+    itemLabel: isVideoBatch ? 'video' : 'photo',
+    signal,
+    pauseController,
+    onProgress,
+    uploadBatch: async (chunkFiles, onChunkProgress) => {
+      const formData = new FormData();
+      chunkFiles.forEach((f) => {
+        const isVid = type === 'video' || isVideoFile(f);
+        formData.append(isVid ? 'videos' : 'photos', f);
+      });
 
-    const chunkFiles = chunks[i];
-    const chunkStart = i * BATCH_SIZE + 1;
-    const chunkEnd = Math.min(files.length, (i + 1) * BATCH_SIZE);
+      if (sectionTitle) formData.append('section_title', sectionTitle);
+      if (type) formData.append('type', type);
+      formData.append('event', eventId);
+      formData.append('event_id', eventId);
 
-    onProgress?.(
-      Math.round((i / totalChunks) * 100),
-      `Uploading batch ${i + 1} of ${totalChunks} (${chunkStart}–${chunkEnd} of ${files.length})...`
-    );
+      const res = await CommonApi<any>(
+        'POST',
+        `/api/events/${eventId}/upload/`,
+        formData,
+        {
+          signal,
+          timeout: 300000,
+          onUploadProgress: (progressEvent) => {
+            if (progressEvent.total && onChunkProgress) {
+              const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+              onChunkProgress(percent, progressEvent.loaded);
+            }
+          },
+        }
+      );
 
-    let attempt = 0;
-    let success = false;
-
-    while (attempt < 2 && !success) {
-      if (signal?.aborted) {
-        const cancelErr: any = new Error('Upload cancelled by user');
-        cancelErr.name = 'AbortError';
-        if (allMedia.length > 0) cancelErr.uploadedMedia = allMedia;
-        throw cancelErr;
+      let mediaList: MediaItem[] = [];
+      if (Array.isArray(res)) {
+        mediaList = res;
+      } else if (res && Array.isArray(res.media)) {
+        mediaList = res.media;
+      } else if (res && Array.isArray(res.data)) {
+        mediaList = res.data;
+      } else if (res && res.id) {
+        mediaList = [res];
+      } else if (res && res.data && res.data.id) {
+        mediaList = [res.data];
       }
 
-      attempt++;
-      try {
-        const chunkRes = await uploadChunk(chunkFiles, (chunkPercent) => {
-          const overall = Math.min(
-            99,
-            Math.round(((i + chunkPercent / 100) / totalChunks) * 100)
-          );
-          onProgress?.(
-            overall,
-            `Uploading batch ${i + 1} of ${totalChunks} (${chunkStart}–${chunkEnd} of ${files.length})... ${chunkPercent}%`
-          );
-        });
-
-        allMedia.push(...chunkRes.media);
-        totalUploaded += chunkRes.total_uploaded;
-        if (chunkRes.message) lastMessage = chunkRes.message;
-        success = true;
-      } catch (err: any) {
-        if (
-          signal?.aborted ||
-          err?.name === 'AbortError' ||
-          err?.name === 'CanceledError' ||
-          err?.code === 'ERR_CANCELED'
-        ) {
-          if (allMedia.length > 0) err.uploadedMedia = allMedia;
-          throw err;
-        }
-        if (
-          err?.response?.status === 401 ||
-          err?.response?.status === 403 ||
-          err?.response?.status === 413 ||
-          err?.response?.data?.error_code === 'STORAGE_LIMIT_EXCEEDED'
-        ) {
-          throw err;
-        }
-        if (attempt < 2) {
-          await new Promise((r) => setTimeout(r, 1200));
-        }
-      }
-    }
-
-    if (!success) {
+      return {
+        message: res?.message,
+        total_uploaded: res?.total_uploaded ?? mediaList.length,
+        media: mediaList,
+      };
+    },
+    onBatchSuccess: (chunkRes) => {
+      allMedia.push(...chunkRes.media);
+      totalUploaded += chunkRes.total_uploaded;
+      if (chunkRes.message) lastMessage = chunkRes.message;
+    },
+    onBatchError: async (_err, chunkFiles) => {
       // Chunk-level fallback: attempt tether upload for each item in this failed chunk
-      try {
-        for (let j = 0; j < chunkFiles.length; j++) {
-          if (signal?.aborted) throw new Error('Upload cancelled by user');
-          const file = chunkFiles[j];
-          const item = await TetherPhotoUploadApi(eventId, file, sectionTitle, signal);
-          allMedia.push(item);
-          totalUploaded += 1;
-        }
-      } catch (fallbackErr: any) {
-        if (allMedia.length > 0) (fallbackErr as any).uploadedMedia = allMedia;
-        throw fallbackErr;
+      for (let j = 0; j < chunkFiles.length; j++) {
+        if (signal?.aborted) throw createAbortError();
+        const file = chunkFiles[j];
+        const item = await TetherPhotoUploadApi(eventId, file, sectionTitle, signal);
+        allMedia.push(item);
+        totalUploaded += 1;
       }
-    }
-  }
+    },
+  });
 
-  onProgress?.(100, `Upload complete: ${allMedia.length} file(s) saved`);
   return {
     message: lastMessage || 'Upload complete',
     total_uploaded: totalUploaded || allMedia.length,

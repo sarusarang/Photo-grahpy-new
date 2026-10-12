@@ -1,5 +1,5 @@
 import React from 'react';
-import type { Gallery, MediaItem } from './gallery';
+import type { Gallery } from './gallery';
 
 /**
  * Extensible Gallery Template Identifier.
@@ -34,7 +34,7 @@ export interface TemplateLayoutProps {
   photographerName?: string;
   onShareGallery?: () => void;
   gridDesign?: string;
-  onSelectGridDesign?: (design: any) => void;
+  onSelectGridDesign?: (design: string) => void;
   onCreateStoryVideo?: () => void;
 }
 
@@ -58,4 +58,4 @@ export interface TemplateConfig {
 /**
  * Definition for creating and registering new templates in the system.
  */
-export interface GalleryTemplateDefinition extends TemplateConfig {}
+export type GalleryTemplateDefinition = TemplateConfig;

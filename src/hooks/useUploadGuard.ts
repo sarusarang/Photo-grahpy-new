@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useUpload, type ActiveUploadTask } from '../context/UploadContext';
+import { useUpload } from '../context/UploadContext';
 
 export interface UseUploadGuardOptions {
   id: string;

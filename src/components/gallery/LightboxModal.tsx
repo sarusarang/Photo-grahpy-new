@@ -12,7 +12,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Download,
-  Heart,
   Film,
   Trash2,
   ZoomIn,
@@ -37,11 +36,16 @@ interface LightboxModalProps {
   galleryTitle?: string;
   gallerySlug?: string;
   onShare?: (item: MediaItem) => void;
+  theme?: string;
   watermarkEnabled?: boolean;
   watermarkText?: string;
   watermarkOpacity?: number;
   watermarkPosition?: string;
   watermarkImage?: string | null;
+  watermarkType?: string;
+  watermarkFontSize?: string;
+  watermarkFontColor?: string;
+  watermarkFontStyle?: string;
 }
 
 export const LightboxModal: React.FC<LightboxModalProps> = ({
@@ -58,11 +62,16 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
   galleryTitle,
   gallerySlug,
   onShare,
+  theme = 'editorial',
   watermarkEnabled = false,
   watermarkText,
   watermarkOpacity,
   watermarkPosition,
   watermarkImage,
+  watermarkType,
+  watermarkFontSize,
+  watermarkFontColor,
+  watermarkFontStyle,
 }) => {
   const { showToast } = useToast();
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -77,6 +86,7 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
 
   // Buttery Slide Animation State
   const [slideDirection, setSlideDirection] = useState<'next' | 'prev' | null>(null);
@@ -262,6 +272,10 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
         opacity: watermarkOpacity,
         position: watermarkPosition,
         imageUrl: watermarkImage,
+        watermarkType: watermarkType || (watermarkImage ? 'image' : 'text'),
+        fontSize: watermarkFontSize,
+        fontColor: watermarkFontColor,
+        fontStyle: watermarkFontStyle,
       };
       const success = await downloadSingleImage(downloadUrl, filename, watermarkOptions);
       if (success) {
@@ -296,8 +310,6 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
   };
 
   // Touch Swipe Gesture State (Apple Photos / Instagram native feel)
-  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
-
   const handleTouchStart = (e: React.TouchEvent) => {
     if (zoom > 1) return; // Allow normal pan when zoomed
     if (e.touches.length === 1) {
@@ -338,52 +350,56 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
       ? 'animate-butter-prev'
       : 'animate-butter-fade';
 
+  const isLightTheme = theme === 'editorial' || theme === 'minimal' || theme === 'light';
+
   return createPortal(
-    <div data-lenis-prevent="true" className="fixed inset-0 z-50 bg-black/95 backdrop-blur-2xl flex flex-col justify-between select-none overlay-animate overscroll-contain">
+    <div
+      data-lenis-prevent="true"
+      className={`fixed inset-0 z-50 flex flex-col justify-between select-none overlay-animate overscroll-contain backdrop-blur-2xl transition-colors duration-300 ${
+        isLightTheme ? 'bg-[#FCFCFD]/98 text-neutral-900' : 'bg-black/95 text-white'
+      }`}
+    >
       {/* Top Bar - Mobile App Ergonomics */}
-      <div className="flex items-center justify-between px-2.5 sm:px-6 py-2.5 sm:py-4 bg-gradient-to-b from-black/85 via-black/40 to-transparent z-20 gap-2 sm:gap-3 pt-safe sm:pt-4">
+      <div
+        className={`flex items-center justify-between px-2.5 sm:px-6 py-2.5 sm:py-4 z-20 gap-2 sm:gap-3 pt-safe sm:pt-4 transition-colors duration-300 ${
+          isLightTheme
+            ? 'bg-gradient-to-b from-[#FCFCFD]/95 via-[#FCFCFD]/80 to-transparent border-b border-neutral-200/50'
+            : 'bg-gradient-to-b from-black/85 via-black/40 to-transparent'
+        }`}
+      >
         <div className="flex items-center gap-1.5 sm:gap-3 min-w-0">
-          <span className="text-[11px] sm:text-xs uppercase tracking-widest font-serif text-neutral-300 font-semibold truncate max-w-[90px] xs:max-w-[130px] sm:max-w-none">
+          <button
+            onClick={onClose}
+            className={`flex items-center gap-1 p-1.5 sm:px-2.5 sm:py-1 rounded-full text-xs font-medium transition-all active:scale-95 cursor-pointer touch-manipulation shrink-0 ${
+              isLightTheme
+                ? 'bg-neutral-100 hover:bg-neutral-200 text-neutral-800 border border-neutral-200'
+                : 'bg-white/10 hover:bg-white/20 text-white border border-white/10'
+            }`}
+            title="Back to gallery (Esc)"
+          >
+            <ChevronLeft className="w-4 h-4" />
+            <span className="hidden xs:inline">Back</span>
+          </button>
+
+          <span
+            className={`text-[11px] sm:text-xs uppercase tracking-widest font-serif font-semibold truncate max-w-[90px] xs:max-w-[130px] sm:max-w-none ${
+              isLightTheme ? 'text-neutral-800' : 'text-neutral-300'
+            }`}
+          >
             {studioName}
           </span>
-          <span className="text-[10px] sm:text-xs text-neutral-400 font-mono px-2 py-0.5 rounded-full bg-white/10 border border-white/10 shrink-0">
+          <span
+            className={`text-[10px] sm:text-xs font-mono px-2 py-0.5 rounded-full shrink-0 ${
+              isLightTheme
+                ? 'text-neutral-600 bg-neutral-200/70 border border-neutral-300'
+                : 'text-neutral-400 bg-white/10 border border-white/10'
+            }`}
+          >
             {currentIndex + 1} / {mediaList.length}
           </span>
         </div>
 
         <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
-          {onToggleFavorite && (
-            <button
-              type="button"
-              disabled={isFavoriting}
-              onClick={() => {
-                if (!isFavoriting) {
-                  onToggleFavorite(currentItem.id);
-                }
-              }}
-              className={`p-2 sm:p-2.5 rounded-full transition-all cursor-pointer active:scale-95 touch-manipulation ${
-                isFavoriting
-                  ? 'bg-black/60 text-amber-400 opacity-90 cursor-not-allowed border border-amber-400/30'
-                  : currentItem.isFavorite
-                  ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/30'
-                  : 'bg-white/10 text-neutral-300 hover:text-white hover:bg-white/20'
-              }`}
-              title={
-                isFavoriting
-                  ? 'Updating favorite...'
-                  : currentItem.isFavorite
-                  ? 'Remove from Favorites'
-                  : 'Add to Favorites'
-              }
-            >
-              {isFavoriting ? (
-                <Loader2 className="w-4 h-4 animate-spin text-amber-400" />
-              ) : (
-                <Heart className={`w-4 h-4 ${currentItem.isFavorite ? 'fill-current' : ''}`} />
-              )}
-            </button>
-          )}
-
           {/* Social Share Button on Top */}
           <button
             onClick={() => {
@@ -392,10 +408,14 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
               }
               setIsShareModalOpen(true);
             }}
-            className="flex items-center justify-center gap-1.5 p-2 sm:px-3 sm:py-2 rounded-full bg-white/10 hover:bg-white/20 text-white text-xs font-semibold tracking-wide transition-all active:scale-95 border border-white/10 cursor-pointer touch-manipulation"
+            className={`flex items-center justify-center gap-1.5 p-2 sm:px-3 sm:py-2 rounded-full text-xs font-semibold tracking-wide transition-all active:scale-95 cursor-pointer touch-manipulation ${
+              isLightTheme
+                ? 'bg-neutral-100 hover:bg-neutral-200/80 text-neutral-800 border border-neutral-200 shadow-sm'
+                : 'bg-white/10 hover:bg-white/20 text-white border border-white/10'
+            }`}
             title="Share this photo on social media"
           >
-            <Share2 className="w-4 h-4 text-amber-400" />
+            <Share2 className={`w-4 h-4 ${isLightTheme ? 'text-neutral-700' : 'text-amber-400'}`} />
             <span className="hidden sm:inline">Share</span>
           </button>
 
@@ -403,12 +423,16 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
             <button
               onClick={handleDownloadSingle}
               disabled={isDownloadingSingle}
-              className="flex items-center justify-center gap-1.5 p-2 sm:px-3.5 sm:py-2 rounded-full bg-white/10 hover:bg-white/20 text-white text-xs font-semibold tracking-wide transition-all active:scale-95 border border-white/10 disabled:opacity-50 cursor-pointer touch-manipulation"
+              className={`flex items-center justify-center gap-1.5 p-2 sm:px-3 sm:py-2 rounded-full text-xs font-semibold tracking-wide transition-all active:scale-95 disabled:opacity-50 cursor-pointer touch-manipulation ${
+                isLightTheme
+                  ? 'bg-neutral-100 hover:bg-neutral-200/80 text-neutral-800 border border-neutral-200 shadow-sm'
+                  : 'bg-white/10 hover:bg-white/20 text-white border border-white/10'
+              }`}
               title="Download original resolution"
             >
               {isDownloadingSingle ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin text-amber-400" />
+                  <Loader2 className={`w-4 h-4 animate-spin ${isLightTheme ? 'text-neutral-900' : 'text-amber-400'}`} />
                   <span className="hidden md:inline">Downloading...</span>
                 </>
               ) : (
@@ -425,20 +449,30 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
           {onDelete && (
             <button
               onClick={() => setIsDeleteModalOpen(true)}
-              className="flex items-center justify-center gap-1.5 p-2 sm:px-3 sm:py-2 rounded-full bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 hover:text-white border border-rose-500/30 hover:border-rose-500/60 text-xs font-semibold tracking-wide transition-all backdrop-blur-md group active:scale-95 cursor-pointer touch-manipulation"
+              className={`flex items-center justify-center gap-1.5 p-2 sm:px-3 sm:py-2 rounded-full text-xs font-semibold tracking-wide transition-all backdrop-blur-md group active:scale-95 cursor-pointer touch-manipulation ${
+                isLightTheme
+                  ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200'
+                  : 'bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 hover:text-white border border-rose-500/30 hover:border-rose-500/60'
+              }`}
               title="Delete this photo"
             >
-              <Trash2 className="w-3.5 h-3.5 text-rose-400 group-hover:scale-110 transition-transform" />
+              <Trash2 className="w-3.5 h-3.5 text-rose-500 group-hover:scale-110 transition-transform" />
               <span className="hidden sm:inline">Delete</span>
             </button>
           )}
 
+          {/* High-visibility Prominent Close Button */}
           <button
             onClick={onClose}
-            className="p-2 sm:p-2.5 rounded-full bg-white/10 hover:bg-white/20 text-neutral-300 hover:text-white transition-all active:scale-95 border border-white/10 cursor-pointer touch-manipulation"
+            className={`flex items-center justify-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full text-xs font-semibold tracking-wide transition-all active:scale-95 cursor-pointer touch-manipulation shadow-sm ${
+              isLightTheme
+                ? 'bg-neutral-900 hover:bg-black text-white border border-neutral-900'
+                : 'bg-white hover:bg-neutral-100 text-neutral-950 border border-white'
+            }`}
             title="Close viewer (Esc)"
           >
-            <X className="w-4.5 h-4.5 sm:w-5 sm:h-5" />
+            <X className="w-4 h-4 stroke-[2.5]" />
+            <span>Close</span>
           </button>
         </div>
       </div>
@@ -448,12 +482,21 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
         ref={containerRef}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
-        className="relative flex-1 flex items-center justify-center p-1 sm:p-8 md:p-12 overflow-hidden"
+        onClick={(e) => {
+          if (e.target === e.currentTarget && zoom <= 1) {
+            onClose();
+          }
+        }}
+        className="relative flex-1 flex items-center justify-center p-1 sm:p-8 md:p-12 overflow-hidden cursor-default"
       >
         {/* Previous Button */}
         <button
           onClick={handlePrev}
-          className="absolute left-1.5 sm:left-6 z-20 p-2.5 sm:p-3.5 rounded-full bg-black/45 hover:bg-black/85 text-white/80 hover:text-white border border-white/15 backdrop-blur-md transition-all hover:scale-110 active:scale-95 shadow-xl shadow-black/60 touch-manipulation"
+          className={`absolute left-1.5 sm:left-6 z-20 p-2.5 sm:p-3.5 rounded-full backdrop-blur-md transition-all hover:scale-110 active:scale-95 touch-manipulation ${
+            isLightTheme
+              ? 'bg-white/90 hover:bg-white text-neutral-800 border border-neutral-200/80 shadow-lg shadow-neutral-900/10'
+              : 'bg-black/45 hover:bg-black/85 text-white/80 hover:text-white border border-white/15 shadow-xl shadow-black/60'
+          }`}
           title="Previous Photo (←)"
         >
           <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
@@ -513,6 +556,10 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
                   imageUrl={watermarkImage}
                   opacity={watermarkOpacity}
                   position={watermarkPosition}
+                  watermarkType={watermarkType}
+                  fontSize={watermarkFontSize}
+                  fontColor={watermarkFontColor}
+                  fontStyle={watermarkFontStyle}
                   size="lg"
                 />
               )}
@@ -523,7 +570,11 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
         {/* Next Button */}
         <button
           onClick={handleNext}
-          className="absolute right-1.5 sm:right-6 z-20 p-2.5 sm:p-3.5 rounded-full bg-black/45 hover:bg-black/85 text-white/80 hover:text-white border border-white/15 backdrop-blur-md transition-all hover:scale-110 active:scale-95 shadow-xl shadow-black/60 touch-manipulation"
+          className={`absolute right-1.5 sm:right-6 z-20 p-2.5 sm:p-3.5 rounded-full backdrop-blur-md transition-all hover:scale-110 active:scale-95 touch-manipulation ${
+            isLightTheme
+              ? 'bg-white/90 hover:bg-white text-neutral-800 border border-neutral-200/80 shadow-lg shadow-neutral-900/10'
+              : 'bg-black/45 hover:bg-black/85 text-white/80 hover:text-white border border-white/15 shadow-xl shadow-black/60'
+          }`}
           title="Next Photo (→)"
         >
           <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6" />
@@ -531,12 +582,22 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
 
         {/* Editor Floating Zoom Toolbar */}
         {currentItem.type !== 'video' && (
-          <div className="absolute bottom-12 sm:bottom-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1 sm:gap-1.5 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-2xl bg-neutral-950/85 backdrop-blur-xl border border-white/15 shadow-2xl shadow-black/80 text-white animate-in fade-in slide-in-from-bottom-3 duration-300">
+          <div
+            className={`absolute bottom-12 sm:bottom-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1 sm:gap-1.5 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-2xl backdrop-blur-xl animate-in fade-in slide-in-from-bottom-3 duration-300 ${
+              isLightTheme
+                ? 'bg-white/95 border border-neutral-200/90 shadow-xl shadow-neutral-900/10 text-neutral-800'
+                : 'bg-neutral-950/85 border border-white/15 shadow-2xl shadow-black/80 text-white'
+            }`}
+          >
             {/* Zoom Out */}
             <button
               onClick={handleZoomOut}
               disabled={zoom <= 1}
-              className="p-1.5 rounded-xl hover:bg-white/15 disabled:opacity-30 disabled:hover:bg-transparent text-neutral-300 hover:text-white transition-all active:scale-95 touch-manipulation"
+              className={`p-1.5 rounded-xl disabled:opacity-30 disabled:hover:bg-transparent transition-all active:scale-95 touch-manipulation ${
+                isLightTheme
+                  ? 'hover:bg-neutral-100 text-neutral-600 hover:text-neutral-900'
+                  : 'hover:bg-white/15 text-neutral-300 hover:text-white'
+              }`}
               title="Zoom Out (-)"
             >
               <ZoomOut className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
@@ -545,7 +606,11 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
             {/* Zoom Percentage / Click to reset */}
             <button
               onClick={handleResetZoom}
-              className="px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg hover:bg-white/15 text-[11px] sm:text-xs font-mono font-semibold tracking-wide text-amber-300 hover:text-amber-200 transition-all active:scale-95 touch-manipulation"
+              className={`px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-[11px] sm:text-xs font-mono font-semibold tracking-wide transition-all active:scale-95 touch-manipulation ${
+                isLightTheme
+                  ? 'hover:bg-neutral-100 text-neutral-900'
+                  : 'hover:bg-white/15 text-amber-300 hover:text-amber-200'
+              }`}
               title="Reset to 100% (0)"
             >
               {Math.round(zoom * 100)}%
@@ -555,31 +620,37 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
             <button
               onClick={handleZoomIn}
               disabled={zoom >= 4}
-              className="p-1.5 rounded-xl hover:bg-white/15 disabled:opacity-30 disabled:hover:bg-transparent text-neutral-300 hover:text-white transition-all active:scale-95 touch-manipulation"
+              className={`p-1.5 rounded-xl disabled:opacity-30 disabled:hover:bg-transparent transition-all active:scale-95 touch-manipulation ${
+                isLightTheme
+                  ? 'hover:bg-neutral-100 text-neutral-600 hover:text-neutral-900'
+                  : 'hover:bg-white/15 text-neutral-300 hover:text-white'
+              }`}
               title="Zoom In (+)"
             >
               <ZoomIn className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </button>
 
-            <div className="w-[1px] h-3.5 sm:h-4 bg-white/20 mx-0.5 sm:mx-1" />
+            <div className={`w-[1px] h-3.5 sm:h-4 mx-0.5 sm:mx-1 ${isLightTheme ? 'bg-neutral-200' : 'bg-white/20'}`} />
 
             {/* Reset to Fit */}
             <button
               onClick={handleResetZoom}
-              className={`p-1.5 rounded-xl hover:bg-white/15 text-neutral-300 hover:text-white transition-all active:scale-95 touch-manipulation ${
-                zoom > 1 ? 'text-amber-400 hover:text-amber-300' : ''
-              }`}
+              className={`p-1.5 rounded-xl transition-all active:scale-95 touch-manipulation ${
+                isLightTheme
+                  ? 'hover:bg-neutral-100 text-neutral-600 hover:text-neutral-900'
+                  : 'hover:bg-white/15 text-neutral-300 hover:text-white'
+              } ${zoom > 1 ? (isLightTheme ? 'text-neutral-900 font-bold' : 'text-amber-400 hover:text-amber-300') : ''}`}
               title="Fit to Screen"
             >
               {zoom > 1 ? <RotateCcw className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
             </button>
 
             {zoom > 1 ? (
-              <span className="hidden md:inline pl-1.5 text-[11px] font-mono text-neutral-400">
+              <span className={`hidden md:inline pl-1.5 text-[11px] font-mono ${isLightTheme ? 'text-neutral-500' : 'text-neutral-400'}`}>
                 Drag to pan
               </span>
             ) : (
-              <span className="hidden lg:inline pl-1.5 text-[10px] font-mono text-neutral-500">
+              <span className={`hidden lg:inline pl-1.5 text-[10px] font-mono ${isLightTheme ? 'text-neutral-400' : 'text-neutral-500'}`}>
                 Scroll wheel to zoom
               </span>
             )}
@@ -588,13 +659,25 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
       </div>
 
       {/* Bottom Caption & Metadata */}
-      <div className="px-3 sm:px-6 py-2.5 sm:py-3.5 bg-gradient-to-t from-black/95 via-black/60 to-transparent flex flex-wrap items-center justify-between gap-2 sm:gap-3 text-xs text-neutral-400 z-10 pb-safe sm:pb-3.5">
+      <div
+        className={`px-3 sm:px-6 py-2.5 sm:py-3.5 flex flex-wrap items-center justify-between gap-2 sm:gap-3 text-xs z-10 pb-safe sm:pb-3.5 transition-colors duration-300 ${
+          isLightTheme
+            ? 'bg-gradient-to-t from-[#FCFCFD]/95 via-[#FCFCFD]/80 to-transparent text-neutral-600 border-t border-neutral-200/50'
+            : 'bg-gradient-to-t from-black/95 via-black/60 to-transparent text-neutral-400'
+        }`}
+      >
         <div className="min-w-0">
-          <p className="text-white font-medium text-xs sm:text-sm truncate max-w-[200px] xs:max-w-xs sm:max-w-md">{currentItem.title}</p>
-          {currentItem.caption && <p className="text-neutral-400 mt-0.5 text-[11px] truncate max-w-[200px] xs:max-w-xs">{currentItem.caption}</p>}
+          <p className={`font-medium text-xs sm:text-sm truncate max-w-[200px] xs:max-w-xs sm:max-w-md ${isLightTheme ? 'text-neutral-900' : 'text-white'}`}>
+            {currentItem.title}
+          </p>
+          {currentItem.caption && (
+            <p className={`mt-0.5 text-[11px] truncate max-w-[200px] xs:max-w-xs ${isLightTheme ? 'text-neutral-500' : 'text-neutral-400'}`}>
+              {currentItem.caption}
+            </p>
+          )}
         </div>
 
-        <div className="flex items-center gap-2 sm:gap-4 text-[10px] sm:text-[11px] font-mono text-neutral-500 shrink-0">
+        <div className={`flex items-center gap-2 sm:gap-4 text-[10px] sm:text-[11px] font-mono shrink-0 ${isLightTheme ? 'text-neutral-500' : 'text-neutral-500'}`}>
           <span>
             {currentItem.width} × {currentItem.height} px
           </span>

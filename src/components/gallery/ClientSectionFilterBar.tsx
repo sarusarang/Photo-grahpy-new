@@ -41,7 +41,6 @@ export const ClientSectionFilterBar: React.FC<ClientSectionFilterBarProps> = ({
   faceSearchEnabled = false,
   gridDesign,
   onSelectGridDesign,
-  onCreateStoryVideo,
 }) => {
   const [isMoreOpen, setIsMoreOpen] = useState(false);
   const moreDropdownRef = useRef<HTMLDivElement>(null);
@@ -351,18 +350,6 @@ export const ClientSectionFilterBar: React.FC<ClientSectionFilterBarProps> = ({
               </button>
             )}
 
-            {/* ─── 4. Create Reel / Story Video Pill ─── */}
-            {onCreateStoryVideo && (
-              <button
-                type="button"
-                onClick={onCreateStoryVideo}
-                className="flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-[11px] sm:text-[13px] uppercase tracking-wider transition-all duration-200 cursor-pointer whitespace-nowrap shrink-0 active:scale-95 touch-manipulation bg-gradient-to-r from-amber-500/15 to-orange-500/15 hover:from-amber-500/25 hover:to-orange-500/25 border border-amber-500/40 text-amber-300 hover:text-white font-bold shadow-sm"
-                title="Create Social Reel / Story Video with Music"
-              >
-                <Film className="w-3.5 h-3.5 text-amber-400" />
-                <span>Create Reel</span>
-              </button>
-            )}
 
             {/* ─── 5. Visible Section Title Pills ─── */}
             {visibleSections.map((sec) => {

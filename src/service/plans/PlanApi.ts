@@ -8,7 +8,10 @@ import type {
   VerifyPaymentResponse,
   CancelAutoRenewResponse,
   ResumeSubscriptionResponse,
+  AddStorageAddonResponse,
 } from './type';
+
+export * from './type';
 
 /**
  * 1. Retrieve Public / Active Studio Plans Catalog
@@ -175,11 +178,11 @@ export const CancelAutoRenewApi = async (): Promise<CancelAutoRenewResponse> => 
  */
 export const AddStorageAddonApi = async (
   additional_gb: number
-): Promise<{ status: string; subscription?: CurrentSubscription }> => {
+): Promise<AddStorageAddonResponse> => {
   try {
-    return await CommonApi('POST', '/api/plans/storage-addon/', { additional_gb });
+    return await CommonApi<AddStorageAddonResponse>('POST', '/api/plans/storage-addon/', { additional_gb });
   } catch {
-    return await CommonApi('POST', '/api/subscriptions/storage-addon/', { additional_gb });
+    return await CommonApi<AddStorageAddonResponse>('POST', '/api/subscriptions/storage-addon/', { additional_gb });
   }
 };
 

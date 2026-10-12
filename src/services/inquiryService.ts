@@ -2,78 +2,6 @@ import type { PortfolioInquiry, InquiryAnalyticsMetrics, InquiryStatus } from '.
 
 const STORAGE_KEY = 'photo_saas_inquiries_v1';
 
-const INITIAL_INQUIRIES: PortfolioInquiry[] = [
-  {
-    id: 'inq-1',
-    clientName: 'Ananya Sharma & Kabir Roy',
-    clientEmail: 'ananya.roy@gmail.com',
-    clientPhone: '+91 98201 44521',
-    eventType: 'wedding',
-    eventDate: '2026-11-24',
-    location: 'Taj Lake Palace, Udaipur',
-    budget: '₹4,50,000 - ₹6,000,000',
-    message: 'We were completely captivated by your editorial wedding spread. We are planning a 3-day royal palace wedding in Udaipur and would love to have you document both our traditional rituals and modern cocktail reception.',
-    status: 'new',
-    createdAt: '2026-09-17T10:30:00.000Z',
-    notes: 'Urgent response requested. Couple prefers full cinematic film + fine-art albums.',
-  },
-  {
-    id: 'inq-2',
-    clientName: 'Meera Nambiar',
-    clientEmail: 'meera.design@atelierkerala.com',
-    clientPhone: '+91 97455 12908',
-    eventType: 'editorial',
-    eventDate: '2026-10-15',
-    location: 'Fort Kochi Heritage Quarters',
-    budget: '₹1,50,000 - ₹2,50,000',
-    message: 'Looking for high-fashion editorial imagery for our upcoming Autumn Handloom Couture collection. Needs moody cinematic light with natural coastal textures.',
-    status: 'contacted',
-    createdAt: '2026-09-15T14:15:00.000Z',
-    notes: 'Sent initial rate card and moodboard via email. Follow-up scheduled for Friday.',
-  },
-  {
-    id: 'inq-3',
-    clientName: 'Aditya & Rhea Kapoor',
-    clientEmail: 'aditya.kapoor92@yahoo.co.in',
-    clientPhone: '+91 99100 88234',
-    eventType: 'pre-wedding',
-    eventDate: '2026-12-05',
-    location: 'Dune Retreat, Jaisalmer',
-    budget: '₹2,00,000 - ₹3,00,000',
-    message: 'We want an intimate, candid pre-wedding shoot in the Thar desert with golden hour sunset tones and campfire night portraits.',
-    status: 'booked',
-    createdAt: '2026-09-10T09:00:00.000Z',
-    notes: 'Booking deposit received! Travel and permits confirmed.',
-  },
-  {
-    id: 'inq-4',
-    clientName: 'Siddharth Varma',
-    clientEmail: 'sidvarma@varmaholdings.in',
-    clientPhone: '+91 98402 77123',
-    eventType: 'commercial',
-    eventDate: '2026-10-28',
-    location: 'Bangalore Tech Park',
-    budget: '₹1,80,000',
-    message: 'Executive team portraits and architectural interior stills for our newly commissioned headquarters.',
-    status: 'contacted',
-    createdAt: '2026-09-08T11:45:00.000Z',
-    notes: 'Awaiting NDA signature before location scout.',
-  },
-  {
-    id: 'inq-5',
-    clientName: 'Pooja & Nikhil Dave',
-    clientEmail: 'pooja.dave89@gmail.com',
-    clientPhone: '+91 98210 33499',
-    eventType: 'maternity',
-    eventDate: '2026-10-02',
-    location: 'Alibaug Seaside Villa',
-    budget: '₹85,000',
-    message: 'Sunrise maternity outdoor session by the beach with gentle natural lighting.',
-    status: 'booked',
-    createdAt: '2026-09-04T16:20:00.000Z',
-    notes: 'Client requested monochrome archival prints included in the delivery package.',
-  },
-];
 
 type InquiryListener = (inquiries: PortfolioInquiry[]) => void;
 const listeners: Set<InquiryListener> = new Set();
@@ -89,18 +17,19 @@ const notifyListeners = (inquiries: PortfolioInquiry[]) => {
 };
 
 /**
- * Fetch all saved inquiries or initialize with default sample inquiries
+ * Fetch all saved inquiries
  */
 export function getInquiries(): PortfolioInquiry[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_INQUIRIES));
-      return INITIAL_INQUIRIES;
+      return [];
     }
-    return JSON.parse(raw);
-  } catch {
-    return INITIAL_INQUIRIES;
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (err) {
+    console.error('Failed to parse inquiries from storage', err);
+    return [];
   }
 }
 

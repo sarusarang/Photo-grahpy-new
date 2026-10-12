@@ -125,14 +125,12 @@ export const MoveToSectionModal: React.FC<MoveToSectionModalProps> = ({
   if (!isOpen || mediaItems.length === 0) return null;
 
   const onSubmit = async (data: MoveToSectionModalFormData) => {
-    let targetSection = '';
-    if (data.mode === 'unassigned') {
-      targetSection = 'UNASSIGNED';
-    } else if (data.mode === 'new') {
-      targetSection = (data.newSectionTitle || '').trim().toUpperCase();
-    } else {
-      targetSection = (data.selectedSection || '').trim().toUpperCase();
-    }
+    const targetSection =
+      data.mode === 'unassigned'
+        ? 'UNASSIGNED'
+        : data.mode === 'new'
+        ? (data.newSectionTitle || '').trim().toUpperCase()
+        : (data.selectedSection || '').trim().toUpperCase();
 
     const mediaIds = mediaItems.map((m) => m.id);
 

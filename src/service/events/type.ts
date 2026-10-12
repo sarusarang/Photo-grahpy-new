@@ -54,3 +54,13 @@ export interface BulkUploadEventMediaResponse {
   total_uploaded: number;
   media: MediaItem[];
 }
+
+export interface DeleteEventMediaResponse {
+  success: boolean;
+  message?: string;
+}
+
+export interface GetEventDetailParams {
+  all_media?: boolean;
+  section?: string;
+}

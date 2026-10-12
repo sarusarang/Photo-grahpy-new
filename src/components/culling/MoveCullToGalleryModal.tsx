@@ -12,8 +12,6 @@ import {
   FolderPlus,
   Layers,
   Loader2,
-  Trash2,
-  Trophy,
 } from 'lucide-react';
 import { useGalleries } from '@/hooks/useAtelierQueries';
 import { normalizeServerGallery } from '@/utils/galleryNormalizer';

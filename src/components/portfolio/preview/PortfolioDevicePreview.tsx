@@ -13,20 +13,27 @@ import {
 interface PortfolioDevicePreviewProps {
   config: PortfolioConfig;
   portfolioId: string;
+  onUpdateConfig?: (updates: Partial<PortfolioConfig>) => void;
 }
 
-const RenderTemplate: React.FC<{ config: PortfolioConfig }> = ({ config }) => {
+const RenderTemplate: React.FC<{
+  config: PortfolioConfig;
+  onUpdateConfig?: (updates: Partial<PortfolioConfig>) => void;
+  isEditable?: boolean;
+}> = ({ config, onUpdateConfig, isEditable }) => {
   if (config.templateId === 'darkroom-atelier') {
-    return <DarkroomAtelierTemplate config={config} isPreview />;
+    return <DarkroomAtelierTemplate config={config} isPreview isEditable={isEditable} onUpdateConfig={onUpdateConfig} />;
   }
-  return <EditorialVogueTemplate config={config} isPreview />;
+  return <EditorialVogueTemplate config={config} isPreview isEditable={isEditable} onUpdateConfig={onUpdateConfig} />;
 };
 
 export const PortfolioDevicePreview: React.FC<PortfolioDevicePreviewProps> = ({
   config,
   portfolioId,
+  onUpdateConfig,
 }) => {
   const [deviceMode, setDeviceMode] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
+  const [isEditable, setIsEditable] = useState(false);
   const [key, setKey] = useState(0);
 
   const handleRefresh = () => {
@@ -87,6 +94,18 @@ export const PortfolioDevicePreview: React.FC<PortfolioDevicePreviewProps> = ({
         {/* Action buttons */}
         <div className="flex items-center gap-2">
           <button
+            onClick={() => setIsEditable(!isEditable)}
+            className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+              isEditable
+                ? 'bg-emerald-500 text-neutral-950 font-bold shadow-sm'
+                : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800/60'
+            }`}
+            title="Toggle Live In-Place Edit Mode"
+          >
+            <span>{isEditable ? 'Editing Mode' : 'Preview Mode'}</span>
+          </button>
+
+          <button
             onClick={handleRefresh}
             className="p-2 rounded-xl text-neutral-500 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800/60 transition-colors"
             title="Reload Preview"
@@ -110,7 +129,7 @@ export const PortfolioDevicePreview: React.FC<PortfolioDevicePreviewProps> = ({
       <div className="flex-1 overflow-y-auto p-4 sm:p-6 flex items-start justify-center custom-scrollbar bg-neutral-200/50 dark:bg-[#07080b]">
         {deviceMode === 'desktop' && (
           <div key={key} className="w-full bg-white dark:bg-[#0c0d12] rounded-2xl shadow-xl overflow-hidden border border-neutral-200 dark:border-neutral-800">
-            <RenderTemplate config={config} />
+            <RenderTemplate config={config} onUpdateConfig={onUpdateConfig} isEditable={isEditable} />
           </div>
         )}
 
@@ -124,7 +143,7 @@ export const PortfolioDevicePreview: React.FC<PortfolioDevicePreviewProps> = ({
               <div className="w-2.5 h-2.5 rounded-full bg-neutral-800 dark:bg-neutral-900" />
             </div>
             <div className="max-h-[85vh] overflow-y-auto custom-scrollbar">
-              <RenderTemplate config={config} />
+              <RenderTemplate config={config} onUpdateConfig={onUpdateConfig} isEditable={isEditable} />
             </div>
           </div>
         )}
@@ -141,7 +160,7 @@ export const PortfolioDevicePreview: React.FC<PortfolioDevicePreviewProps> = ({
               </div>
             </div>
             <div className="max-h-[80vh] overflow-y-auto custom-scrollbar">
-              <RenderTemplate config={config} />
+              <RenderTemplate config={config} onUpdateConfig={onUpdateConfig} isEditable={isEditable} />
             </div>
             <div className="h-4 bg-neutral-900 dark:bg-neutral-800/90 flex items-center justify-center">
               <div className="w-32 h-1 rounded-full bg-neutral-700" />

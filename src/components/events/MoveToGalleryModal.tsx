@@ -12,14 +12,12 @@ import {
   Loader2,
 } from 'lucide-react';
 import type { LiveEvent } from '../../types/event';
-import { useEvent } from '../../context/EventContext';
-import { useGalleries } from '@/hooks/useAtelierQueries';
+import { useGalleries, useMoveEventToGallery } from '@/hooks/useAtelierQueries';
 import { normalizeServerGallery } from '@/utils/galleryNormalizer';
 import type { Gallery } from '../../types';
 import { useToast } from '../ui/Toast';
 import { useNavigate } from 'react-router-dom';
 import { CustomSelect } from '../ui/CustomSelect';
-import { useMoveEventToGallery } from '@/hooks/useAtelierQueries';
 
 interface MoveToGalleryModalProps {
   isOpen: boolean;
@@ -43,7 +41,6 @@ export const MoveToGalleryModal: React.FC<MoveToGalleryModalProps> = ({
   onClose,
   event,
 }) => {
-  const { moveEventToGallery } = useEvent();
   const { data: apiGalleries } = useGalleries();
   const galleries = useMemo<Gallery[]>(() => {
     if (apiGalleries && Array.isArray(apiGalleries)) {

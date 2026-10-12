@@ -12,6 +12,6 @@ export * as PortfolioService from './portfolio';
 export * as ProfileService from './profile';
 export * as AnalyticsService from './analytics';
 export * as AiService from './ai';
-export * as CullingService from './culling/CullingApi';
+export * as CullingService from './culling';
 export * as MusicService from './music';
 export * as NotificationsService from './notifications';

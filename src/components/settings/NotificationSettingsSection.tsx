@@ -15,7 +15,6 @@ import {
   Sparkles,
   Sliders,
   Check,
-  X,
   Volume2,
   VolumeX,
   RotateCcw,
