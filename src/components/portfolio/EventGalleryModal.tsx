@@ -12,8 +12,6 @@ import {
   ChevronRight,
   Maximize2,
   Image as ImageIcon,
-  Check,
-  Sparkles,
 } from 'lucide-react';
 
 export interface EventGalleryModalProps {

@@ -26,9 +26,16 @@ export type PortfolioTemplateComponent = React.FC<PortfolioTemplateProps>;
 
 const TEMPLATE_COMPONENTS: Record<string, PortfolioTemplateComponent> = {
   'editorial-vogue': EditorialVogueTemplate,
+  'editorial': EditorialVogueTemplate,
+  'editorial-white': EditorialVogueTemplate,
   'darkroom-atelier': DarkroomAtelierTemplate,
+  'masonry': DarkroomAtelierTemplate,
+  'cinematic': DarkroomAtelierTemplate,
+  'minimal': EditorialVogueTemplate,
 };
 
-export function getPortfolioTemplate(templateId: string): PortfolioTemplateComponent {
-  return TEMPLATE_COMPONENTS[templateId] || EditorialVogueTemplate;
+export function getPortfolioTemplate(templateId?: string): PortfolioTemplateComponent {
+  if (!templateId) return EditorialVogueTemplate;
+  const key = templateId.toLowerCase().trim();
+  return TEMPLATE_COMPONENTS[key] || EditorialVogueTemplate;
 }

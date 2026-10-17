@@ -10,6 +10,8 @@ import { useGalleryTemplateState } from '../useGalleryTemplateState';
 export const MasonryLayout: React.FC<TemplateLayoutProps> = ({
   gallery,
   onOpenLightbox,
+  onToggleFavorite,
+  favoritingMediaIds,
   selectedMediaIds = new Set(),
   onToggleSelectMedia,
   studioName,
@@ -18,6 +20,7 @@ export const MasonryLayout: React.FC<TemplateLayoutProps> = ({
   onSelectGridDesign: passedSetGridDesign,
   onDownloadSingle,
   onCreateStoryVideo,
+  onOpenContact,
 }) => {
   const {
     gallerySections,
@@ -28,6 +31,7 @@ export const MasonryLayout: React.FC<TemplateLayoutProps> = ({
     coverImage,
     shootDate,
     filteredMedia,
+    favoritesCount,
     photosCount,
     videosCount,
     findOriginalIndex,
@@ -82,6 +86,7 @@ export const MasonryLayout: React.FC<TemplateLayoutProps> = ({
         sections={gallerySections}
         activeFilter={activeFilter}
         onSelectFilter={setActiveFilter}
+        favoritesCount={favoritesCount}
         totalPhotosCount={photosCount}
         totalVideosCount={videosCount}
         theme="masonry"
@@ -121,13 +126,23 @@ export const MasonryLayout: React.FC<TemplateLayoutProps> = ({
         media={filteredMedia}
         gridDesign={gridDesign}
         onOpenLightbox={onOpenLightbox}
+        onToggleFavorite={onToggleFavorite}
+        favoritingMediaIds={favoritingMediaIds}
         selectedMediaIds={selectedMediaIds}
         onToggleSelectMedia={onToggleSelectMedia}
         onDownloadSingle={onDownloadSingle}
         theme="masonry"
         findOriginalIndex={findOriginalIndex}
-        emptyMessage="Garden is quiet"
-        emptySubMessage="No photographs matching the selected criteria."
+        emptyMessage={
+          activeFilter.type === 'favorites'
+            ? 'No Liked Photos Yet'
+            : 'Garden is quiet'
+        }
+        emptySubMessage={
+          activeFilter.type === 'favorites'
+            ? 'Click the heart icon on any photograph to add it to your liked collection.'
+            : 'No photographs matching the selected criteria.'
+        }
         watermarkEnabled={watermarkEnabled}
         watermarkText={watermarkText}
         watermarkOpacity={gallery.watermark_opacity}
@@ -145,6 +160,7 @@ export const MasonryLayout: React.FC<TemplateLayoutProps> = ({
         studioName={resolvedStudio}
         mediaCount={gallery.media.length}
         theme="masonry"
+        onOpenContact={onOpenContact}
       />
     </div>
   );

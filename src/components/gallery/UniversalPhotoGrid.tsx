@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Play, Check, Sparkles, Download } from 'lucide-react';
+import { Play, Check, Download, Heart, Loader2 } from 'lucide-react';
 import type { MediaItem } from '../../types';
 import { WatermarkOverlay } from './WatermarkOverlay';
 
@@ -11,6 +11,8 @@ export interface UniversalPhotoGridProps {
   onOpenLightbox: (originalIndex: number) => void;
   selectedMediaIds?: Set<string>;
   onToggleSelectMedia?: (mediaId: string) => void;
+  onToggleFavorite?: (mediaId: string) => void;
+  favoritingMediaIds?: Set<string>;
   onDownloadSingle?: (e: React.MouseEvent, item: MediaItem) => void;
   theme?: 'editorial' | 'masonry' | 'cinematic' | 'minimal';
   findOriginalIndex: (item: MediaItem) => number;
@@ -39,6 +41,8 @@ export interface PhotoItemCardProps {
   theme: 'editorial' | 'masonry' | 'cinematic' | 'minimal';
   onOpenLightbox: (originalIndex: number) => void;
   onToggleSelectMedia?: (mediaId: string) => void;
+  onToggleFavorite?: (mediaId: string) => void;
+  isFavoriting?: boolean;
   onDownloadSingle?: (e: React.MouseEvent, item: MediaItem) => void;
   containerClassName?: string;
   imgClassName?: string;
@@ -61,6 +65,8 @@ export const PhotoItemCard: React.FC<PhotoItemCardProps> = ({
   theme,
   onOpenLightbox,
   onToggleSelectMedia,
+  onToggleFavorite,
+  isFavoriting = false,
   onDownloadSingle,
   containerClassName = '',
   imgClassName = 'w-full h-full block object-cover object-center rounded-none transition-transform duration-500 ease-out group-hover:scale-[1.025] cursor-pointer',
@@ -174,6 +180,42 @@ export const PhotoItemCard: React.FC<PhotoItemCardProps> = ({
           title="Select photo"
         >
           <Check className={`w-3.5 h-3.5 ${isSelected ? 'stroke-[3]' : 'stroke-2'}`} />
+        </button>
+      )}
+
+      {/* Heart Liking Button for Viewing User */}
+      {onToggleFavorite && (
+        <button
+          type="button"
+          disabled={isFavoriting}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleFavorite(item.id);
+          }}
+          className={`absolute bottom-2 right-2 z-10 p-1.5 rounded-full backdrop-blur-md transition-all duration-200 cursor-pointer active:scale-90 touch-manipulation ${
+            isFavoriting
+              ? 'bg-black/80 text-amber-400 opacity-100 cursor-not-allowed scale-105 shadow-md'
+              : item.isFavorite
+              ? 'bg-rose-500 text-white opacity-100 shadow-lg shadow-rose-500/35 scale-105'
+              : 'bg-black/60 text-white/80 hover:text-white hover:bg-rose-600/80 opacity-75 sm:opacity-0 sm:group-hover:opacity-100'
+          }`}
+          title={
+            isFavoriting
+              ? 'Updating...'
+              : item.isFavorite
+              ? 'Remove from liked photos'
+              : 'Add to liked photos'
+          }
+        >
+          {isFavoriting ? (
+            <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-300" />
+          ) : (
+            <Heart
+              className={`w-3.5 h-3.5 transition-transform ${
+                item.isFavorite ? 'fill-current scale-110' : 'group-hover:scale-110'
+              }`}
+            />
+          )}
         </button>
       )}
 
@@ -318,6 +360,8 @@ export const UniversalPhotoGrid: React.FC<UniversalPhotoGridProps> = ({
   onOpenLightbox,
   selectedMediaIds = new Set(),
   onToggleSelectMedia,
+  onToggleFavorite,
+  favoritingMediaIds,
   onDownloadSingle,
   theme = 'editorial',
   findOriginalIndex,
@@ -341,7 +385,7 @@ export const UniversalPhotoGrid: React.FC<UniversalPhotoGridProps> = ({
   if (media.length === 0) {
     const isDark = theme === 'cinematic' || theme === 'masonry';
     return (
-      <div className="w-full py-20 sm:py-24 text-center px-4">
+      <div className="w-full py-20 sm:py-24 text-center px-4 animate-in fade-in">
         <div
           className={`max-w-md mx-auto p-6 sm:p-10 border rounded-2xl space-y-3 ${
             isDark
@@ -349,7 +393,9 @@ export const UniversalPhotoGrid: React.FC<UniversalPhotoGridProps> = ({
               : 'bg-neutral-50/90 border-neutral-200 text-neutral-800'
           }`}
         >
-          <Sparkles className="w-8 h-8 text-neutral-400 mx-auto stroke-1" />
+          <div className="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-500 flex items-center justify-center mx-auto mb-2 shadow-inner">
+            <Heart className="w-6 h-6 stroke-[1.8]" />
+          </div>
           <p className="font-serif italic text-lg">{emptyMessage}</p>
           <p className="text-xs text-neutral-500 font-light">{emptySubMessage}</p>
         </div>
@@ -374,6 +420,8 @@ export const UniversalPhotoGrid: React.FC<UniversalPhotoGridProps> = ({
         theme={theme}
         onOpenLightbox={onOpenLightbox}
         onToggleSelectMedia={onToggleSelectMedia}
+        onToggleFavorite={onToggleFavorite}
+        isFavoriting={favoritingMediaIds?.has(item.id)}
         onDownloadSingle={onDownloadSingle}
         containerClassName={containerClassName}
         imgClassName={imgClassName}

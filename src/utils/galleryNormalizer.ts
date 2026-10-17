@@ -32,6 +32,11 @@ export const normalizeServerMediaItem = (m: any, defaultGalleryId: string = ''):
     isFavorite: Boolean(m.is_favorite ?? m.isFavorite),
     duration: m.duration,
     videoEmbedUrl: m.video_embed_url || m.videoEmbedUrl,
+    downloadUrl: m.download_url || m.downloadUrl,
+    previewUrl: m.preview_url || m.previewUrl || fileUrl,
+    rawUrl: m.raw_file_url || m.raw_url || m.rawFileUrl || m.rawUrl,
+    originalFilename: m.original_filename || m.originalFilename || m.title,
+    mimeType: m.mime_type || m.mimeType,
   };
 };
 
@@ -360,6 +365,19 @@ export const normalizeServerGallery = (g: any): Gallery => {
     totalSizeBytes,
     totalSizeMB,
     totalSizeFormatted,
+    photographerId:
+      g.photographer_id ??
+      g.photographerId ??
+      (typeof g.photographer === 'object' ? g.photographer?.id : (typeof g.photographer === 'number' || typeof g.photographer === 'string' ? g.photographer : undefined)) ??
+      g.user_id ??
+      g.userId ??
+      (typeof g.user === 'object' ? g.user?.id : undefined),
+    photographerSlug:
+      g.photographer_slug ||
+      g.photographerSlug ||
+      g.photographer?.slug ||
+      g.user?.slug ||
+      undefined,
     photographerName:
       g.photographer_name ||
       g.photographer_full_name ||
@@ -367,10 +385,19 @@ export const normalizeServerGallery = (g: any): Gallery => {
       g.photographer?.fullName ||
       g.photographer?.name ||
       undefined,
+    photographerEmail:
+      g.photographer_email ||
+      g.photographerEmail ||
+      g.photographer?.email ||
+      undefined,
     studioName:
       g.studio_name ||
       g.studioName ||
       g.photographer?.studioName ||
+      undefined,
+    studioEmail:
+      g.studio_email ||
+      g.studioEmail ||
       undefined,
   };
 };

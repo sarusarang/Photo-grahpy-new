@@ -5,7 +5,6 @@ import {
   UploadCloud,
   Film,
   FileImage,
-  Loader2,
   Plus,
   Trash2,
   Check,
@@ -50,6 +49,109 @@ const DEFAULT_EVENT_SECTIONS = [
   'COCKTAILS',
 ];
 
+const QueuedEventMediaCard: React.FC<{
+  item: QueuedUploadFile;
+  isUploading: boolean;
+  onRemove: (id: string) => void;
+}> = ({ item, isUploading, onRemove }) => {
+  const [thumbSrc, setThumbSrc] = useState<string>(() => {
+    if (item.previewUrl) return item.previewUrl;
+    if (item.file) {
+      try {
+        return URL.createObjectURL(item.file);
+      } catch {
+        return '';
+      }
+    }
+    return '';
+  });
+  const [loadFailed, setLoadFailed] = useState(false);
+
+  useEffect(() => {
+    let createdLocally = false;
+    let url = item.previewUrl;
+
+    if (!url && item.file) {
+      try {
+        url = URL.createObjectURL(item.file);
+        createdLocally = true;
+        setThumbSrc(url);
+        setLoadFailed(false);
+      } catch {
+        setLoadFailed(true);
+      }
+    } else if (url) {
+      setThumbSrc(url);
+      setLoadFailed(false);
+    }
+
+    return () => {
+      if (createdLocally && url && url.startsWith('blob:')) {
+        URL.revokeObjectURL(url);
+      }
+    };
+  }, [item.previewUrl, item.file]);
+
+  return (
+    <div className="relative group rounded-xl bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 overflow-hidden p-2 space-y-1.5">
+      <div className="aspect-[4/3] rounded-lg overflow-hidden bg-neutral-950 relative flex items-center justify-center">
+        {item.type === 'photo' ? (
+          thumbSrc && !loadFailed ? (
+            <img
+              src={thumbSrc}
+              alt={item.title}
+              loading="lazy"
+              onError={() => setLoadFailed(true)}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            />
+          ) : (
+            <div className="w-full h-full flex flex-col items-center justify-center p-2 text-center bg-neutral-900/60 select-none">
+              <FileImage className="w-5 h-5 text-amber-500/80 mb-0.5" />
+              <span className="text-[9px] text-neutral-400 truncate max-w-full font-mono">
+                {item.title}
+              </span>
+            </div>
+          )
+        ) : (
+          <div className="w-full h-full flex flex-col items-center justify-center bg-neutral-900 text-amber-400">
+            {thumbSrc && !loadFailed ? (
+              <video
+                src={thumbSrc}
+                preload="metadata"
+                muted
+                className="w-full h-full object-cover pointer-events-none"
+                onError={() => setLoadFailed(true)}
+              />
+            ) : (
+              <Film className="w-6 h-6" />
+            )}
+          </div>
+        )}
+
+        <button
+          type="button"
+          disabled={isUploading}
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemove(item.id);
+          }}
+          className="absolute top-1 right-1 p-1 rounded-md bg-black/70 hover:bg-rose-600 text-white opacity-0 group-hover:opacity-100 transition-all cursor-pointer disabled:opacity-40"
+          title="Remove file"
+        >
+          <Trash2 className="w-3 h-3" />
+        </button>
+      </div>
+
+      <div className="text-[10px] font-mono leading-tight">
+        <p className="truncate font-semibold text-neutral-800 dark:text-neutral-200">
+          {item.title}
+        </p>
+        <p className="text-neutral-400">{item.sizeMB} MB</p>
+      </div>
+    </div>
+  );
+};
+
 export interface EventBatchUploadPanelProps {
   event: LiveEvent;
   onUploadComplete?: () => void;
@@ -73,7 +175,7 @@ export const EventBatchUploadPanel: React.FC<EventBatchUploadPanelProps> = ({
   onUploadComplete,
   onClose,
   hideFooter = false,
-  onMinimize,
+  onMinimize: _onMinimize,
   onUploadProgressChange,
 }) => {
   const { showToast } = useToast();
@@ -755,45 +857,12 @@ export const EventBatchUploadPanel: React.FC<EventBatchUploadPanelProps> = ({
 
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 max-h-52 overflow-y-auto pr-1">
             {currentQueuedList.map((item) => (
-              <div
+              <QueuedEventMediaCard
                 key={item.id}
-                className="relative group rounded-xl bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 overflow-hidden p-2 space-y-1.5"
-              >
-                <div className="aspect-[4/3] rounded-lg overflow-hidden bg-neutral-950 relative">
-                  {item.type === 'photo' ? (
-                    <img
-                      src={item.previewUrl}
-                      alt={item.title}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-neutral-900 text-amber-400">
-                      <Film className="w-6 h-6" />
-                    </div>
-                  )}
-
-                  <button
-                    type="button"
-                    disabled={isUploading}
-                    onClick={() =>
-                      item.type === 'photo'
-                        ? removeQueuedPhoto(item.id)
-                        : removeQueuedVideo(item.id)
-                    }
-                    className="absolute top-1 right-1 p-1 rounded-md bg-black/70 hover:bg-rose-600 text-white opacity-0 group-hover:opacity-100 transition-all cursor-pointer"
-                    title="Remove file"
-                  >
-                    <Trash2 className="w-3 h-3" />
-                  </button>
-                </div>
-
-                <div className="text-[10px] font-mono leading-tight">
-                  <p className="truncate font-semibold text-neutral-800 dark:text-neutral-200">
-                    {item.title}
-                  </p>
-                  <p className="text-neutral-400">{item.sizeMB} MB</p>
-                </div>
-              </div>
+                item={item}
+                isUploading={isUploading}
+                onRemove={(id) => (item.type === 'photo' ? removeQueuedPhoto(id) : removeQueuedVideo(id))}
+              />
             ))}
           </div>
 

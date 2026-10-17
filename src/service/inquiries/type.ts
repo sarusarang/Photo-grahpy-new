@@ -14,6 +14,10 @@ export interface InquiriesListResponse {
 
 export interface SubmitInquiryPayload {
   photographer_id?: string | number;
+  gallery_id?: string;
+  gallery_slug?: string;
+  gallery_title?: string;
+  source?: string;
   client_name: string;
   client_email: string;
   client_phone: string;

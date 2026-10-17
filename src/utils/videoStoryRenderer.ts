@@ -14,8 +14,17 @@ export type StoryAspectRatio = '9:16' | '1:1' | '16:9';
 
 export type StoryTransitionStyle = 'ken-burns' | 'crossfade' | 'burst' | 'fade-black';
 
+export interface StoryPhotoItem {
+  url: string;
+  downloadUrl?: string;
+  previewUrl?: string;
+  thumbnailUrl?: string;
+  title?: string;
+  id?: string;
+}
+
 export interface RenderStoryOptions {
-  photos: Array<{ url: string; title?: string }>;
+  photos: Array<string | StoryPhotoItem>;
   audioUrl?: string;
   aspectRatio: StoryAspectRatio;
   durationPerPhoto: number; // in seconds (e.g. 2.5, 3.0, 4.0)
@@ -81,69 +90,147 @@ function createSafeFallbackImage(text: string = 'Photo', width = 1080, height = 
   return img;
 }
 
+import { axiosInstance } from '@/lib/axiosInstance';
+import { resolveImageUrl } from './downloadUtils';
+
 /**
  * Preloads images safely using fetch + blob URLs to guarantee same-origin
  * and completely prevent canvas tainting in production (S3, CDN, Cloudflare, local cache).
+ * Prioritizes authenticated/CORS-enabled backend download endpoints.
  */
 export async function preloadImages(
-  urls: string[]
+  items: Array<string | StoryPhotoItem>
 ): Promise<{ images: HTMLImageElement[]; revoke: () => void }> {
   const createdBlobUrls: string[] = [];
 
-  const loadSingleImage = async (url: string, index: number): Promise<HTMLImageElement> => {
-    if (!url) {
+  const loadSingleImage = async (
+    rawItem: string | StoryPhotoItem,
+    index: number
+  ): Promise<HTMLImageElement> => {
+    const item: StoryPhotoItem =
+      typeof rawItem === 'string' ? { url: rawItem } : rawItem;
+
+    // Collect candidate URLs in strict priority order:
+    // 1. Explicit downloadUrl (Gunicorn API endpoint with CORS headers)
+    // 2. Constructed /api/galleries/media/<id>/download/ if id is present
+    // 3. Constructed /api/galleries/media/<uuid>/download/ if UUID found in any URL
+    // 4. previewUrl
+    // 5. url
+    // 6. thumbnailUrl
+    const rawCandidates: string[] = [];
+
+    if (item.downloadUrl) {
+      rawCandidates.push(item.downloadUrl);
+    }
+
+    if (item.id) {
+      rawCandidates.push(`/api/galleries/media/${item.id}/download/`);
+    }
+
+    // Check if any given URL contains a UUID (Django storage path or originals pattern)
+    const allUrls = [item.url, item.previewUrl, item.thumbnailUrl].filter(Boolean) as string[];
+    const uuidRegex = /([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/i;
+    for (const u of allUrls) {
+      const match = u.match(uuidRegex);
+      if (match && match[1]) {
+        rawCandidates.push(`/api/galleries/media/${match[1]}/download/`);
+        break;
+      }
+    }
+
+    if (item.previewUrl) rawCandidates.push(item.previewUrl);
+    if (item.url) rawCandidates.push(item.url);
+    if (item.thumbnailUrl) rawCandidates.push(item.thumbnailUrl);
+
+    // Resolve URLs and remove duplicates
+    const resolvedCandidates = Array.from(
+      new Set(rawCandidates.filter(Boolean).map((u) => resolveImageUrl(u)))
+    );
+
+    if (resolvedCandidates.length === 0) {
       return createSafeFallbackImage(`Photo #${index + 1}`);
     }
 
-    // Attempt 1: Fetch as blob to guarantee same-origin blob URL (never taints canvas)
-    try {
-      const response = await fetch(url, { mode: 'cors', credentials: 'omit' });
-      if (response.ok) {
-        const blob = await response.blob();
-        const blobUrl = URL.createObjectURL(blob);
-        createdBlobUrls.push(blobUrl);
+    // Try fetching each candidate as a same-origin Blob
+    for (const candidateUrl of resolvedCandidates) {
+      // Strategy 1: Fetch with mode: 'cors'
+      try {
+        const response = await fetch(candidateUrl, { mode: 'cors' });
+        if (response.ok) {
+          const blob = await response.blob();
+          if (blob.size > 0 && !blob.type.includes('text/html')) {
+            const blobUrl = URL.createObjectURL(blob);
+            createdBlobUrls.push(blobUrl);
 
-        return await new Promise<HTMLImageElement>((resolve, reject) => {
-          const img = new Image();
-          img.onload = () => resolve(img);
-          img.onerror = reject;
-          img.src = blobUrl;
-        });
-      }
-    } catch {
-      // Fetch failed or blocked by CORS, proceed to Attempt 2
-    }
-
-    // Attempt 2: Image object with crossOrigin='anonymous'
-    try {
-      return await new Promise<HTMLImageElement>((resolve, reject) => {
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
-        img.onload = () => {
-          if (img.naturalWidth > 0 && img.naturalHeight > 0) {
-            resolve(img);
-          } else {
-            reject(new Error('Invalid image dimensions'));
+            return await new Promise<HTMLImageElement>((resolve, reject) => {
+              const img = new Image();
+              img.onload = () => resolve(img);
+              img.onerror = reject;
+              img.src = blobUrl;
+            });
           }
-        };
-        img.onerror = reject;
-        img.src = url;
-      });
-    } catch {
-      // Direct load with CORS failed
+        }
+      } catch {
+        // Continue to Strategy 2
+      }
+
+      // Strategy 2: AxiosInstance GET with responseType='blob'
+      try {
+        const axiosRes = await axiosInstance.get(candidateUrl, {
+          responseType: 'blob',
+        });
+        if (axiosRes.data && axiosRes.data instanceof Blob && axiosRes.data.size > 0) {
+          const blobUrl = URL.createObjectURL(axiosRes.data);
+          createdBlobUrls.push(blobUrl);
+
+          return await new Promise<HTMLImageElement>((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => resolve(img);
+            img.onerror = reject;
+            img.src = blobUrl;
+          });
+        }
+      } catch {
+        // Continue to Strategy 3
+      }
+
+      // Strategy 3: Image object with crossOrigin='anonymous'
+      try {
+        const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+          const imageObj = new Image();
+          imageObj.crossOrigin = 'anonymous';
+          imageObj.onload = () => {
+            if (imageObj.naturalWidth > 0 && imageObj.naturalHeight > 0) {
+              resolve(imageObj);
+            } else {
+              reject(new Error('Invalid image dimensions'));
+            }
+          };
+          imageObj.onerror = reject;
+          const sep = candidateUrl.includes('?') ? '&' : '?';
+          imageObj.src = `${candidateUrl}${sep}_cors=${Date.now()}`;
+        });
+        return img;
+      } catch {
+        // Continue to next candidate URL
+      }
     }
 
-    // Attempt 3: Safe localized canvas fallback to prevent crash and ensure valid dimensions
-    console.warn(`[VideoStory] Could not load image with CORS: ${url}. Using clean fallback.`);
+    // Safe localized canvas fallback to prevent crash
+    console.warn(
+      `[VideoStory] Could not load image from any candidate URL. Using clean fallback for photo #${index + 1}.`
+    );
     return createSafeFallbackImage(`Photo #${index + 1}`);
   };
 
-  const images = await Promise.all(urls.map((url, idx) => loadSingleImage(url, idx)));
+  const images = await Promise.all(items.map((item, idx) => loadSingleImage(item, idx)));
   const revoke = () => {
     createdBlobUrls.forEach((blobUrl) => {
       try {
         URL.revokeObjectURL(blobUrl);
-      } catch {}
+      } catch {
+        /* ignore revoke error */
+      }
     });
   };
 
@@ -212,7 +299,7 @@ export async function renderStoryVideo(options: RenderStoryOptions): Promise<Ren
 
   // Preload all images safely (guaranteed non-tainting)
   onProgress?.(5, 0, photos.length);
-  const { images: loadedImages, revoke: revokeImages } = await preloadImages(photos.map((p) => p.url));
+  const { images: loadedImages, revoke: revokeImages } = await preloadImages(photos);
 
   const totalPhotos = loadedImages.length;
   const totalDuration = totalPhotos * durationPerPhoto;
@@ -433,11 +520,15 @@ export async function renderStoryVideo(options: RenderStoryOptions): Promise<Ren
             if (recorder.state === 'recording') {
               recorder.stop();
             }
-          } catch {}
+          } catch {
+            /* ignore stop error */
+          }
           if (audioBufferSource) {
             try {
               audioBufferSource.stop();
-            } catch {}
+            } catch {
+              /* ignore audio stop error */
+            }
           }
           if (audioElement) {
             audioElement.pause();
@@ -527,7 +618,8 @@ export async function renderStoryVideo(options: RenderStoryOptions): Promise<Ren
 
   onProgress?.(100, totalPhotos, totalPhotos);
 
-  const ext = mimeType.includes('mp4') ? 'mp4' : 'webm';
+  const actualMime = recorder.mimeType || mimeType;
+  const ext = actualMime.includes('mp4') ? 'mp4' : 'webm';
   const cleanTitle = (title || 'story').toLowerCase().replace(/[^a-z0-9]+/g, '-');
   const filename = `${cleanTitle}-reel-${aspectRatio.replace(':', 'x')}.${ext}`;
   const videoUrl = URL.createObjectURL(blob);
@@ -536,7 +628,7 @@ export async function renderStoryVideo(options: RenderStoryOptions): Promise<Ren
     blob,
     videoUrl,
     filename,
-    mimeType,
+    mimeType: actualMime,
     durationSeconds: totalDuration,
   };
 }
@@ -545,14 +637,30 @@ export async function renderStoryVideo(options: RenderStoryOptions): Promise<Ren
  * Downloads a rendered video blob to the user's computer or mobile device.
  */
 export function downloadRenderedVideo(blob: Blob, filename: string): void {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 10000);
+  try {
+    if ((window.navigator as any)?.msSaveOrOpenBlob) {
+      (window.navigator as any).msSaveOrOpenBlob(blob, filename);
+      return;
+    }
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.rel = 'noopener';
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      try {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } catch {
+        /* ignore cleanup */
+      }
+    }, 15000);
+  } catch (err) {
+    console.error('[VideoStory] Failed to trigger download:', err);
+  }
 }
 
 /**

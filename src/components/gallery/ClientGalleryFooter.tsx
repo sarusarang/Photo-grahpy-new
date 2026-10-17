@@ -1,10 +1,12 @@
 import React from 'react';
+import { Mail } from 'lucide-react';
 
 interface ClientGalleryFooterProps {
   galleryTitle: string;
   studioName?: string;
   mediaCount?: number;
   theme?: 'editorial' | 'cinematic' | 'minimal' | 'masonry';
+  onOpenContact?: () => void;
 }
 
 export const ClientGalleryFooter: React.FC<ClientGalleryFooterProps> = ({
@@ -12,6 +14,7 @@ export const ClientGalleryFooter: React.FC<ClientGalleryFooterProps> = ({
   studioName = 'EX SHARE',
   mediaCount,
   theme = 'editorial',
+  onOpenContact,
 }) => {
 
   const getThemeStyles = () => {
@@ -92,8 +95,20 @@ export const ClientGalleryFooter: React.FC<ClientGalleryFooterProps> = ({
           )}
         </div>
 
-        {/* Right: by EX SHARE branding + Back to top */}
-        <div className="flex items-center justify-center md:justify-end gap-3.5 sm:gap-4 shrink-0">
+        {/* Right: Inquire action + by EX SHARE branding */}
+        <div className="flex flex-wrap items-center justify-center md:justify-end gap-3 sm:gap-4 shrink-0">
+          {onOpenContact && (
+            <button
+              type="button"
+              onClick={onOpenContact}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer shadow-xs active:scale-95 ${st.button}`}
+              title="Directly inquire or book the studio"
+            >
+              <Mail className="w-3.5 h-3.5" />
+              <span>Inquire & Book</span>
+            </button>
+          )}
+
           {/* by EX SHARE branding badge */}
           <div
             className={`inline-flex items-center gap-1.5 text-xs transition-opacity ${st.byExShare}`}

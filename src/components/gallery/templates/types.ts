@@ -6,6 +6,7 @@ export interface TemplateLayoutProps {
   gallery: Gallery;
   onOpenLightbox: (index: number) => void;
   onToggleFavorite?: (mediaId: string) => void;
+  favoritingMediaIds?: Set<string>;
   selectedMediaIds?: Set<string>;
   onToggleSelectMedia?: (mediaId: string) => void;
   onStartSlideshow?: (startIndex?: number) => void;
@@ -16,6 +17,7 @@ export interface TemplateLayoutProps {
   onSelectGridDesign?: (design: GalleryGridDesign) => void;
   onDownloadSingle?: (e: React.MouseEvent, item: any) => void;
   onCreateStoryVideo?: () => void;
+  onOpenContact?: () => void;
 }
 
 export interface TemplateConfig {

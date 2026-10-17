@@ -135,6 +135,18 @@ export const MoveMediaToSectionApi = async (
   });
 };
 
+export interface UploadMediaItemParams {
+  galleryId: string;
+  file: File;
+  sectionName?: string;
+  sectionTitle?: string;
+  type?: 'photo' | 'video';
+  onProgress?: (percent: number, loadedBytes?: number) => void;
+  signal?: AbortSignal;
+}
+
+export type UploadMediaResponse = MediaItem;
+
 /**
  * 7. Upload Single Media Item (Photo or 4K Video)
  * Endpoint: POST /api/galleries/{gallery_id}/upload/
@@ -144,7 +156,8 @@ export const UploadGalleryMediaApi = async (
   file: File,
   sectionTitle?: string,
   type?: 'photo' | 'video',
-  onProgress?: (percent: number) => void
+  onProgress?: (percent: number, loadedBytes?: number) => void,
+  signal?: AbortSignal
 ): Promise<MediaItem> => {
   const formData = new FormData();
   const isVideo =
@@ -166,11 +179,12 @@ export const UploadGalleryMediaApi = async (
     `/api/galleries/${galleryId}/upload/`,
     formData,
     {
-      timeout: 300000,
+      timeout: isVideo ? 600000 : 300000,
+      signal,
       onUploadProgress: (progressEvent) => {
         if (progressEvent.total && onProgress) {
           const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-          onProgress(percent);
+          onProgress(percent, progressEvent.loaded);
         }
       },
     }
@@ -180,6 +194,22 @@ export const UploadGalleryMediaApi = async (
   if (Array.isArray(res) && res.length > 0) return res[0];
   if (res?.data) return res.data;
   return res as MediaItem;
+};
+
+/**
+ * Standard item-level upload handler for pipeline orchestrators
+ */
+export const uploadMediaItem = async (
+  params: UploadMediaItemParams
+): Promise<UploadMediaResponse> => {
+  return UploadGalleryMediaApi(
+    params.galleryId,
+    params.file,
+    params.sectionName || params.sectionTitle,
+    params.type,
+    params.onProgress,
+    params.signal
+  );
 };
 
 /**
@@ -641,4 +671,35 @@ export const ExportGalleryAnalyticsCsvApi = async (
     { time_range: timeRange },
     { responseType: 'blob' }
   );
+};
+
+export const GalleryApi = {
+  uploadMediaItem,
+  UploadGalleryMediaApi,
+  BulkUploadGalleryMediaApi,
+  GetGalleriesApi,
+  GetGalleryDetailApi,
+  CreateGalleryApi,
+  UpdateGalleryApi,
+  DeleteGalleryApi,
+  ArchiveGalleryApi,
+  RestoreGalleryApi,
+  MoveMediaToSectionApi,
+  DeleteGalleryMediaApi,
+  BulkDeleteGalleryMediaApi,
+  ToggleMediaFavoriteApi,
+  BulkToggleMediaFavoriteApi,
+  SetGalleryCoverImageApi,
+  SetMasonrySlotBannerApi,
+  AddGallerySectionApi,
+  DeleteGallerySectionApi,
+  RenameGallerySectionApi,
+  GetGalleryShareDetailsApi,
+  SetGalleryTemplateApi,
+  SetGalleryTemplateBannerApi,
+  ReorderGalleryMediaApi,
+  ReorderGallerySectionsApi,
+  GetGalleryAnalyticsApi,
+  TrackGalleryAnalyticsEventApi,
+  ExportGalleryAnalyticsCsvApi,
 };

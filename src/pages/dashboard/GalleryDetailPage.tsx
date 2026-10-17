@@ -45,7 +45,14 @@ import { normalizeServerGallery } from '@/utils/galleryNormalizer';
 import { useSmoothScroll } from '@/components/common/SmoothScroll';
 import { AlertTriangle, Archive, Loader2, FolderInput, Trash2, Download, Lock, Sparkles, ChevronsUp, ChevronsDown, Heart, HeartOff } from 'lucide-react';
 import { usePlanQuota } from '@/hooks/usePlanQuota';
-import { downloadSingleImage, downloadMultipleAsZip, getGalleryWatermarkOptions } from '@/utils/downloadUtils';
+import {
+  downloadSingleImage,
+  downloadMultipleAsZip,
+  getGalleryWatermarkOptions,
+  triggerAttachmentDownload,
+} from '@/utils/downloadUtils';
+import { GetGalleryDownloadZipUrl } from '@/service/galleries/PublicGalleryApi';
+import { DownloadOptionsModal } from '@/components/gallery/DownloadOptionsModal';
 import { UpgradePlanModal } from '@/components/common/UpgradePlanModal';
 import { LockedPageScreen } from '@/components/common/ExpiredPlanLock';
 import { ReorderGalleryPhotosModal } from '@/components/gallery/detail/ReorderGalleryPhotosModal';
@@ -360,6 +367,16 @@ export const GalleryDetailPage: React.FC = () => {
   const [itemToDelete, setItemToDelete] = useState<MediaItem | null>(null);
   const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
   const [sectionToDelete, setSectionToDelete] = useState<string | null>(null);
+
+  // Download Options (RAW vs JPEG) Modal State
+  const [downloadModalConfig, setDownloadModalConfig] = useState<{
+    isOpen: boolean;
+    item?: any;
+    items?: any[];
+    totalCount?: number;
+    isAll?: boolean;
+    title?: string;
+  }>({ isOpen: false });
 
   // Move to section modal state
   const [isMoveSectionOpen, setIsMoveSectionOpen] = useState(false);
@@ -1227,115 +1244,218 @@ export const GalleryDetailPage: React.FC = () => {
   const [isDownloadingSelected, setIsDownloadingSelected] = useState(false);
   const [selectedZipProgress, setSelectedZipProgress] = useState(0);
 
-  const handleDownloadAllZip = async () => {
+  const handleDownloadAllZip = () => {
     if (!gallery || !gallery.media || gallery.media.length === 0) {
       showToast('No Photographs', 'This gallery does not contain any photos to download.', 'warning');
       return;
     }
-
-    setIsDownloadingAllZip(true);
-    setAllZipProgress(5);
-    showToast(
-      'Packaging Master Archive',
-      `Packaging ${gallery.media.length} full-resolution photos into a ZIP archive...`,
-      'info'
-    );
-
-    try {
-      const items = gallery.media
-        .map((m, idx) => ({
-          url: (m.url || m.thumbnailUrl || '') as string,
-          filename: m.title || `${gallery.slug || 'gallery'}-photo-${String(idx + 1).padStart(3, '0')}.jpg`,
-        }))
-        .filter((item) => Boolean(item.url));
-
-      const zipFilename = `${gallery.slug || 'gallery'}-master-archive.zip`;
-      const watermarkOpts = getGalleryWatermarkOptions(gallery);
-
-      await downloadMultipleAsZip({
-        items,
-        zipFilename,
-        onProgress: (percent) => setAllZipProgress(percent),
-        watermarkOptions: watermarkOpts,
-      });
-
-      showToast(
-        'Master Archive Downloaded',
-        `Downloaded all ${items.length} full-resolution photographs.`,
-        'success'
-      );
-    } catch (err) {
-      console.error('Failed to create gallery ZIP archive:', err);
-      showToast('Download Error', 'Could not generate gallery ZIP archive. Please try again.', 'error');
-    } finally {
-      setIsDownloadingAllZip(false);
-      setAllZipProgress(0);
-    }
+    const totalCount = gallery.totalMediaCount || gallery.media.length;
+    setDownloadModalConfig({
+      isOpen: true,
+      item: undefined,
+      items: gallery.media,
+      totalCount,
+      isAll: true,
+      title: `${gallery.title} (Master Archive)`,
+    });
   };
 
-  const handleDownloadSelectedZip = async () => {
+  const handleDownloadSelectedZip = () => {
     if (!gallery || selectedIds.length === 0) return;
-
     const selectedMediaList = gallery.media.filter((m) => selectedIds.includes(m.id));
-    if (selectedMediaList.length === 0) return;
 
-    setIsDownloadingSelected(true);
-    setSelectedZipProgress(5);
+    if (selectedIds.length === 1 && selectedMediaList.length === 1) {
+      setDownloadModalConfig({
+        isOpen: true,
+        item: selectedMediaList[0],
+        items: undefined,
+        totalCount: 1,
+        isAll: false,
+        title: selectedMediaList[0].title || `${gallery.slug || 'gallery'}-photo`,
+      });
+      return;
+    }
 
-    try {
-      const watermarkOpts = getGalleryWatermarkOptions(gallery);
+    setDownloadModalConfig({
+      isOpen: true,
+      item: undefined,
+      items: selectedMediaList,
+      totalCount: selectedIds.length,
+      isAll: false,
+      title: `${selectedIds.length} Selected Photographs`,
+    });
+  };
 
-      // Direct single download if exactly 1 item selected
-      if (selectedMediaList.length === 1) {
-        const item = selectedMediaList[0];
-        const downloadUrl = item.url || item.thumbnailUrl;
-        if (!downloadUrl) {
-          showToast('Error', 'No image file URL found for this item.', 'error');
-          return;
-        }
-        const filename = item.title || `${gallery.slug || 'gallery'}-photo.jpg`;
-        showToast('Downloading Photo', `Saving "${filename}"...`, 'info');
-        const success = await downloadSingleImage(downloadUrl, filename, watermarkOpts);
-        if (success) {
-          showToast('Photo Saved', `"${filename}" saved to downloads.`, 'success');
-        }
+  const handleExecuteDashboardDownload = async ({
+    format,
+    withWatermark,
+    onProgress,
+  }: {
+    format: 'original' | 'web';
+    withWatermark: boolean;
+    onProgress?: (percent: number, statusText?: string) => void;
+  }) => {
+    if (!gallery) return;
+    const watermarkOpts = {
+      ...getGalleryWatermarkOptions(gallery),
+      enabled: withWatermark,
+    };
+
+    // 1. Single photo download
+    if (downloadModalConfig.item) {
+      const item = downloadModalConfig.item;
+      const downloadUrl = item.url || item.thumbnailUrl;
+      if (!downloadUrl) {
+        showToast('Error', 'No image file URL found for this item.', 'error');
         return;
       }
-
+      const filename = item.title || `${gallery.slug || 'gallery'}-photo.jpg`;
+      onProgress?.(30, `Downloading ${filename}...`);
       showToast(
-        'Packaging Selected',
-        `Bundling ${selectedMediaList.length} selected photographs into a ZIP file...`,
+        'Downloading Photo',
+        `Saving "${filename}" (${format === 'original' ? 'RAW / Original' : 'Web JPEG'})...`,
+        'info'
+      );
+      const success = await downloadSingleImage({
+        url: downloadUrl,
+        preferredFilename: filename,
+        watermarkOptions: watermarkOpts,
+        format,
+        downloadUrl: item.downloadUrl,
+        rawUrl: item.rawUrl,
+      });
+      onProgress?.(100, 'Download complete!');
+      if (success) {
+        showToast('Photo Saved', `"${filename}" saved to downloads.`, 'success');
+      } else {
+        showToast('Download Started', 'Initiated download. Please check your browser downloads.', 'info');
+      }
+      return;
+    }
+
+    // 2. Batch ZIP download
+    const isAll = Boolean(
+      downloadModalConfig.isAll ||
+      (!downloadModalConfig.item &&
+        (!downloadModalConfig.items ||
+          downloadModalConfig.items.length === gallery.media.length ||
+          (downloadModalConfig.totalCount && downloadModalConfig.totalCount >= (gallery.totalMediaCount || gallery.media.length))))
+    );
+
+    const expectedCount =
+      downloadModalConfig.totalCount ||
+      (isAll ? gallery.totalMediaCount || gallery.media.length : selectedIds.length) ||
+      gallery.media.length;
+
+    let targetItems: MediaItem[] = downloadModalConfig.items || gallery.media;
+
+    // If downloading all and gallery has more items than loaded, or if selected items need full fetch:
+    if (
+      (isAll && gallery.totalMediaCount && targetItems.length < gallery.totalMediaCount) ||
+      (!isAll && selectedIds.length > targetItems.length) ||
+      (downloadModalConfig.totalCount && targetItems.length < downloadModalConfig.totalCount)
+    ) {
+      try {
+        onProgress?.(5, `Loading all ${expectedCount} photos from server...`);
+        const fullGallery = await GetGalleryDetailApi(gallery.id, {
+          all_media: true,
+          section: dashboardSectionFilter,
+          is_favorite: showFavoritesOnly,
+        });
+        const normalizedFull = normalizeServerGallery(fullGallery);
+        if (isAll) {
+          targetItems = normalizedFull.media;
+        } else if (selectedIds.length > 0) {
+          targetItems = normalizedFull.media.filter((m) => selectedIds.includes(m.id));
+        } else {
+          targetItems = normalizedFull.media;
+        }
+      } catch (fetchErr) {
+        console.warn('Could not fetch full gallery media list for zip, falling back to loaded items:', fetchErr);
+      }
+    }
+
+    if (!targetItems || targetItems.length === 0) {
+      showToast('No Media', 'No photos available to download.', 'warning');
+      return;
+    }
+
+    const finalCount = targetItems.length;
+
+    if (isAll) {
+      setIsDownloadingAllZip(true);
+      setAllZipProgress(5);
+    } else {
+      setIsDownloadingSelected(true);
+      setSelectedZipProgress(5);
+    }
+
+    const zipFilename = isAll
+      ? `${gallery.slug || 'gallery'}-${format}-master-archive.zip`
+      : `${gallery.slug || 'gallery'}-selected-${finalCount}-${format}.zip`;
+
+    try {
+      showToast(
+        'Packaging Archive',
+        `Bundling ${finalCount} photos (${format === 'original' ? 'RAW / Original' : 'Web JPEG'})...`,
         'info'
       );
 
-      const items = selectedMediaList
+      const items = targetItems
         .map((m, idx) => ({
-          url: (m.url || m.thumbnailUrl || '') as string,
-          filename: m.title || `${gallery.slug || 'gallery'}-selected-${String(idx + 1).padStart(3, '0')}.jpg`,
+          url: (format === 'original' && m.rawUrl
+            ? m.rawUrl
+            : format === 'web' && m.previewUrl
+            ? m.previewUrl
+            : m.url || m.thumbnailUrl || '') as string,
+          downloadUrl: m.downloadUrl,
+          id: m.id,
+          filename: m.title || `${gallery.slug || 'gallery'}-photo-${String(idx + 1).padStart(3, '0')}.jpg`,
           type: m.type,
         }))
         .filter((item) => Boolean(item.url));
 
-      const zipFilename = `${gallery.slug || 'gallery'}-selected-${selectedMediaList.length}-photos.zip`;
+      const fallbackZipUrl = GetGalleryDownloadZipUrl(gallery.slug || gallery.id, undefined, format);
 
       await downloadMultipleAsZip({
         items,
         zipFilename,
-        onProgress: (percent) => setSelectedZipProgress(percent),
+        onProgress: (percent, current, total) => {
+          if (isAll) setAllZipProgress(percent);
+          else setSelectedZipProgress(percent);
+          onProgress?.(
+            percent,
+            current > 0
+              ? `Packaging ${current} of ${total} photos (${percent}%)...`
+              : `Packaging archive (${percent}%)...`
+          );
+        },
         watermarkOptions: watermarkOpts,
+        format,
+        serverZipUrl: fallbackZipUrl,
       });
 
+      onProgress?.(100, 'Download started!');
+
       showToast(
-        'Selected Archive Ready',
-        `Downloaded ${selectedMediaList.length} selected photographs.`,
+        'Archive Ready',
+        `Downloaded ${finalCount} photographs successfully.`,
         'success'
       );
     } catch (err) {
-      console.error('Failed to bundle selected ZIP:', err);
-      showToast('Download Failed', 'Could not generate ZIP archive for selected items.', 'error');
+      console.warn('Direct zip bundling failed, streaming archive via server:', err);
+      const fallbackZipUrl = GetGalleryDownloadZipUrl(gallery.slug || gallery.id, undefined, format);
+      showToast('Downloading Archive', 'Streaming archive directly from server...', 'info');
+      triggerAttachmentDownload(fallbackZipUrl);
+      onProgress?.(100, 'Streaming download started!');
     } finally {
-      setIsDownloadingSelected(false);
-      setSelectedZipProgress(0);
+      if (isAll) {
+        setIsDownloadingAllZip(false);
+        setAllZipProgress(0);
+      } else {
+        setIsDownloadingSelected(false);
+        setSelectedZipProgress(0);
+      }
     }
   };
 
@@ -1747,6 +1867,7 @@ export const GalleryDetailPage: React.FC = () => {
           watermarkFontColor={gallery.watermark_font_color}
           watermarkFontStyle={gallery.watermark_font_style}
           theme={gallery.templateId || 'editorial'}
+          isDashboard={true}
         />
       )}
 
@@ -1847,6 +1968,21 @@ export const GalleryDetailPage: React.FC = () => {
         isOpen={isUpgradeModalOpen}
         onClose={() => setIsUpgradeModalOpen(false)}
       />
+
+      {/* Format Selection (RAW vs JPEG) Download Options Modal */}
+      {gallery && (
+        <DownloadOptionsModal
+          isOpen={downloadModalConfig.isOpen}
+          onClose={() => setDownloadModalConfig({ isOpen: false })}
+          item={downloadModalConfig.item}
+          items={downloadModalConfig.items}
+          totalCount={downloadModalConfig.totalCount}
+          galleryTitle={downloadModalConfig.title || gallery.title}
+          watermarkOptions={getGalleryWatermarkOptions(gallery)}
+          showWatermarkToggle={false}
+          onConfirmDownload={handleExecuteDashboardDownload}
+        />
+      )}
     </div>
   );
 };

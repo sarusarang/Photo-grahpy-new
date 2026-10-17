@@ -5,8 +5,6 @@ import { useToast } from '../ui/Toast';
 import { useScrollLock } from '../../hooks/useScrollLock';
 import { SocialShareButton } from './share/SocialShareButton';
 import { MediaPreviewCard } from './share/MediaPreviewCard';
-import { ShareUrlBar } from './share/ShareUrlBar';
-import { QRCodeStudioBox } from './share/QRCodeStudioBox';
 import { getGalleryShareUrl } from '@/utils/domain';
 import { resolveAbsoluteImageUrl } from '@/utils/seo';
 import {
@@ -35,7 +33,6 @@ export const MediaShareModal: React.FC<MediaShareModalProps> = ({
   clientName,
 }) => {
   const { showToast } = useToast();
-  const [copied, setCopied] = useState(false);
   const [activePreviewIndex, setActivePreviewIndex] = useState(0);
 
   // Lock body scroll and pause Lenis smooth scroll while modal is open
@@ -77,6 +74,11 @@ export const MediaShareModal: React.FC<MediaShareModalProps> = ({
   // Native Web Share API (Mobile & modern desktop browsers)
   const canNativeShare = typeof navigator !== 'undefined' && !!navigator.share;
 
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(shareUrl);
+    showToast('Link Copied!', 'Direct link copied to clipboard.', 'success');
+  };
+
   const handleNativeShare = async () => {
     if (canNativeShare) {
       try {
@@ -94,13 +96,6 @@ export const MediaShareModal: React.FC<MediaShareModalProps> = ({
     } else {
       handleCopyLink();
     }
-  };
-
-  const handleCopyLink = () => {
-    navigator.clipboard.writeText(shareUrl);
-    setCopied(true);
-    showToast('Link Copied!', 'Direct link copied to clipboard.', 'success');
-    setTimeout(() => setCopied(false), 2500);
   };
 
   // Social Sharing Handlers
@@ -253,7 +248,7 @@ export const MediaShareModal: React.FC<MediaShareModalProps> = ({
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
                 {/* WhatsApp */}
                 <SocialShareButton
                   label="WhatsApp"
@@ -367,17 +362,6 @@ export const MediaShareModal: React.FC<MediaShareModalProps> = ({
                 />
               </div>
             </div>
-
-            {/* Dedicated QR Code Section: Placed right under Share to Social Media */}
-            <QRCodeStudioBox
-              url={shareUrl}
-              title={currentItem.title ? `${currentItem.title} • QR Code` : `${galleryTitle} • QR Code`}
-              subtitle="Scan with phone camera to open this photo directly. Download or share the QR code with clients."
-              filenamePrefix={gallerySlug || currentItem.title || 'photo'}
-            />
-
-            {/* Direct Shareable URL Bar */}
-            <ShareUrlBar url={shareUrl} onCopy={handleCopyLink} copied={copied} />
 
             {/* Bottom Actions Footer */}
             <div className="pt-2 border-t border-neutral-800/80 flex items-center justify-between">

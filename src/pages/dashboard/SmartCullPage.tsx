@@ -9,13 +9,11 @@ import {
   Layers,
   ArrowRight,
   Maximize2,
-  Eye,
   Sliders,
   AlertTriangle,
   RefreshCw,
   HardDrive,
   Check,
-  Filter,
   Loader2,
   Download,
   FileImage,
@@ -26,10 +24,8 @@ import {
   X,
 } from 'lucide-react';
 import {
-  runAICullPipeline,
   type AnalyzedPhoto,
   type DuplicateCluster,
-  type CullingResult,
 } from '@/utils/deduplicationEngine';
 import { downloadMultipleAsZip, resolveImageUrl } from '@/utils/downloadUtils';
 import { CullingUploadModal } from '@/components/culling/CullingUploadModal';
@@ -53,7 +49,7 @@ export const SmartCullPage: React.FC = () => {
   const {
     aiCullingEnabled,
     planName,
-    tier,
+    tier: _tier,
     isNoPlan,
     isExpired,
     isLoading: isPlanLoading,
@@ -92,7 +88,7 @@ export const SmartCullPage: React.FC = () => {
 
   const [photos, setPhotos] = useState<AnalyzedPhoto[]>([]);
   const [clusters, setClusters] = useState<DuplicateCluster[]>([]);
-  const [similarityThreshold, setSimilarityThreshold] = useState<number>(88);
+  const [similarityThreshold] = useState<number>(88);
 
   // View & Pagination
   const [activeTab, setActiveTab] = useState<'all' | 'keepers' | 'duplicates' | 'clusters'>('clusters');
@@ -919,8 +915,6 @@ export const SmartCullPage: React.FC = () => {
               <div className="space-y-6">
                 {visibleClusters.map((cluster) => {
                   const clusterPhotos = photos.filter((p) => p.clusterId === cluster.id);
-                  const bestPick = clusterPhotos.find((p) => p.isBestPick) || clusterPhotos[0];
-                  const alternates = clusterPhotos.filter((p) => p.id !== bestPick?.id);
 
                   return (
                     <div

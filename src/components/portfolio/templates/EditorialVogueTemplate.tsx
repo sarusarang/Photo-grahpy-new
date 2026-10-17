@@ -11,7 +11,6 @@ import { useToast } from '@/components/ui/Toast';
 import { TrackPortfolioViewApi } from '@/service/portfolio/PortfolioApi';
 import {
   MapPin,
-  Calendar,
   Send,
   CheckCircle2,
   Plus,
@@ -25,8 +24,8 @@ import {
   ChevronUp,
   Images,
   Compass,
-  Lock,
 } from 'lucide-react';
+import { ModernDropdown } from '../../gallery/ModernDropdown';
 
 const InstagramIcon: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
   <svg className={`${className} fill-current`} viewBox="0 0 24 24">
@@ -644,18 +643,20 @@ export const EditorialVogueTemplate: React.FC<PortfolioTemplateProps> = ({
                   <label className="text-xs font-mono uppercase tracking-wider text-neutral-600">
                     Occasion
                   </label>
-                  <select
+                  <ModernDropdown
                     value={formData.eventType}
-                    onChange={(e) => setFormData({ ...formData, eventType: e.target.value })}
-                    className="w-full px-4 py-3 rounded-2xl bg-neutral-50 border border-neutral-200 text-neutral-900 focus:outline-none focus:border-neutral-900 focus:bg-white text-sm capitalize cursor-pointer transition-all"
-                  >
-                    <option value="wedding">Wedding / Ceremony</option>
-                    <option value="pre-wedding">Pre-Wedding / Destination</option>
-                    <option value="editorial">Fashion / Editorial</option>
-                    <option value="commercial">Commercial / Architecture</option>
-                    <option value="portrait">Portrait Session</option>
-                    <option value="workshop">Workshop / Mentorship</option>
-                  </select>
+                    onChange={(val) => setFormData({ ...formData, eventType: val })}
+                    options={[
+                      { value: 'wedding', label: 'Wedding / Ceremony', description: 'Full day & ceremony celebration' },
+                      { value: 'pre-wedding', label: 'Pre-Wedding / Destination', description: 'Destination travel stories' },
+                      { value: 'editorial', label: 'Fashion / Editorial', description: 'Lookbook & high fashion' },
+                      { value: 'commercial', label: 'Commercial / Architecture', description: 'Brand campaigns & spaces' },
+                      { value: 'portrait', label: 'Portrait Session', description: 'Artistic & executive portraits' },
+                      { value: 'workshop', label: 'Workshop / Mentorship', description: 'Masterclasses & 1-on-1' },
+                    ]}
+                    theme="editorial-light"
+                    placeholder="Select occasion"
+                  />
                 </div>
               </div>
 

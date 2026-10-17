@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { MessageCircle, Settings, Check, X, ExternalLink, Sparkles, Smartphone, ShieldCheck } from 'lucide-react';
+import { Settings, Check, X, ExternalLink, Smartphone } from 'lucide-react';
 import type { PortfolioConfig } from '../../types/portfolio';
 
 // ─────────────────────────────────────────────────────────────
@@ -33,7 +33,7 @@ export const WhatsAppFloatingButton: React.FC<WhatsAppFloatingButtonProps> = ({
   config,
   isEditable = false,
   onUpdateConfig,
-  theme = 'light',
+  theme: _theme = 'light',
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
 

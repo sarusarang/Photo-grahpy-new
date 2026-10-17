@@ -244,6 +244,14 @@ export interface Gallery {
   totalMediaCount?: number;
   section_counts?: Record<string, number>;
   sectionCounts?: Record<string, number>;
+  photographer_id?: number | string;
+  photographerId?: number | string;
+  photographer_slug?: string;
+  photographerSlug?: string;
+  photographer_name?: string;
+  photographerName?: string;
+  studio_name?: string;
+  studioName?: string;
 }
 
 // ---------------------------------------------------------------------------

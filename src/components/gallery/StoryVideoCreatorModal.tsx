@@ -23,7 +23,6 @@ import {
   Maximize2,
   Upload,
   Heart,
-  ImageIcon,
 } from 'lucide-react';
 import type { MediaItem, Gallery } from '@/types';
 import { useScrollLock } from '@/hooks/useScrollLock';
@@ -37,7 +36,9 @@ import {
   type StoryAspectRatio,
   type StoryTransitionStyle,
   type RenderStoryResult,
+  type StoryPhotoItem,
 } from '@/utils/videoStoryRenderer';
+import { resolveImageUrl } from '@/utils/downloadUtils';
 import { getStoredGuestProfile, saveGuestProfile } from '@/utils/guestIdentity';
 
 export interface StoryVideoCreatorModalProps {
@@ -76,9 +77,7 @@ export const StoryVideoCreatorModal: React.FC<StoryVideoCreatorModalProps> = ({
   // Titles & Branding
   const [titleText, setTitleText] = useState(gallery.title || 'Our Story');
   const [subtitleText, setSubtitleText] = useState(gallery.clientName || 'Celebration');
-  const [includeWatermark, setIncludeWatermark] = useState<boolean>(
-    Boolean(gallery.watermark_enabled ?? gallery.watermarkEnabled)
-  );
+  const [includeWatermark] = useState<boolean>(false);
 
   // Soundtrack
   const [activeMusicCategory, setActiveMusicCategory] = useState<string>('all');
@@ -224,12 +223,35 @@ export const StoryVideoCreatorModal: React.FC<StoryVideoCreatorModalProps> = ({
     // Preload image elements for fast preview rendering
     const imgMap = new Map<string, HTMLImageElement>();
     selectedItems.forEach((item) => {
-      const src = item.url || item.thumbnailUrl;
-      if (src && !imgMap.has(src)) {
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
-        img.src = src;
-        imgMap.set(src, img);
+      // Prioritize thumbnail for instant rendering with original photo as fallback
+      const targetSrc = resolveImageUrl(item.thumbnailUrl || item.url || '');
+      if (!targetSrc) return;
+
+      const img = new Image();
+      // NOTE: Do NOT enforce crossOrigin='anonymous' for the on-screen live preview canvas.
+      // The canvas preview element is purely for visual display in the DOM and never exports data.
+      // Omitting crossOrigin eliminates CORS network failures and Chrome HTTP cache collisions with <img> tags.
+      img.src = targetSrc;
+      img.onerror = () => {
+        // If thumbnail failed, try original full resolution URL
+        if (item.url) {
+          const fallbackSrc = resolveImageUrl(item.url);
+          if (fallbackSrc && fallbackSrc !== targetSrc) {
+            img.src = fallbackSrc;
+          }
+        }
+      };
+
+      // Map by ID and all URL variants for guaranteed hit
+      imgMap.set(item.id, img);
+      imgMap.set(targetSrc, img);
+      if (item.url) {
+        imgMap.set(item.url, img);
+        imgMap.set(resolveImageUrl(item.url), img);
+      }
+      if (item.thumbnailUrl) {
+        imgMap.set(item.thumbnailUrl, img);
+        imgMap.set(resolveImageUrl(item.thumbnailUrl), img);
       }
     });
 
@@ -272,8 +294,18 @@ export const StoryVideoCreatorModal: React.FC<StoryVideoCreatorModalProps> = ({
       const currentItem = selectedItems[slideIdx];
       const nextItem = selectedItems[(slideIdx + 1) % selectedItems.length];
 
-      const imgA = currentItem ? imgMap.get(currentItem.url || currentItem.thumbnailUrl || '') : null;
-      const imgB = nextItem ? imgMap.get(nextItem.url || nextItem.thumbnailUrl || '') : null;
+      const imgA = currentItem
+        ? imgMap.get(currentItem.id) ||
+          imgMap.get(resolveImageUrl(currentItem.thumbnailUrl || currentItem.url || '')) ||
+          imgMap.get(currentItem.thumbnailUrl || '') ||
+          imgMap.get(currentItem.url || '')
+        : null;
+      const imgB = nextItem
+        ? imgMap.get(nextItem.id) ||
+          imgMap.get(resolveImageUrl(nextItem.thumbnailUrl || nextItem.url || '')) ||
+          imgMap.get(nextItem.thumbnailUrl || '') ||
+          imgMap.get(nextItem.url || '')
+        : null;
 
       // Clear Canvas
       ctx.fillStyle = '#0a0a0d';
@@ -461,10 +493,19 @@ export const StoryVideoCreatorModal: React.FC<StoryVideoCreatorModalProps> = ({
     try {
       showToast('Rendering Video', 'Generating high-definition story reel...', 'info');
 
-      const photos = selectedItems.map((item) => ({
-        url: item.url || item.thumbnailUrl || '',
-        title: item.title,
-      }));
+      const photos: StoryPhotoItem[] = selectedItems.map((item) => {
+        const downloadUrl =
+          item.downloadUrl ||
+          (item.id ? `/api/galleries/media/${item.id}/download/` : undefined);
+        return {
+          id: item.id,
+          url: resolveImageUrl(downloadUrl || item.url || item.thumbnailUrl || ''),
+          downloadUrl: downloadUrl ? resolveImageUrl(downloadUrl) : undefined,
+          previewUrl: item.previewUrl ? resolveImageUrl(item.previewUrl) : undefined,
+          thumbnailUrl: item.thumbnailUrl ? resolveImageUrl(item.thumbnailUrl) : undefined,
+          title: item.title,
+        };
+      });
 
       const activeAudio = customAudioUrl || selectedTrack.audioUrl;
 
@@ -1221,16 +1262,6 @@ export const StoryVideoCreatorModal: React.FC<StoryVideoCreatorModalProps> = ({
                         />
                       </div>
                     </div>
-
-                    <label className="flex items-center gap-2 pt-1 text-xs text-neutral-300 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={includeWatermark}
-                        onChange={(e) => setIncludeWatermark(e.target.checked)}
-                        className="rounded border-neutral-700 text-amber-500 focus:ring-amber-500"
-                      />
-                      <span>Include Studio Watermark Attribution (© {defaultPhotographerName})</span>
-                    </label>
                   </div>
                 </div>
               )}

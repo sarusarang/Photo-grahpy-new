@@ -542,6 +542,7 @@ export const EventDetailPage: React.FC = () => {
           allowDownloads={true}
           galleryTitle={event.title}
           gallerySlug={event.slug || event.id}
+          isDashboard={true}
         />
       )}
 

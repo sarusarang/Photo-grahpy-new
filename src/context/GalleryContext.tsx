@@ -239,7 +239,7 @@ export const GalleryProvider: React.FC<{ children: React.ReactNode }> = ({ child
           typeof gal.favoritesCount === 'number' && gal.favoritesCount >= 0
             ? gal.favoritesCount
             : newMedia.filter((m) => m.isFavorite).length;
-        let nextCount = currentCount;
+        let nextCount: number;
         if (isFavorite) {
           if (gal.totalMediaCount && mediaIds.length >= gal.totalMediaCount) {
             nextCount = gal.totalMediaCount;

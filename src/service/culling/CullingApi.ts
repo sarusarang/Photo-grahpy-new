@@ -290,12 +290,12 @@ export const SyncCullingSessionApi = async (
     `/api/culling/sessions/${payload.session_id}/`,
   ];
 
-  let lastErr: any = null;
+  let _lastErr: any = null;
   for (const url of urlsToTry) {
     try {
       return await CommonApi<CullingActionResponse>('POST', url, payload);
     } catch (err: any) {
-      lastErr = err;
+      _lastErr = err;
       if (err?.response?.status && err.response.status !== 404) break;
     }
   }

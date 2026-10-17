@@ -50,7 +50,7 @@ export interface UseOtpTimerReturn {
 }
 
 const DEFAULT_VALIDITY_SECONDS = 10 * 60; // 10 minutes = 600s
-const DEFAULT_RESEND_COOLDOWN = 30; // 30s rate limit between resends
+const DEFAULT_RESEND_COOLDOWN = 60; // 60s rate limit between resends (matches backend otp_send limit)
 
 export const useOtpTimer = ({
   email = '',
@@ -186,12 +186,25 @@ export const useOtpTimer = ({
       }
     };
 
+    // Recalculate or synchronize if server throttle 429 event fires
+    const handleThrottleEvent = (e: Event) => {
+      const custom = e as CustomEvent<{ seconds?: number; url?: string }>;
+      if (custom.detail?.seconds) {
+        const sec = custom.detail.seconds;
+        const resendAt = Date.now() + sec * 1000;
+        setStoredTimestamp(resendStorageKey, resendAt);
+        setResendCooldown(sec);
+      }
+    };
+
     window.addEventListener('focus', updateTime);
+    window.addEventListener('api-throttled', handleThrottleEvent);
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
       window.removeEventListener('focus', updateTime);
+      window.removeEventListener('api-throttled', handleThrottleEvent);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [

@@ -53,7 +53,11 @@ export interface SubdomainAvailabilityResponse {
   name: string;
   available: boolean;
   reason: string | null;
+  error?: string | null;
   is_current_owner: boolean;
+  status?: string;
+  domain?: string;
+  url?: string;
 }
 
 export interface ClaimSubdomainPayload {
@@ -65,6 +69,34 @@ export interface ClaimSubdomainResponse {
   subdomain: string;
   domain: string;
   url: string;
+  live_url?: string;
+  direct_url?: string;
+  message?: string;
+  error?: string;
+  code?: string;
+}
+
+export type ProvisioningStatus = 'pending' | 'provisioning' | 'active' | 'failed';
+
+export interface SubdomainStatusResponse {
+  subdomain: string;
+  status: ProvisioningStatus;
+  domain: string;
+  url: string;
+  live_url?: string | null;
+  provisioned_at?: string;
+  dns_checked_at?: string;
+  error: string | null;
+  retry_allowed?: boolean;
+  retry_after_seconds?: number;
+  retry_count?: number;
+}
+
+export interface RetrySubdomainResponse {
+  status: ProvisioningStatus;
+  subdomain: string;
+  message: string;
+  retry_after_seconds?: number;
 }
 
 export interface PublicTenantInquiryPayload {
@@ -73,13 +105,17 @@ export interface PublicTenantInquiryPayload {
   client_phone?: string;
   event_type?: string;
   event_date?: string;
+  event_location?: string;
   location?: string;
+  estimated_budget?: string;
   budget?: string;
   message: string;
 }
 
 export interface PublicTenantInquiryResponse {
-  success: boolean;
+  success?: boolean;
+  status?: string;
+  message?: string;
   inquiry_id?: number | string;
 }
 

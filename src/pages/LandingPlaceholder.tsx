@@ -8,9 +8,14 @@ import {
   Menu,
   X,
   Sparkles,
+  Zap,
+  MessageCircle,
+  Camera,
+  Bike,
 } from 'lucide-react';
 import { Logo } from '../components/common/Logo';
 import { useAuth } from '../context/AuthContext';
+import { HeroSection } from '../components/home/HeroSection';
 
 /* -------------------------------------------------------------------------- */
 /* SVG Graphic Motifs from Reference Design (Image 1)                         */
@@ -85,106 +90,110 @@ const DiagonalHatchSvg: React.FC<{ className?: string }> = ({ className = '' }) 
 
 interface ProjectItem {
   id: string;
+  menuLabel: string;
+  tag: string;
   name: string;
   location: string;
   description: string;
   size: string;
   year: string;
   client: string;
+  stats: string;
   image: string;
   gallerySlug?: string;
 }
 
 const SELECTED_PROJECTS: ProjectItem[] = [
   {
-    id: 'casa-lumen',
-    name: 'Villa Balbiano Editorial',
+    id: 'active-essentials',
+    menuLabel: 'New Arrivals',
+    tag: 'EDITORIAL COLLECTION',
+    name: 'Active Essentials',
+    location: 'Studio Vault, Worldwide',
+    description:
+      'BUILT FOR MASTER ZERO-LOSS RAW FIDELITY AND HIGH-SPEED PROOFING. THE SPEED SERIES DELIVERS RESPONSIVE PERFORMANCE AND STREAMLINED GALLERY DELIVERY TO HELP YOUR CREATIVE STUDIO WORK FASTER AND DELIVER FLAWLESSLY.',
+    size: '380 RAW Frames',
+    year: '2026',
+    client: 'Active Editorial Crew',
+    stats: '380 RAW • 4K HDR • 0.8S INGEST',
+    image: '/active_editorial_crew.jpg',
+    gallerySlug: 'sarang-wedding-editorial',
+  },
+  {
+    id: 'best-sellers',
+    menuLabel: 'Best sellers',
+    tag: 'DESTINATION NUPTIALS',
+    name: 'Villa Balbiano Grand Gala',
     location: 'Lake Como, IT',
     description:
-      'An intimate editorial wedding captured along the shores of Lake Como, featuring vintage Riva wooden boat arrivals, Italian lace couture, and candlelit courtyards.',
-    size: '380 Photos',
-    year: '2024',
+      'AN INTIMATE EDITORIAL WEDDING CAPTURED ALONG THE SHORES OF LAKE COMO, FEATURING VINTAGE RIVA WOODEN BOATS, ITALIAN LACE COUTURE, AND CANDLELIT PALACE COURTYARDS.',
+    size: '520 Photos',
+    year: '2025',
     client: 'Elena & Julian',
+    stats: '520 PHOTOS • VINTAGE RIVA • LAKE COMO',
     image:
-      'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1800&q=85',
+      'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=2000&q=85',
     gallerySlug: 'sarang-wedding-editorial',
   },
   {
-    id: 'lunaris-estate',
-    name: 'Amanpuri Coastal Campaign',
+    id: 'editorial',
+    menuLabel: 'editorial',
+    tag: 'RUNWAY & COUTURE',
+    name: 'Parisian Autumn Campaign',
+    location: 'Paris, FR',
+    description:
+      'CAPTURING NATURAL SUNLIGHT AND HIGH-SPEED MOTION IN FULL DYNAMIC RANGE. TAILORED PROOFING SUITES AND DIGITAL WATERMARKING PRESERVE EVERY THREAD OF YOUR COUTURE VISION.',
+    size: '440 Photos',
+    year: '2025',
+    client: 'Vogue International',
+    stats: '440 FRAMES • LEICA 35MM • PARIS',
+    image:
+      'https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=2000&q=85',
+    gallerySlug: 'sarang-wedding-editorial',
+  },
+  {
+    id: 'documentary',
+    menuLabel: 'documentary',
+    tag: 'ZERO-LOSS VAULT',
+    name: 'Amanpuri Coastal Story',
     location: 'Phuket, TH',
     description:
-      'Tropical haute couture fashion editorial highlighting natural coconut palm shadows, sheer linen silhouettes, and private oceanfront villa pavilions.',
-    size: '520 Photos',
-    year: '2024',
-    client: 'Vogue International',
-    image:
-      'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&w=1800&q=85',
-    gallerySlug: 'sarang-wedding-editorial',
-  },
-  {
-    id: 'haven-point',
-    name: 'Château de Tourreau',
-    location: 'Provence, FR',
-    description:
-      'Classic French countryside celebration framed by blooming lavender fields, 17th-century cypress groves, and timeless neoclassical grandeur.',
-    size: '440 Photos',
-    year: '2024',
-    client: 'Camille & Antoine',
-    image:
-      'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?auto=format&fit=crop&w=1800&q=85',
-    gallerySlug: 'sarang-wedding-editorial',
-  },
-  {
-    id: 'silverleaf',
-    name: 'Katikies Aegean Bride',
-    location: 'Santorini, GR',
-    description:
-      'Sun-drenched Aegean bridal portraits framed by pristine whitewashed Caldera terraces, deep cobalt Mediterranean waters, and pure volcanic light.',
-    size: '310 Photos',
-    year: '2025',
-    client: 'Private Atelier',
-    image:
-      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=1800&q=85',
-    gallerySlug: 'sarang-wedding-editorial',
-  },
-  {
-    id: 'casa-verde',
-    name: 'Lunaris Desert Editorial',
-    location: 'Dubai, UAE',
-    description:
-      'Monolithic desert fashion campaign capturing warm travertine colonnades, dramatic dusk dunes, and floor-to-ceiling mirror installations.',
-    size: '680 Photos',
+      'UNCOMPRESSED HIGH-BITRATE INGESTION WITH ZERO QUALITY REDUCTION. DELIVER THOUSANDS OF HIGH-RESOLUTION SONY, CANON, AND FUJIFILM RAW FRAMES DIRECTLY TO CLIENT DEVICES IN UNDER 60 SECONDS.',
+    size: '680 RAW Frames',
     year: '2025',
     client: 'Lunaris Atelier',
-    image:
-      'https://images.unsplash.com/photo-1503899036084-c55cdd92da26?auto=format&fit=crop&w=1800&q=85',
+    stats: '680 RAW • SONY A1 • PHUKET',
+    image: '/bento_card1_camera.jpg',
     gallerySlug: 'sarang-wedding-editorial',
   },
   {
-    id: 'azure-horizon',
-    name: 'Palazzo Venart Grand Gala',
+    id: 'studio-suites',
+    menuLabel: 'studio suites',
+    tag: 'CLIENT SUITES',
+    name: 'Customized Studio Domains',
+    location: 'Worldwide Wildcard DNS',
+    description:
+      'WHITE-LABEL CLIENT DOMAINS, PASSWORD-PROTECTED PROOFING, AND MULTI-RESOLUTION DOWNLOADS CRAFTED FOR HIGH-PROFILE CELEBRITIES AND LUXURY STUDIOS WORLDWIDE.',
+    size: 'Bespoke Subdomains',
+    year: '2026',
+    client: 'Ex Share Studios',
+    stats: 'SUBDOMAINS • PIN ACCESS • QR CODES',
+    image: '/bento_card4_atelier.jpg',
+    gallerySlug: 'sarang-wedding-editorial',
+  },
+  {
+    id: 'accessories',
+    menuLabel: 'accessories',
+    tag: 'MUSEUM ARCHIVES',
+    name: 'Fine Art Print Proofing',
     location: 'Venice, IT',
     description:
-      'Atmospheric Venetian ball documented under misty Grand Canal lanterns, private gondola processions, and Renaissance frescoed salons.',
-    size: '490 Photos',
+      'PRESERVE NATURAL SKIN TONES AND DEEP SHADOW ACCENTS WITH CUSTOM 3D COLOR LUT PROFILES. INTEGRATE PRINT LAB FULFILLMENT DIRECTLY INTO CLIENT GALLERIES.',
+    size: '310 Archival Prints',
     year: '2025',
-    client: 'Isabella & Lorenzo',
-    image:
-      'https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?auto=format&fit=crop&w=1800&q=85',
-    gallerySlug: 'sarang-wedding-editorial',
-  },
-  {
-    id: 'serenity-estate',
-    name: 'Amangiri Canyon Serenity',
-    location: 'Utah, US',
-    description:
-      'Fine-art bridal session celebrating raw canyon sandstone, geometric negative space, and celestial sunset lighting in the American Southwest.',
-    size: '410 Photos',
-    year: '2025',
-    client: 'Soma Living',
-    image:
-      'https://images.unsplash.com/photo-1537633552985-df8429e8048b?auto=format&fit=crop&w=1800&q=85',
+    client: 'Venice Biennale',
+    stats: 'HAHNEMÜHLE RAG • 16-BIT COLOR • VENICE',
+    image: '/bento_card3_perfection.jpg',
     gallerySlug: 'sarang-wedding-editorial',
   },
 ];
@@ -303,6 +312,7 @@ export const LandingPlaceholder: React.FC = () => {
   const { isAuthenticated } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeProjectIndex, setActiveProjectIndex] = useState(0);
+  const [isProjectHovered, setIsProjectHovered] = useState(false);
   const [activeTestimonialIndex, setActiveTestimonialIndex] = useState(2); // Center card (Jean Smicelle)
   const [activeCategoryIndex, setActiveCategoryIndex] = useState(0);
   const [activeArticleIndex, setActiveArticleIndex] = useState(0);
@@ -310,6 +320,15 @@ export const LandingPlaceholder: React.FC = () => {
   const activeProject = SELECTED_PROJECTS[activeProjectIndex];
   const activeTestimonial = TESTIMONIALS[activeTestimonialIndex];
   const activeArticle = ARTICLE_DECK[activeArticleIndex];
+
+  // Slow, silky cinematic auto-rotation (pauses when user hovers over section)
+  useEffect(() => {
+    if (isProjectHovered) return;
+    const timer = setInterval(() => {
+      setActiveProjectIndex((prev) => (prev + 1) % SELECTED_PROJECTS.length);
+    }, 7000);
+    return () => clearInterval(timer);
+  }, [isProjectHovered]);
 
   // Prevent background scrolling when mobile menu is open
   useEffect(() => {
@@ -341,569 +360,556 @@ export const LandingPlaceholder: React.FC = () => {
   return (
     <div className="w-full bg-[#e8ecef] text-neutral-900 font-sans antialiased overflow-x-hidden selection:bg-neutral-900 selection:text-white">
       {/* ==================================================================== */}
-      {/* 1. HERO SECTION & TRANSPARENT FLOATING NAVBAR (Image 1)              */}
-      {/* Only Black Inset - No Whitish Haze                                   */}
+      {/* 1. HERO SECTION (Identical UI Layout from Reference Image)           */}
       {/* ==================================================================== */}
-      <section className="relative w-full h-[640px] sm:h-[740px] lg:h-[840px] overflow-hidden shadow-[inset_0_0_120px_rgba(0,0,0,0.85)]">
-        {/* Hero Background Image */}
-        <div className="absolute inset-0 z-0">
-          <img
-            src="https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=2600&q=85"
-            alt="Editorial Photography Villa Atmosphere"
-            className="w-full h-full object-cover object-center transform scale-105"
-          />
-          {/* Pure Crisp Black Inset & Cinema Scrim - NO whitish milky fade */}
-          <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/40 to-black/90 pointer-events-none" />
-          <div className="absolute inset-0 shadow-[inset_0_0_140px_rgba(0,0,0,0.9)] pointer-events-none" />
-        </div>
+      <HeroSection
+        headlineLine1="FRAME EVERY MOMENT"
+        headlineLine2="EVERY MASTERPIECE!"
+        primaryCtaText="EXPLORE VAULT"
+        primaryCtaLink="/signup"
+        secondaryCtaText="EXPLORE ALL"
+        secondaryCtaLink="#selected-projects"
+        photographerImage="/hero-photographer.png"
+        videoPreviewImage="/hero-video-still.jpg"
+        descriptionText="Ultra-fast RAW proofing without compromising original dynamic range. Our AI face tethering and cloud vault are built for high-stakes editorial and luxury wedding studios."
+      />
 
-        {/* Floating Transparent Navigation Bar */}
-        <header className="relative z-30 max-w-[1440px] mx-auto px-6 sm:px-10 lg:px-14 pt-7 sm:pt-9 flex items-center justify-between">
-          {/* Brand Logo */}
-          <Link
-            to="/"
-            className="flex items-center gap-2 group transition-transform duration-300 hover:scale-105"
-            title="EX SHARE"
-          >
-            <Logo variant="dark" className="h-7 sm:h-8 w-auto object-contain drop-shadow-md" />
-          </Link>
-
-          {/* Desktop Capsule Pill Navigation Bar */}
-          <nav className="hidden md:flex items-center gap-1.5 sm:gap-2.5 text-[11px] sm:text-xs font-medium tracking-wide">
-            <Link
-              to="/"
-              className="px-4 py-1.5 rounded-full bg-white text-neutral-900 font-semibold shadow-sm transition-transform duration-200 hover:scale-105"
-            >
-              HOME
-            </Link>
-            <a
-              href="#selected-projects"
-              className="px-4 py-1.5 rounded-full text-white/90 hover:text-white hover:bg-white/15 transition-all duration-200"
-            >
-              STUDIO
-            </a>
-            <a
-              href="#selected-projects"
-              className="px-4 py-1.5 rounded-full text-white/90 hover:text-white hover:bg-white/15 transition-all duration-200"
-            >
-              PROJECTS
-            </a>
-            <a
-              href="#upcoming-concept"
-              className="px-4 py-1.5 rounded-full text-white/90 hover:text-white hover:bg-white/15 transition-all duration-200"
-            >
-              SERVICES
-            </a>
-            <a
-              href="#testimonials"
-              className="px-4 py-1.5 rounded-full text-white/90 hover:text-white hover:bg-white/15 transition-all duration-200"
-            >
-              ABOUT
-            </a>
-
-            {/* Dynamic Auth Button: Login / Sign In or Dashboard */}
-            {isAuthenticated ? (
-              <Link
-                to="/dashboard/overview"
-                className="px-5 py-1.5 rounded-full bg-amber-400 hover:bg-amber-300 text-neutral-950 font-bold transition-all duration-300 shadow-md shadow-amber-500/20 flex items-center gap-1.5 hover:scale-105"
-              >
-                <span>DASHBOARD</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </Link>
-            ) : (
-              <Link
-                to="/login"
-                className="px-5 py-1.5 rounded-full border border-white/70 text-white hover:bg-white hover:text-neutral-900 transition-all duration-300 font-semibold shadow-sm hover:scale-105"
-              >
-                LOGIN / SIGN IN
-              </Link>
-            )}
-          </nav>
-
-          {/* Mobile Hamburger Trigger */}
-          <button
-            onClick={() => setMobileMenuOpen(true)}
-            className="md:hidden p-2 rounded-full bg-black/40 backdrop-blur-md text-white border border-white/20 hover:bg-black/60 transition-all"
-            aria-label="Open Navigation Menu"
-          >
-            <Menu className="w-5 h-5" />
-          </button>
-        </header>
-
-        {/* Mobile Navigation Drawer */}
-        <AnimatePresence>
-          {mobileMenuOpen && (
-            <motion.div
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.25 }}
-              className="fixed inset-0 z-50 md:hidden bg-neutral-950/95 backdrop-blur-2xl flex flex-col justify-between p-6"
-            >
-              <div className="flex items-center justify-between">
-                <Logo variant="dark" className="h-7 w-auto object-contain" />
-                <button
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="p-2 rounded-full bg-white/10 text-white hover:bg-white/20"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <div className="flex flex-col gap-6 text-2xl font-light text-white my-auto">
-                <Link
-                  to="/"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="font-medium text-white"
-                >
-                  HOME
-                </Link>
-                <a
-                  href="#selected-projects"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="text-neutral-300 hover:text-white"
-                >
-                  STUDIO
-                </a>
-                <a
-                  href="#selected-projects"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="text-neutral-300 hover:text-white"
-                >
-                  PROJECTS
-                </a>
-                <a
-                  href="#upcoming-concept"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="text-neutral-300 hover:text-white"
-                >
-                  SERVICES
-                </a>
-                <a
-                  href="#testimonials"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="text-neutral-300 hover:text-white"
-                >
-                  ABOUT
-                </a>
-              </div>
-
-              <div className="flex flex-col gap-3">
-                {isAuthenticated ? (
-                  <Link
-                    to="/dashboard/overview"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="w-full py-4 rounded-full bg-amber-400 text-neutral-950 text-center font-bold text-xs uppercase tracking-widest shadow-xl flex items-center justify-center gap-2 hover:bg-amber-300 transition-all"
-                  >
-                    <span>Open Dashboard</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </Link>
-                ) : (
-                  <>
-                    <Link
-                      to="/login"
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="w-full py-4 rounded-full bg-white text-neutral-950 text-center font-bold text-xs uppercase tracking-widest shadow-xl"
-                    >
-                      Login / Sign In
-                    </Link>
-                    <Link
-                      to="/signup"
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="w-full py-3.5 rounded-full border border-white/30 text-white text-center text-xs font-semibold uppercase tracking-wider hover:bg-white/10"
-                    >
-                      Create Account
-                    </Link>
-                  </>
-                )}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Hero Headline Typography (Exact Layout from Image 1 with Motion Animation) */}
-        <div className="relative z-20 max-w-[1440px] mx-auto px-6 sm:px-10 lg:px-14 pt-14 sm:pt-20 lg:pt-24 text-white">
+      {/* ==================================================================== */}
+      {/* ==================================================================== */}
+      {/* 2. OVERLAPPING BENTO GRID CONTAINER (Image 1)                        */}
+      {/* Wide Container, Reduced Gaps, Framer Motion Stagger                  */}
+      {/* ==================================================================== */}
+      <section className="relative z-20 max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-14 mt-4 sm:mt-8 lg:mt-12 pb-10 sm:pb-16 overflow-x-clip">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-12 gap-4 sm:gap-6">
+          {/* Card 1: Large Card with Studio Camera Gear (Top Left) - Enters from LEFT */}
           <motion.div
-            initial={{ opacity: 0, y: 35 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.85, ease: [0.22, 1, 0.36, 1] }}
-            className="max-w-5xl"
+            initial={{ opacity: 0, x: -70, scale: 0.96 }}
+            whileInView={{ opacity: 1, x: 0, scale: 1 }}
+            viewport={{ once: true, amount: 0.2 }}
+            transition={{ duration: 1.1, delay: 0.08, ease: [0.16, 1, 0.3, 1] }}
+            whileHover={{ y: -4, transition: { duration: 0.35, ease: 'easeOut' } }}
+            className="col-span-1 sm:col-span-2 md:col-span-6 rounded-[28px] sm:rounded-[32px] p-6 sm:p-9 md:p-12 border border-white/10 shadow-[0_20px_45px_rgba(0,0,0,0.12)] flex flex-col justify-between active:scale-[0.99] relative overflow-hidden group min-h-[380px] sm:min-h-[420px] md:min-h-[460px] bg-neutral-950 will-change-transform"
           >
-            {/* Line 1 */}
-            <h1 className="text-4xl sm:text-6xl md:text-7xl lg:text-[88px] font-normal tracking-[-0.03em] leading-[1.08] text-white">
-              Infinite
-            </h1>
+            {/* Photography Studio Camera Gear Background */}
+            <img
+              src="/bento_card1_camera.jpg"
+              alt="EX SHARE Professional Photography Studio Gear"
+              className="absolute inset-0 w-full h-full object-cover object-[75%_center] group-hover:scale-105 transition-transform duration-700 pointer-events-none"
+            />
+            {/* Directional Gradient Scrim: ensures sharp text legibility while camera on right remains 100% visible */}
+            <div className="absolute inset-0 bg-gradient-to-t from-neutral-950/95 via-neutral-950/50 to-neutral-950/30 sm:bg-gradient-to-r sm:from-neutral-950/95 sm:via-neutral-950/55 sm:to-transparent pointer-events-none" />
 
-            {/* Line 2 with Concentric Capsule SVG */}
-            <div className="flex flex-wrap items-center gap-3 sm:gap-6 mt-1 sm:mt-2">
-              <ConcentricCapsuleSvg className="w-28 sm:w-40 md:w-44 h-auto" />
-              <span className="text-4xl sm:text-6xl md:text-7xl lg:text-[88px] font-normal tracking-[-0.03em] leading-[1.08] text-white">
-                Sharing,
+            <div className="relative z-10">
+              <span className="text-[10px] sm:text-[11px] font-bold tracking-[0.2em] uppercase text-amber-400 block mb-2 sm:mb-3">
+                ABOUT EX SHARE
               </span>
+              <h2 className="text-3xl sm:text-4xl md:text-5xl font-light tracking-tight text-white mt-2 sm:mt-4 leading-[1.12]">
+                Moments
+                <br />
+                that speak
+              </h2>
             </div>
+            <p className="relative z-10 text-xs sm:text-sm text-neutral-200 mt-6 sm:mt-10 md:mt-12 leading-relaxed max-w-sm font-normal">
+              Our platform is rooted in the photographer&apos;s craft, delivering high-resolution client galleries, AI face discovery, and seamless proofing that evoke emotion and leave lasting impressions.
+            </p>
+          </motion.div>
 
-            {/* Line 3 */}
-            <div className="flex flex-wrap items-center gap-3 sm:gap-6 mt-1 sm:mt-2">
-              <span className="text-4xl sm:text-6xl md:text-7xl lg:text-[88px] font-normal tracking-[-0.03em] leading-[1.08] text-white">
-                Instant
+          {/* Card 2: Vertical Card - Contemporary Storytelling (Top Center-Right) - Enters from UP (TOP) */}
+          <motion.div
+            initial={{ opacity: 0, y: -70, scale: 0.96 }}
+            whileInView={{ opacity: 1, y: 0, scale: 1 }}
+            viewport={{ once: true, amount: 0.2 }}
+            transition={{ duration: 1.1, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
+            whileHover={{ y: -4, transition: { duration: 0.35, ease: 'easeOut' } }}
+            className="col-span-1 sm:col-span-1 md:col-span-3 rounded-[28px] sm:rounded-[32px] p-6 sm:p-7 md:p-8 shadow-[0_16px_36px_rgba(0,0,0,0.12)] border border-white/10 flex flex-col justify-between min-h-[360px] sm:min-h-[400px] md:min-h-[460px] active:scale-[0.99] group relative overflow-hidden bg-neutral-950 will-change-transform"
+          >
+            {/* Rooftop Editorial Photographer Background */}
+            <img
+              src="/bento_card2_storytelling.jpg"
+              alt="Contemporary Storytelling Photography"
+              className="absolute inset-0 w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700 pointer-events-none"
+            />
+            {/* Cinematic Gradient Scrim */}
+            <div className="absolute inset-0 bg-gradient-to-t from-neutral-950/90 via-neutral-950/40 to-neutral-950/60 pointer-events-none" />
+
+            <div className="relative z-10">
+              <span className="text-[10px] sm:text-[11px] font-bold tracking-[0.2em] uppercase text-amber-300 block mb-3">
+                CURATION
               </span>
+              <h3 className="text-2xl sm:text-2xl md:text-3xl font-light tracking-tight text-white leading-snug">
+                Contemporary
+                <br />
+                Storytelling
+              </h3>
             </div>
+            <div className="relative z-10 mt-auto pt-6 border-t border-white/15">
+              <p className="text-xs sm:text-sm text-neutral-200 leading-relaxed font-normal">
+                Creating modern client galleries that feel warm, cinematic, and deeply personal.
+              </p>
+            </div>
+          </motion.div>
 
-            {/* Line 4 with Diagonal Hatch Lines SVG */}
-            <div className="flex flex-wrap items-center gap-3 sm:gap-6 mt-1 sm:mt-2">
-              <span className="text-4xl sm:text-6xl md:text-7xl lg:text-[88px] font-normal tracking-[-0.03em] leading-[1.08] text-white">
-                Connections
+          {/* Card 3: Vertical Card - Artistic Frame Balance (Top Right) - Enters from RIGHT */}
+          <motion.div
+            initial={{ opacity: 0, x: 70, scale: 0.96 }}
+            whileInView={{ opacity: 1, x: 0, scale: 1 }}
+            viewport={{ once: true, amount: 0.2 }}
+            transition={{ duration: 1.1, delay: 0.32, ease: [0.16, 1, 0.3, 1] }}
+            whileHover={{ y: -4, transition: { duration: 0.35, ease: 'easeOut' } }}
+            className="col-span-1 sm:col-span-1 md:col-span-3 rounded-[28px] sm:rounded-[32px] p-6 sm:p-7 md:p-8 shadow-[0_16px_36px_rgba(0,0,0,0.12)] border border-white/10 flex flex-col justify-between min-h-[360px] sm:min-h-[400px] md:min-h-[460px] active:scale-[0.99] group relative overflow-hidden bg-neutral-950 will-change-transform"
+          >
+            {/* Leica Noctilux Precision Optical Element Background */}
+            <img
+              src="/bento_card3_perfection.jpg"
+              alt="Artistic Frame Balance & Optical Precision"
+              className="absolute inset-0 w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700 pointer-events-none"
+            />
+            {/* Cinematic Gradient Scrim */}
+            <div className="absolute inset-0 bg-gradient-to-t from-neutral-950/90 via-neutral-950/40 to-neutral-950/60 pointer-events-none" />
+
+            <div className="relative z-10">
+              <span className="text-[10px] sm:text-[11px] font-bold tracking-[0.2em] uppercase text-amber-300 block mb-3">
+                PERFECTION
               </span>
-              <DiagonalHatchSvg className="w-24 sm:w-32 md:w-36 h-auto" />
+              <h3 className="text-2xl sm:text-2xl md:text-3xl font-light tracking-tight text-white leading-snug">
+                Artistic Frame
+                <br />
+                Balance
+              </h3>
+            </div>
+            <div className="relative z-10 mt-auto pt-6 border-t border-white/15">
+              <p className="text-xs sm:text-sm text-neutral-200 leading-relaxed font-normal">
+                Combining master zero-loss RAW preservation with high-speed delivery to perfect every space.
+              </p>
+            </div>
+          </motion.div>
+
+          {/* Card 4: Wide Card with European Palace Atelier Image (Bottom Left) - Enters from DOWN / BOTTOM */}
+          <motion.div
+            initial={{ opacity: 0, y: 70, x: -30, scale: 0.96 }}
+            whileInView={{ opacity: 1, y: 0, x: 0, scale: 1 }}
+            viewport={{ once: true, amount: 0.15 }}
+            transition={{ duration: 1.15, delay: 0.22, ease: [0.16, 1, 0.3, 1] }}
+            whileHover={{ y: -4, transition: { duration: 0.35, ease: 'easeOut' } }}
+            className="col-span-1 sm:col-span-2 md:col-span-8 rounded-[28px] sm:rounded-[32px] overflow-hidden shadow-[0_16px_36px_rgba(0,0,0,0.12)] border border-white/10 relative min-h-[340px] sm:min-h-[380px] md:min-h-[400px] flex flex-col justify-between p-6 sm:p-9 md:p-11 active:scale-[0.99] group bg-neutral-950 will-change-transform"
+          >
+            {/* European Palace Wedding Editorial Background */}
+            <img
+              src="/bento_card4_atelier.jpg"
+              alt="Customized Atelier Luxury Wedding Editorial"
+              className="absolute inset-0 w-full h-full object-cover object-[70%_center] group-hover:scale-105 transition-transform duration-700 pointer-events-none"
+            />
+            {/* Directional Gradient Scrim */}
+            <div className="absolute inset-0 bg-gradient-to-t from-neutral-950/95 via-neutral-950/50 to-neutral-950/30 sm:bg-gradient-to-r sm:from-neutral-950/95 sm:via-neutral-950/60 sm:to-transparent pointer-events-none" />
+
+            <div className="relative z-10 sm:max-w-xs md:max-w-sm">
+              <span className="text-[10px] sm:text-[11px] font-bold tracking-[0.2em] uppercase text-amber-300 block mb-3">
+                BESPOKE GALLERIES
+              </span>
+              <h3 className="text-2xl sm:text-3xl md:text-4xl font-light tracking-tight text-white leading-tight">
+                Customized
+                <br />
+                Ateliers
+              </h3>
+            </div>
+            <p className="relative z-10 text-xs sm:text-sm text-neutral-200 mt-6 sm:mt-auto leading-relaxed max-w-sm font-normal">
+              Creating unique client suites and custom domains that reflect your studio&apos;s signature style.
+            </p>
+          </motion.div>
+
+          {/* Card 5: Dark Event Celebration Photo Card (Bottom Right) - Enters from RIGHT & DOWN */}
+          <motion.div
+            initial={{ opacity: 0, y: 70, x: 40, scale: 0.96 }}
+            whileInView={{ opacity: 1, y: 0, x: 0, scale: 1 }}
+            viewport={{ once: true, amount: 0.15 }}
+            transition={{ duration: 1.15, delay: 0.35, ease: [0.16, 1, 0.3, 1] }}
+            whileHover={{ y: -4, transition: { duration: 0.35, ease: 'easeOut' } }}
+            className="col-span-1 sm:col-span-2 md:col-span-4 rounded-[28px] sm:rounded-[32px] overflow-hidden relative shadow-[0_16px_36px_rgba(0,0,0,0.12)] border border-white/10 min-h-[340px] sm:min-h-[380px] md:min-h-[400px] flex flex-col justify-between p-6 sm:p-9 md:p-11 group active:scale-[0.99] bg-neutral-950 will-change-transform"
+          >
+            {/* High-Contrast Luxury Evening Celebration Background */}
+            <img
+              src="/bento_card5_liveevent.jpg"
+              alt="Real-Time Event Ingestion and Live Guest Sharing"
+              className="absolute inset-0 w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700 pointer-events-none"
+            />
+            {/* Contrast Overlay */}
+            <div className="absolute inset-0 bg-gradient-to-t from-neutral-950/90 via-neutral-950/45 to-neutral-950/60 pointer-events-none" />
+
+            <div className="relative z-10">
+              <span className="text-[10px] sm:text-[11px] font-bold tracking-[0.2em] uppercase text-amber-300 block mb-3">
+                LIVE DELIVERY
+              </span>
+              <h3 className="text-2xl sm:text-3xl font-light tracking-tight text-white leading-tight">
+                Real-Time
+                <br />
+                Guest Sharing
+              </h3>
+            </div>
+            <div className="relative z-10 mt-auto pt-6 border-t border-white/15">
+              <p className="text-xs sm:text-sm text-neutral-200 leading-relaxed font-normal">
+                Transforming live event captures into instant guest experiences before the celebration ends.
+              </p>
             </div>
           </motion.div>
         </div>
       </section>
 
       {/* ==================================================================== */}
-      {/* 2. OVERLAPPING BENTO GRID CONTAINER (Image 1)                        */}
-      {/* Wide Container, Reduced Gaps, Framer Motion Stagger                  */}
       {/* ==================================================================== */}
-      <section className="relative z-20 max-w-[1440px] mx-auto px-6 sm:px-10 lg:px-14 -mt-24 sm:-mt-36 lg:-mt-48 pb-12 sm:pb-16">
-        <motion.div
-          initial={{ opacity: 0, y: 40 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: '-60px' }}
-          transition={{ duration: 0.75, ease: [0.22, 1, 0.36, 1] }}
-          className="grid grid-cols-1 md:grid-cols-12 gap-5 sm:gap-6"
-        >
-          {/* Card 1: Large Frosted Glass Card (Top Left) */}
-          <div className="md:col-span-6 bg-white/90 backdrop-blur-2xl rounded-[32px] p-8 sm:p-12 border border-white/70 shadow-[0_20px_45px_rgba(0,0,0,0.06)] flex flex-col justify-between transition-transform duration-300 hover:translate-y-[-2px]">
-            <div>
-              <span className="text-[10px] font-bold tracking-[0.2em] uppercase text-neutral-400">
-                ABOUT FORMAT
-              </span>
-              <h2 className="text-4xl sm:text-5xl font-normal tracking-tight text-neutral-900 mt-6 leading-[1.12]">
-                Spaces
-                <br />
-                that speak
-              </h2>
-            </div>
-            <p className="text-xs sm:text-sm text-neutral-600 mt-8 sm:mt-14 leading-relaxed max-w-sm">
-              Our work is rooted in the human experience, crafting spaces that evoke emotion, invite
-              interaction, and leave lasting impressions.
-            </p>
-          </div>
-
-          {/* Card 2: Vertical Pure White Card (Top Center-Right) */}
-          <div className="md:col-span-3 bg-white rounded-[32px] p-7 sm:p-8 shadow-[0_12px_32px_rgba(0,0,0,0.04)] border border-neutral-100 flex flex-col justify-between min-h-[290px] transition-transform duration-300 hover:translate-y-[-2px]">
-            <div>
-              <h3 className="text-2xl font-normal tracking-tight text-neutral-900 leading-snug">
-                Contemporary
-                <br />
-                Visioning
-              </h3>
-            </div>
-            <p className="text-xs text-neutral-500 leading-relaxed mt-auto pt-8">
-              Creating modern spaces that feel warm and personal.
-            </p>
-          </div>
-
-          {/* Card 3: Vertical Pure White Card (Top Right) */}
-          <div className="md:col-span-3 bg-white rounded-[32px] p-7 sm:p-8 shadow-[0_12px_32px_rgba(0,0,0,0.04)] border border-neutral-100 flex flex-col justify-between min-h-[290px] transition-transform duration-300 hover:translate-y-[-2px]">
-            <div>
-              <h3 className="text-2xl font-normal tracking-tight text-neutral-900 leading-snug">
-                Artistic Form
-                <br />
-                Balance
-              </h3>
-            </div>
-            <p className="text-xs text-neutral-500 leading-relaxed mt-auto pt-8">
-              Combining vision and detail to perfect every space.
-            </p>
-          </div>
-
-          {/* Card 4: Wide Card with Architectural Canopy (Bottom Left) */}
-          <div className="md:col-span-8 bg-white rounded-[32px] overflow-hidden shadow-[0_12px_32px_rgba(0,0,0,0.04)] border border-neutral-100 relative min-h-[320px] flex flex-col sm:flex-row justify-between transition-transform duration-300 hover:translate-y-[-2px] group">
-            <div className="p-8 sm:p-10 flex flex-col justify-between z-10 sm:max-w-xs">
-              <h3 className="text-2xl sm:text-3xl font-normal tracking-tight text-neutral-900 leading-tight">
-                Customized
-                <br />
-                Design
-              </h3>
-              <p className="text-xs text-neutral-500 mt-8 sm:mt-auto leading-relaxed">
-                Creating unique interiors that reflect client's lifestyle.
-              </p>
-            </div>
-            {/* White Canopy Facade Image */}
-            <div className="relative sm:w-1/2 min-h-[200px] sm:min-h-full overflow-hidden">
-              <img
-                src="https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=1200&q=85"
-                alt="Customized Minimalist Canopy"
-                className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700"
-              />
-            </div>
-          </div>
-
-          {/* Card 5: Dark Architectural Building Photo Card (Bottom Right) */}
-          <div className="md:col-span-4 rounded-[32px] overflow-hidden relative shadow-[0_12px_32px_rgba(0,0,0,0.04)] min-h-[320px] flex flex-col justify-between p-8 group transition-transform duration-300 hover:translate-y-[-2px]">
-            {/* Monochrome High-Contrast Architecture Background */}
-            <img
-              src="https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=800&q=85"
-              alt="Monochrome Architectural Building"
-              className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-            />
-            {/* Contrast Overlay */}
-            <div className="absolute inset-0 bg-gradient-to-t from-neutral-950/90 via-neutral-900/40 to-neutral-950/60" />
-
-            <div className="relative z-10">
-              <h3 className="text-2xl sm:text-3xl font-normal tracking-tight text-white leading-tight">
-                Elegant Living
-                <br />
-                Design
-              </h3>
-            </div>
-            <div className="relative z-10 mt-auto pt-8">
-              <p className="text-xs text-white/80 leading-relaxed">
-                Transforming interiors into daily experiences.
-              </p>
-            </div>
-          </div>
-        </motion.div>
-      </section>
-
-      {/* ==================================================================== */}
-      {/* 3. SELECTED PROJECTS SECTION (Image 2)                               */}
-      {/* Wide Container, Reduced Gaps, Framer Motion                          */}
+      {/* 3. FULL-SCREEN EDITORIAL CINEMATIC SHOWCASE (Edge-to-Edge)           */}
+      {/* 100vh Full Screen, No Rounded Corners, Slow Cinematic Animation      */}
       {/* ==================================================================== */}
       <section
         id="selected-projects"
-        className="w-full py-12 sm:py-16 max-w-[1440px] mx-auto px-6 sm:px-10 lg:px-14"
+        onMouseEnter={() => setIsProjectHovered(true)}
+        onMouseLeave={() => setIsProjectHovered(false)}
+        className="w-full min-h-[100dvh] lg:h-screen lg:max-h-[100dvh] relative overflow-hidden bg-neutral-950 flex flex-col justify-between px-6 sm:px-10 lg:px-16 xl:px-24 py-8 sm:py-10 lg:py-12 select-none"
       >
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: '-60px' }}
-          transition={{ duration: 0.65 }}
-        >
-          {/* Centered Heading */}
-          <h2 className="text-4xl sm:text-5xl lg:text-6xl font-normal tracking-tight text-neutral-900 text-center mb-12 sm:mb-14">
-            Selected Projects
-          </h2>
+        {/* Full-Bleed Edge-to-Edge Background Image with Smooth Crossfade & Cinematic Drift */}
+        <div className="absolute inset-0 overflow-hidden bg-neutral-950 pointer-events-none">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeProject.id}
+              initial={{ opacity: 0, scale: 1.05 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.98 }}
+              transition={{ duration: 1.1, ease: [0.22, 1, 0.36, 1] }}
+              className="absolute inset-0 w-full h-full"
+            >
+              <motion.img
+                src={activeProject.image}
+                alt={activeProject.name}
+                animate={{ scale: [1, 1.03] }}
+                transition={{
+                  duration: 16,
+                  repeat: Infinity,
+                  repeatType: 'reverse',
+                  ease: 'easeInOut',
+                }}
+                className="w-full h-full object-cover object-center"
+              />
+            </motion.div>
+          </AnimatePresence>
 
-          {/* Two-Column Interactive Layout */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
-            {/* Left Column: 7-Item Vertical Text List */}
-            <div className="lg:col-span-4 flex flex-col gap-3.5 sm:gap-4.5">
+          {/* Clean, Bright Photo Presentation - Minimal Soft Gradient (Cleared Photo) */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-black/15 pointer-events-none" />
+        </div>
+
+        {/* Top-Left: Bullet Tag & Large Headline */}
+        <div className="relative z-10 max-w-3xl">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={`tag-${activeProject.id}`}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+              className="flex items-center gap-2 text-white text-[11px] sm:text-xs font-semibold tracking-[0.25em] uppercase drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block animate-pulse" />
+              <span>• {activeProject.tag}</span>
+            </motion.div>
+          </AnimatePresence>
+
+          <AnimatePresence mode="wait">
+            <motion.h2
+              key={`title-${activeProject.id}`}
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -12 }}
+              transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
+              className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-light tracking-tight text-white mt-1.5 leading-tight drop-shadow-[0_2px_14px_rgba(0,0,0,0.85)]"
+            >
+              {activeProject.name}
+            </motion.h2>
+          </AnimatePresence>
+        </div>
+
+        {/* Bottom Grid: Left Narrative + Right Monogram & Categories */}
+        <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-end mt-auto pt-6">
+          {/* Left Column: All-Caps Wide-Tracked Narrative + Quick CTA */}
+          <div className="lg:col-span-7 flex flex-col justify-end">
+            <AnimatePresence mode="wait">
+              <motion.p
+                key={`desc-${activeProject.id}`}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.65, delay: 0.08, ease: [0.16, 1, 0.3, 1] }}
+                className="text-xs sm:text-[13px] font-normal tracking-[0.12em] uppercase text-white max-w-lg lg:max-w-xl leading-relaxed drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)]"
+              >
+                {activeProject.description}
+              </motion.p>
+            </AnimatePresence>
+
+            {/* Action Link & Pill Stats */}
+            <div className="mt-4 flex flex-wrap items-center gap-2.5">
+              <Link
+                to={activeProject.gallerySlug ? `/gallery/${activeProject.gallerySlug}` : '/dashboard/gallery'}
+                target="_blank"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/20 hover:bg-white text-white hover:text-neutral-950 backdrop-blur-md border border-white/35 text-[11px] font-semibold tracking-wider uppercase transition-all duration-300 group/btn shadow-lg"
+              >
+                <span>EXPLORE VAULT</span>
+                <ArrowRight className="w-3 h-3 group-hover/btn:translate-x-1 transition-transform" />
+              </Link>
+              <div className="px-3 py-1.5 rounded-full bg-black/50 backdrop-blur-sm border border-white/15 text-white/90 text-[10px] font-mono tracking-wider uppercase shadow-md">
+                {activeProject.stats}
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column: Monogram & Stacked Category Menu */}
+          <div className="lg:col-span-5 flex flex-col items-start lg:items-end justify-end">
+            {/* Brand Monogram Badge (Image 1 Style: C ⚡ F -> EX ⚡ SHARE) */}
+            <div className="flex items-center gap-1.5 text-white font-bold tracking-[0.22em] text-sm sm:text-base drop-shadow-[0_2px_8px_rgba(0,0,0,0.85)] mb-2 sm:mb-3">
+              <span>EX</span>
+              <Zap className="w-3.5 h-3.5 text-amber-400 fill-amber-400 animate-pulse" />
+              <span>SHARE</span>
+            </div>
+
+            {/* Stacked Categories List (Image 1 exact alignment and arrow) */}
+            <div className="flex flex-col gap-1 sm:gap-1.5 w-full lg:w-auto">
               {SELECTED_PROJECTS.map((project, index) => {
                 const isActive = index === activeProjectIndex;
                 return (
                   <button
                     key={project.id}
                     onClick={() => setActiveProjectIndex(index)}
-                    className={`text-left transition-all duration-300 py-1 flex flex-col cursor-pointer ${
+                    onMouseEnter={() => {
+                      setIsProjectHovered(true);
+                      setActiveProjectIndex(index);
+                    }}
+                    className={`group text-left lg:text-right transition-all duration-300 flex items-center justify-start lg:justify-end gap-2.5 cursor-pointer py-0.5 ${
                       isActive
-                        ? 'border-l-2 border-neutral-950 pl-5 opacity-100'
-                        : 'border-l-2 border-transparent pl-5 opacity-40 hover:opacity-80'
+                        ? 'text-white'
+                        : 'text-white/60 hover:text-white'
                     }`}
                   >
                     <span
-                      className={`text-base sm:text-lg tracking-tight ${
-                        isActive ? 'font-semibold text-neutral-950' : 'font-normal text-neutral-700'
+                      className={`text-xl sm:text-2xl lg:text-[24px] xl:text-[28px] tracking-tight transition-all duration-300 drop-shadow-[0_2px_8px_rgba(0,0,0,0.85)] ${
+                        isActive
+                          ? 'font-medium text-white'
+                          : 'font-normal'
                       }`}
                     >
-                      {project.name}
+                      {project.menuLabel}
                     </span>
-                    <span className="text-xs text-neutral-500 mt-0.5">{project.location}</span>
+
+                    {/* Smooth Arrow for Active Category */}
+                    {isActive && (
+                      <motion.span
+                        layoutId="activeCollectionArrow"
+                        initial={{ opacity: 0, x: -6 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                        className="inline-block text-white text-xl sm:text-2xl lg:text-[26px] leading-none font-light drop-shadow-[0_2px_8px_rgba(0,0,0,0.85)]"
+                      >
+                        →
+                      </motion.span>
+                    )}
                   </button>
                 );
               })}
             </div>
-
-            {/* Right Column: Large Curved Project Photo Card with Floating Info */}
-            <div className="lg:col-span-8">
-              <div className="rounded-[36px] overflow-hidden relative aspect-[4/3] sm:aspect-[16/10] shadow-2xl bg-neutral-950 group">
-                {/* Active Image with smooth crossfade */}
-                <AnimatePresence mode="wait">
-                  <motion.img
-                    key={activeProject.id}
-                    src={activeProject.image}
-                    alt={activeProject.name}
-                    initial={{ opacity: 0, scale: 1.04 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.6, ease: 'easeOut' }}
-                    className="w-full h-full object-cover object-center"
-                  />
-                </AnimatePresence>
-
-                {/* Dark Gradient Scrim */}
-                <div className="absolute inset-0 bg-gradient-to-t from-neutral-950/80 via-transparent to-black/30 pointer-events-none" />
-
-                {/* Floating Frosted White Card in Top-Left */}
-                <motion.div
-                  key={`card-${activeProject.id}`}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.4 }}
-                  className="absolute top-6 left-6 sm:top-8 sm:left-8 bg-white/95 backdrop-blur-md rounded-2xl p-6 sm:p-7 max-w-xs sm:max-w-sm shadow-xl border border-white/70"
-                >
-                  <h4 className="text-xl sm:text-2xl font-normal tracking-tight text-neutral-900">
-                    {activeProject.name}
-                  </h4>
-                  <p className="text-xs text-neutral-600 mt-2.5 leading-relaxed">
-                    {activeProject.description}
-                  </p>
-                  <Link
-                    to={activeProject.gallerySlug ? `/gallery/${activeProject.gallerySlug}` : '/dashboard/gallery'}
-                    target="_blank"
-                    className="inline-flex items-center gap-1.5 text-[11px] font-bold tracking-widest uppercase text-neutral-900 hover:text-neutral-600 mt-4 transition-colors group/link"
-                  >
-                    <span>READ MORE</span>
-                    <ArrowRight className="w-3 h-3 group-hover/link:translate-x-1 transition-transform" />
-                  </Link>
-                </motion.div>
-
-                {/* Bottom Metadata Overlay Strip */}
-                <div className="absolute bottom-6 left-6 right-6 sm:bottom-8 sm:left-8 sm:right-8 flex items-center justify-between text-white border-t border-white/20 pt-4 backdrop-blur-[2px]">
-                  <div>
-                    <div className="text-[10px] uppercase tracking-wider text-white/70">Size</div>
-                    <div className="text-xl sm:text-2xl font-light tracking-tight text-white mt-0.5">
-                      {activeProject.size}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-[10px] uppercase tracking-wider text-white/70">
-                      Completion
-                    </div>
-                    <div className="text-xl sm:text-2xl font-light tracking-tight text-white mt-0.5">
-                      {activeProject.year}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-[10px] uppercase tracking-wider text-white/70">Client</div>
-                    <div className="text-xl sm:text-2xl font-light tracking-tight text-white mt-0.5">
-                      {activeProject.client}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
-        </motion.div>
+        </div>
       </section>
 
       {/* ==================================================================== */}
-      {/* 4. VOICES FROM THOSE WE'VE BUILT WITH (Image 3 Top)                  */}
-      {/* Wide Container, Reduced Gaps, Framer Motion Animations               */}
+      {/* 4. TESTIMONIALS & PHOTOGRAPHY JOURNEY (Adapted to EX SHARE Site)    */}
+      {/* Exact replica of the reference design with photography craft assets  */}
       {/* ==================================================================== */}
       <section
         id="testimonials"
-        className="w-full py-12 sm:py-16 max-w-[1440px] mx-auto px-6 sm:px-10 lg:px-14"
+        className="w-full py-12 sm:py-20 lg:py-24 max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-12 select-none"
       >
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: '-60px' }}
-          transition={{ duration: 0.65 }}
-        >
-          <h2 className="text-4xl sm:text-5xl lg:text-6xl font-normal tracking-tight text-neutral-900 text-center mb-12 sm:mb-16">
-            Voices from those we've
-            <br />
-            built with.
-          </h2>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 lg:gap-10 xl:gap-12 items-stretch">
+          {/* LEFT COLUMN: HERO TESTIMONIAL CARD */}
+          <motion.div
+            initial={{ opacity: 0, x: -60, scale: 0.97 }}
+            whileInView={{ opacity: 1, x: 0, scale: 1 }}
+            viewport={{ once: true, amount: 0.2 }}
+            transition={{ duration: 1.0, ease: [0.16, 1, 0.3, 1] }}
+            className="lg:col-span-5 relative rounded-[32px] sm:rounded-[44px] overflow-hidden shadow-[0_16px_50px_rgba(0,0,0,0.08)] group min-h-[520px] sm:min-h-[580px] lg:min-h-[660px] flex flex-col justify-between p-6 sm:p-9 lg:p-11 will-change-transform bg-neutral-900 select-none"
+          >
+            {/* Background Image: Smiling Photographer Alex Thompson with Camera */}
+            <img
+              src="/photographer_alex_studio.jpg"
+              alt="Alex Thompson - Studio Photographer"
+              className="absolute inset-0 w-full h-full object-cover object-[center_18%] group-hover:scale-105 transition-transform duration-1000 ease-out pointer-events-none"
+            />
 
-          {/* 5-Card Perspective Fan Carousel */}
-          <div className="relative flex items-center justify-center min-h-[340px] sm:min-h-[400px] overflow-visible py-4">
-            <div className="relative flex items-center justify-center w-full max-w-2xl mx-auto">
-              {TESTIMONIALS.map((item, idx) => {
-                const diff = idx - activeTestimonialIndex;
-                const isActive = diff === 0;
+            {/* Gradient Scrim for Contrast & Legibility */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-black/10 pointer-events-none" />
 
-                // Perspective Fan Stack Transformations
-                let styleTransform: string;
-                let zIndex: number;
-                let opacity: number;
-
-                if (diff === 0) {
-                  styleTransform = 'translate(0px, 0px) rotate(0deg) scale(1.05)';
-                  zIndex = 30;
-                  opacity = 1;
-                } else if (diff === -1) {
-                  styleTransform = 'translate(-70px, 15px) rotate(-6deg) scale(0.92)';
-                  zIndex = 20;
-                  opacity = 0.85;
-                } else if (diff === 1) {
-                  styleTransform = 'translate(70px, 15px) rotate(6deg) scale(0.92)';
-                  zIndex = 20;
-                  opacity = 0.85;
-                } else if (diff === -2) {
-                  styleTransform = 'translate(-140px, 35px) rotate(-12deg) scale(0.82)';
-                  zIndex = 10;
-                  opacity = 0.6;
-                } else if (diff === 2) {
-                  styleTransform = 'translate(140px, 35px) rotate(12deg) scale(0.82)';
-                  zIndex = 10;
-                  opacity = 0.6;
-                } else {
-                  styleTransform = diff < 0 ? 'translate(-180px, 50px) scale(0.7)' : 'translate(180px, 50px) scale(0.7)';
-                  zIndex = 5;
-                  opacity = 0.2;
-                }
-
-                return (
-                  <div
-                    key={item.id}
-                    onClick={() => setActiveTestimonialIndex(idx)}
-                    style={{
-                      transform: styleTransform,
-                      zIndex,
-                      opacity,
-                    }}
-                    className={`absolute transition-all duration-500 ease-out cursor-pointer select-none ${
-                      isActive
-                        ? 'w-44 sm:w-56 aspect-[3/4] ring-4 ring-white shadow-2xl rounded-2xl overflow-hidden'
-                        : 'w-40 sm:w-48 aspect-[3/4] rounded-2xl overflow-hidden shadow-lg hover:opacity-100'
-                    }`}
-                  >
-                    <img
-                      src={item.photo}
-                      alt={item.name}
-                      className="w-full h-full object-cover object-center"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent flex flex-col justify-end p-4 text-center">
-                      <span className="text-white text-xs sm:text-sm font-semibold">{item.name}</span>
-                      <span className="text-white/70 text-[10px] mt-0.5">{item.location}</span>
-                    </div>
-
-                    {/* Hanging Circular Quote Mark on Center Card */}
-                    {isActive && (
-                      <div className="absolute -bottom-5 left-1/2 -translate-x-1/2 w-10 h-10 rounded-full bg-white shadow-md flex items-center justify-center font-serif text-xl font-bold text-neutral-900 border border-neutral-100">
-                        ”
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+            {/* Top Badge: "What they said" with Speech Bubble */}
+            <div className="relative z-10 self-start">
+              <motion.div
+                initial={{ opacity: 0, y: -15 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.7, delay: 0.3, ease: 'easeOut' }}
+                className="inline-flex items-center gap-2 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-md border border-white/35 text-white text-xs sm:text-[13px] font-medium tracking-wide transition-all shadow-sm"
+              >
+                <MessageCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[2.2] opacity-90" />
+                <span>What they said</span>
+              </motion.div>
             </div>
-          </div>
 
-          {/* Testimonial Quote Content Below Stack */}
-          <div className="text-center max-w-2xl mx-auto mt-10 sm:mt-14">
-            <h3 className="text-xl sm:text-2xl font-bold tracking-tight text-neutral-900">
-              {activeTestimonial.headline}
-            </h3>
-            <p className="text-xs sm:text-sm text-neutral-600 mt-2.5 leading-relaxed font-normal">
-              {activeTestimonial.quote}
-            </p>
-          </div>
-        </motion.div>
+            {/* Bottom Content: Bold Quote, Divider & Author Tag */}
+            <div className="relative z-10 mt-auto pt-10">
+              <motion.blockquote
+                initial={{ opacity: 0, y: 25 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.8, delay: 0.25, ease: 'easeOut' }}
+                className="text-2xl sm:text-3xl lg:text-[34px] xl:text-[38px] font-bold text-white tracking-tight leading-[1.18]"
+              >
+                “Never thought client proofing and gallery delivery could be this fast. Now, our studio shares every shoot in seconds!”
+              </motion.blockquote>
 
-        {/* ================================================================== */}
-        {/* 5. OUR UPCOMING CONCEPT CARD (Image 3 Bottom)                      */}
-        {/* ================================================================== */}
+              <div className="w-full h-[1px] bg-white/25 my-4 sm:my-5" />
+
+              <div className="flex justify-end">
+                <span className="text-white/90 text-xs sm:text-sm font-medium tracking-wide font-sans">
+                  Alex Thompson, 32
+                </span>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* RIGHT COLUMN: HEADLINE, COMMUNITY & FEATURE CARD */}
+          <div className="lg:col-span-7 flex flex-col justify-between gap-8 sm:gap-10">
+            {/* Top Area: Badge, Giant Title, Community Avatar Row */}
+            <div className="flex flex-col pt-1 sm:pt-3">
+              {/* Badge: TESTIMONIALS */}
+              <motion.div
+                initial={{ opacity: 0, y: 15 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.6 }}
+                className="self-start mb-4 sm:mb-6"
+              >
+                <span className="inline-block px-3.5 py-1.5 rounded-full border border-neutral-300/90 bg-white/90 text-[10px] sm:text-[11px] font-bold tracking-[0.16em] text-neutral-800 uppercase shadow-2xs">
+                  TESTIMONIALS
+                </span>
+              </motion.div>
+
+              {/* Main Headline */}
+              <motion.h2
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.85, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+                className="text-4xl sm:text-5xl lg:text-[54px] xl:text-[62px] font-extrabold tracking-tight text-neutral-900 leading-[1.08] mb-6 sm:mb-8 font-sans"
+              >
+                Turn Up Your Photography
+                <br />
+                Journey — into Pleasure.
+              </motion.h2>
+
+              {/* Community Avatars & Guidance Description */}
+              <motion.div
+                initial={{ opacity: 0, y: 25 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.85, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6"
+              >
+                {/* 3 Overlapping Avatars */}
+                <div className="flex -space-x-3 shrink-0">
+                  <img
+                    src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=160&q=80"
+                    alt="Photographer Community Member"
+                    className="w-10 h-10 sm:w-11 sm:h-11 rounded-full ring-2 ring-white object-cover shadow-sm hover:scale-110 transition-transform cursor-pointer"
+                  />
+                  <img
+                    src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=160&q=80"
+                    alt="Photographer Community Member"
+                    className="w-10 h-10 sm:w-11 sm:h-11 rounded-full ring-2 ring-white object-cover shadow-sm hover:scale-110 transition-transform cursor-pointer"
+                  />
+                  <img
+                    src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=160&q=80"
+                    alt="Photographer Community Member"
+                    className="w-10 h-10 sm:w-11 sm:h-11 rounded-full ring-2 ring-white object-cover shadow-sm hover:scale-110 transition-transform cursor-pointer"
+                  />
+                </div>
+
+                <p className="text-xs sm:text-[13px] text-neutral-600 leading-relaxed font-normal max-w-md">
+                  Whether you&apos;re a first-time shooter or an experienced studio artist, our community will provides useful guidance, opportunities, and connections between photographers.
+                </p>
+              </motion.div>
+            </div>
+
+            {/* Bottom Card: Split Feature & Take Your First Shot CTA */}
+            <motion.div
+              initial={{ opacity: 0, y: 40, scale: 0.98 }}
+              whileInView={{ opacity: 1, y: 0, scale: 1 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.9, delay: 0.25, ease: [0.16, 1, 0.3, 1] }}
+              className="bg-white rounded-[32px] sm:rounded-[38px] p-6 sm:p-8 lg:p-9 border border-neutral-200/80 shadow-[0_12px_40px_rgba(0,0,0,0.04)] flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-6 overflow-hidden hover:shadow-[0_16px_50px_rgba(0,0,0,0.07)] transition-shadow duration-500"
+            >
+              {/* Left Sub-Section: Teal Camera Icon & Philosophy Headline */}
+              <div className="flex flex-col justify-between sm:pr-4">
+                {/* Circular Teal Camera Icon Badge */}
+                <div className="w-12 h-12 rounded-full bg-[#0d8487] text-white flex items-center justify-center shadow-md mb-6 sm:mb-8 group-hover:scale-105 transition-transform">
+                  <Camera className="w-6 h-6 stroke-[2.2]" />
+                </div>
+
+                {/* Typography: "We Believe Photography is More than Clicking." */}
+                <div>
+                  <span className="text-lg sm:text-xl font-bold text-neutral-500 block mb-1">
+                    We Believe
+                  </span>
+                  <h3 className="text-2xl sm:text-[28px] lg:text-[32px] font-extrabold text-neutral-900 tracking-tight leading-[1.12]">
+                    Photography is More
+                    <br />
+                    than Clicking.
+                  </h3>
+                </div>
+              </div>
+
+              {/* Right Sub-Section: /04 Index and Interactive Camera Lens Card */}
+              <div className="flex flex-col items-end shrink-0 sm:w-52 md:w-56 lg:w-60">
+                <span className="text-xs sm:text-sm font-semibold font-mono text-neutral-400 mb-2 self-start sm:self-end">
+                  /04
+                </span>
+
+                <div className="relative rounded-3xl overflow-hidden w-full aspect-[4/5] shadow-sm group/handlebar select-none">
+                  <img
+                    src="/camera_hands_lens.jpg"
+                    alt="Take your first shot"
+                    className="w-full h-full object-cover object-center group-hover/handlebar:scale-108 transition-transform duration-700 ease-out pointer-events-none"
+                  />
+
+                  {/* Gradient Scrim for Button */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
+
+                  {/* Glassmorphic Pill Button */}
+                  <button
+                    type="button"
+                    className="absolute bottom-4 left-1/2 -translate-x-1/2 w-[85%] py-2 sm:py-2.5 px-3 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-md border border-white/35 text-white text-xs sm:text-[13px] font-medium tracking-wide text-center transition-all shadow-sm active:scale-95 cursor-pointer"
+                  >
+                    Take your first shot
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
+      {/* ================================================================== */}
+      {/* 5. OUR UPCOMING CONCEPT CARD (Image 3 Bottom)                      */}
+      {/* ================================================================== */}
+      <section className="w-full py-8 sm:py-12 max-w-[1440px] mx-auto px-6 sm:px-10 lg:px-14">
         <motion.div
           id="upcoming-concept"
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: '-60px' }}
           transition={{ duration: 0.65 }}
-          className="rounded-[36px] bg-[#ebdcd0] p-8 sm:p-14 mt-12 sm:mt-16 shadow-sm"
+          className="rounded-[36px] bg-[#ebdcd0] p-8 sm:p-14 mt-4 sm:mt-8 shadow-sm"
         >
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
             {/* Left Column: Concept Title and Category List */}
@@ -924,11 +930,10 @@ export const LandingPlaceholder: React.FC = () => {
                     <button
                       key={cat}
                       onClick={() => setActiveCategoryIndex(idx)}
-                      className={`text-left transition-all duration-300 py-1 flex items-center cursor-pointer ${
-                        isSelected
+                      className={`text-left transition-all duration-300 py-1 flex items-center cursor-pointer ${isSelected
                           ? 'border-l-2 border-neutral-950 pl-4 font-semibold text-neutral-950 text-sm'
                           : 'border-l-2 border-transparent pl-4 font-normal text-neutral-600 hover:text-neutral-900 text-sm opacity-60'
-                      }`}
+                        }`}
                     >
                       {cat}
                     </button>

@@ -22,7 +22,6 @@ import {
   Sparkles,
   ArrowLeft,
   Layers,
-  Loader2,
 } from 'lucide-react';
 
 export const PortfolioPage: React.FC = () => {

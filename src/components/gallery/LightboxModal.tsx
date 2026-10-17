@@ -5,6 +5,7 @@ import { useToast } from '../ui/Toast';
 import { useScrollLock } from '../../hooks/useScrollLock';
 import { ConfirmDeleteModal } from '../common/ConfirmDeleteModal';
 import { MediaShareModal } from './MediaShareModal';
+import { DownloadOptionsModal } from './DownloadOptionsModal';
 import { downloadSingleImage } from '@/utils/downloadUtils';
 import { WatermarkOverlay } from './WatermarkOverlay';
 import {
@@ -20,6 +21,9 @@ import {
   RotateCcw,
   Share2,
   Loader2,
+  Sun,
+  Moon,
+  Heart,
 } from 'lucide-react';
 
 interface LightboxModalProps {
@@ -37,6 +41,7 @@ interface LightboxModalProps {
   gallerySlug?: string;
   onShare?: (item: MediaItem) => void;
   theme?: string;
+  isDashboard?: boolean;
   watermarkEnabled?: boolean;
   watermarkText?: string;
   watermarkOpacity?: number;
@@ -63,6 +68,7 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
   gallerySlug,
   onShare,
   theme = 'editorial',
+  isDashboard,
   watermarkEnabled = false,
   watermarkText,
   watermarkOpacity,
@@ -90,6 +96,101 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
 
   // Buttery Slide Animation State
   const [slideDirection, setSlideDirection] = useState<'next' | 'prev' | null>(null);
+
+  // Format Selection Download Modal State
+  const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
+
+  // Detect if running on dashboard (either explicit isDashboard prop or /dashboard pathname)
+  const isDashboardRoute =
+    isDashboard !== undefined
+      ? isDashboard
+      : typeof window !== 'undefined' &&
+        (window.location.pathname.startsWith('/dashboard') ||
+          window.location.pathname.includes('/dashboard/'));
+
+  // Reactive state checking document dark mode class and localStorage theme
+  const [isDocumentDark, setIsDocumentDark] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('theme');
+      if (saved === 'dark') return true;
+      if (saved === 'light') return false;
+      return document.documentElement.classList.contains('dark');
+    }
+    return true;
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const syncTheme = () => {
+      const saved = localStorage.getItem('theme');
+      if (saved === 'dark') {
+        setIsDocumentDark(true);
+      } else if (saved === 'light') {
+        setIsDocumentDark(false);
+      } else {
+        setIsDocumentDark(document.documentElement.classList.contains('dark'));
+      }
+    };
+
+    syncTheme();
+
+    const observer = new MutationObserver(syncTheme);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class', 'data-theme'],
+    });
+
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'theme') {
+        syncTheme();
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('storage', handleStorage);
+    };
+  }, []);
+
+  // Manual canvas override inside lightbox viewer
+  const [canvasOverride, setCanvasOverride] = useState<'dark' | 'light' | null>(null);
+
+  // When on dashboard, STRICTLY match the active dashboard theme (dark/light)
+  // When in public client gallery, match template or dark mode
+  const isLightTheme =
+    canvasOverride !== null
+      ? canvasOverride === 'light'
+      : isDashboardRoute
+      ? !isDocumentDark
+      : theme === 'editorial' || theme === 'minimal' || theme === 'light'
+      ? !isDocumentDark && (theme === 'light' || !document.documentElement.classList.contains('dark'))
+      : false;
+
+  const handleToggleCanvasTheme = useCallback(() => {
+    setCanvasOverride((prev) => {
+      const currentIsLight = prev !== null ? prev === 'light' : isLightTheme;
+      const nextTheme = currentIsLight ? 'dark' : 'light';
+
+      if (isDashboardRoute && typeof window !== 'undefined') {
+        try {
+          if (nextTheme === 'dark') {
+            document.documentElement.classList.add('dark');
+            localStorage.setItem('theme', 'dark');
+          } else {
+            document.documentElement.classList.remove('dark');
+            localStorage.setItem('theme', 'light');
+          }
+          window.dispatchEvent(new Event('storage'));
+        } catch {
+          // ignore
+        }
+      }
+
+      return nextTheme;
+    });
+  }, [isLightTheme, isDashboardRoute]);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const currentItem = mediaList[currentIndex];
@@ -170,6 +271,8 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
         handleZoomOut();
       } else if (e.key === '0') {
         handleResetZoom();
+      } else if (e.key === 't' || e.key === 'T') {
+        handleToggleCanvasTheme();
       }
     };
 
@@ -183,6 +286,7 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
     handleZoomIn,
     handleZoomOut,
     handleResetZoom,
+    handleToggleCanvasTheme,
     isDeleteModalOpen,
     zoom,
   ]);
@@ -249,39 +353,48 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
 
   if (!isOpen || !currentItem) return null;
 
-  const handleDownloadSingle = async () => {
+  const handleConfirmDownloadOption = async ({
+    format,
+    withWatermark,
+  }: {
+    format: 'original' | 'web';
+    withWatermark: boolean;
+  }) => {
     if (!currentItem) return;
-    const downloadUrl = currentItem.url || currentItem.thumbnailUrl;
-    if (!downloadUrl) {
-      showToast('Download Error', 'No file URL available for this image.', 'error');
-      return;
-    }
+    const filename = currentItem.title || `photo-${currentIndex + 1}.jpg`;
+    const watermarkOptions = {
+      enabled: Boolean(withWatermark && currentItem.type !== 'video'),
+      text: watermarkText || studioName || 'PHOTOGRAPHER',
+      opacity: watermarkOpacity,
+      position: watermarkPosition,
+      imageUrl: watermarkImage,
+      watermarkType: watermarkType || (watermarkImage ? 'image' : 'text'),
+      fontSize: watermarkFontSize,
+      fontColor: watermarkFontColor,
+      fontStyle: watermarkFontStyle,
+    };
 
     setIsDownloadingSingle(true);
-    const filename = currentItem.title || `photo-${currentIndex + 1}.jpg`;
     showToast(
-      'Download Started',
-      `Downloading "${filename}" (${currentItem.sizeMB || 2.5} MB)...`,
+      'Downloading Photo',
+      `Saving "${filename}" in ${format === 'original' ? 'Original/RAW' : 'Web JPEG'} resolution...`,
       'info'
     );
 
     try {
-      const watermarkOptions = {
-        enabled: Boolean(watermarkEnabled && currentItem.type !== 'video'),
-        text: watermarkText || studioName || 'PHOTOGRAPHER',
-        opacity: watermarkOpacity,
-        position: watermarkPosition,
-        imageUrl: watermarkImage,
-        watermarkType: watermarkType || (watermarkImage ? 'image' : 'text'),
-        fontSize: watermarkFontSize,
-        fontColor: watermarkFontColor,
-        fontStyle: watermarkFontStyle,
-      };
-      const success = await downloadSingleImage(downloadUrl, filename, watermarkOptions);
+      const success = await downloadSingleImage({
+        url: currentItem.url || currentItem.thumbnailUrl || '',
+        preferredFilename: filename,
+        watermarkOptions,
+        format,
+        downloadUrl: currentItem.downloadUrl,
+        rawUrl: currentItem.rawUrl,
+      });
+
       if (success) {
-        showToast('Download Complete', `"${filename}" saved to downloads.`, 'success');
+        showToast('Download Complete', `"${filename}" saved to your downloads.`, 'success');
       } else {
-        showToast('Download Notice', 'Initiated download. Please check your browser downloads.', 'info');
+        showToast('Download Started', 'Initiated download. Please check your browser downloads.', 'info');
       }
     } catch (err) {
       console.error('Failed to download single image:', err);
@@ -350,13 +463,11 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
       ? 'animate-butter-prev'
       : 'animate-butter-fade';
 
-  const isLightTheme = theme === 'editorial' || theme === 'minimal' || theme === 'light';
-
   return createPortal(
     <div
       data-lenis-prevent="true"
       className={`fixed inset-0 z-50 flex flex-col justify-between select-none overlay-animate overscroll-contain backdrop-blur-2xl transition-colors duration-300 ${
-        isLightTheme ? 'bg-[#FCFCFD]/98 text-neutral-900' : 'bg-black/95 text-white'
+        isLightTheme ? 'bg-[#FCFCFD]/98 text-neutral-900' : 'bg-[#090a0f]/98 text-white'
       }`}
     >
       {/* Top Bar - Mobile App Ergonomics */}
@@ -364,7 +475,7 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
         className={`flex items-center justify-between px-2.5 sm:px-6 py-2.5 sm:py-4 z-20 gap-2 sm:gap-3 pt-safe sm:pt-4 transition-colors duration-300 ${
           isLightTheme
             ? 'bg-gradient-to-b from-[#FCFCFD]/95 via-[#FCFCFD]/80 to-transparent border-b border-neutral-200/50'
-            : 'bg-gradient-to-b from-black/85 via-black/40 to-transparent'
+            : 'bg-gradient-to-b from-[#090a0f]/95 via-[#090a0f]/80 to-transparent border-b border-white/10'
         }`}
       >
         <div className="flex items-center gap-1.5 sm:gap-3 min-w-0">
@@ -400,6 +511,39 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
         </div>
 
         <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+          {/* Favorite / Like Button on Top */}
+          {onToggleFavorite && (
+            <button
+              onClick={() => onToggleFavorite(currentItem.id)}
+              disabled={isFavoriting}
+              className={`flex items-center justify-center gap-1.5 p-2 sm:px-3 sm:py-2 rounded-full text-xs font-semibold tracking-wide transition-all active:scale-95 cursor-pointer touch-manipulation ${
+                currentItem.isFavorite
+                  ? 'bg-rose-500 text-white shadow-md shadow-rose-500/30'
+                  : isLightTheme
+                  ? 'bg-neutral-100 hover:bg-neutral-200/80 text-neutral-800 border border-neutral-200 shadow-sm'
+                  : 'bg-white/10 hover:bg-white/20 text-white border border-white/10'
+              }`}
+              title={currentItem.isFavorite ? 'Remove from liked photos' : 'Like this photo'}
+            >
+              {isFavoriting ? (
+                <Loader2 className="w-4 h-4 animate-spin text-amber-300" />
+              ) : (
+                <Heart
+                  className={`w-4 h-4 ${
+                    currentItem.isFavorite
+                      ? 'fill-white text-white'
+                      : isLightTheme
+                      ? 'text-neutral-700'
+                      : 'text-rose-400'
+                  }`}
+                />
+              )}
+              <span className="hidden sm:inline">
+                {currentItem.isFavorite ? 'Liked' : 'Like'}
+              </span>
+            </button>
+          )}
+
           {/* Social Share Button on Top */}
           <button
             onClick={() => {
@@ -421,14 +565,14 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
 
           {allowDownloads && (
             <button
-              onClick={handleDownloadSingle}
+              onClick={() => setIsDownloadModalOpen(true)}
               disabled={isDownloadingSingle}
               className={`flex items-center justify-center gap-1.5 p-2 sm:px-3 sm:py-2 rounded-full text-xs font-semibold tracking-wide transition-all active:scale-95 disabled:opacity-50 cursor-pointer touch-manipulation ${
                 isLightTheme
                   ? 'bg-neutral-100 hover:bg-neutral-200/80 text-neutral-800 border border-neutral-200 shadow-sm'
                   : 'bg-white/10 hover:bg-white/20 text-white border border-white/10'
               }`}
-              title="Download original resolution"
+              title="Download photo (Choose RAW or JPEG format)"
             >
               {isDownloadingSingle ? (
                 <>
@@ -460,6 +604,24 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
               <span className="hidden sm:inline">Delete</span>
             </button>
           )}
+
+          {/* Canvas Theme Toggle Button */}
+          <button
+            onClick={handleToggleCanvasTheme}
+            className={`flex items-center justify-center gap-1.5 p-2 sm:px-3 sm:py-2 rounded-full text-xs font-semibold tracking-wide transition-all active:scale-95 cursor-pointer touch-manipulation ${
+              isLightTheme
+                ? 'bg-neutral-100 hover:bg-neutral-200/80 text-neutral-800 border border-neutral-200 shadow-sm'
+                : 'bg-white/10 hover:bg-white/20 text-white border border-white/10'
+            }`}
+            title={`Switch to ${isLightTheme ? 'Dark' : 'Light'} theme (T)`}
+          >
+            {isLightTheme ? (
+              <Moon className="w-4 h-4 text-neutral-700" />
+            ) : (
+              <Sun className="w-4 h-4 text-amber-400" />
+            )}
+            <span className="hidden md:inline">{isLightTheme ? 'Dark' : 'Light'}</span>
+          </button>
 
           {/* High-visibility Prominent Close Button */}
           <button
@@ -663,7 +825,7 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
         className={`px-3 sm:px-6 py-2.5 sm:py-3.5 flex flex-wrap items-center justify-between gap-2 sm:gap-3 text-xs z-10 pb-safe sm:pb-3.5 transition-colors duration-300 ${
           isLightTheme
             ? 'bg-gradient-to-t from-[#FCFCFD]/95 via-[#FCFCFD]/80 to-transparent text-neutral-600 border-t border-neutral-200/50'
-            : 'bg-gradient-to-t from-black/95 via-black/60 to-transparent text-neutral-400'
+            : 'bg-gradient-to-t from-[#090a0f]/95 via-[#090a0f]/80 to-transparent text-neutral-400 border-t border-white/10'
         }`}
       >
         <div className="min-w-0">
@@ -706,6 +868,28 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
         mediaItems={[currentItem]}
         galleryTitle={galleryTitle || studioName}
         gallerySlug={gallerySlug}
+      />
+
+      {/* Format Selection (RAW vs JPEG) Download Modal */}
+      <DownloadOptionsModal
+        isOpen={isDownloadModalOpen}
+        onClose={() => setIsDownloadModalOpen(false)}
+        item={currentItem}
+        galleryTitle={galleryTitle || studioName}
+        showWatermarkToggle={false}
+        watermarkOptions={{
+          enabled: Boolean(watermarkEnabled && currentItem.type !== 'video'),
+          text: watermarkText || studioName || 'PHOTOGRAPHER',
+          opacity: watermarkOpacity,
+          position: watermarkPosition,
+          imageUrl: watermarkImage,
+          watermarkType: watermarkType || (watermarkImage ? 'image' : 'text'),
+          fontSize: watermarkFontSize,
+          fontColor: watermarkFontColor,
+          fontStyle: watermarkFontStyle,
+        }}
+        onConfirmDownload={handleConfirmDownloadOption}
+        theme={isLightTheme ? 'light' : 'dark'}
       />
     </div>,
     document.body

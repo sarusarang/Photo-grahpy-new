@@ -74,6 +74,18 @@ export const TrackPortfolioViewApi = async (
   slugOrId: string,
   payload: TrackPortfolioViewPayload = {}
 ): Promise<TrackPortfolioViewResponse> => {
+  if (typeof window !== 'undefined') {
+    const sessionKey = `tracked_view_${slugOrId}_${payload.page_section || 'hero'}`;
+    if (sessionStorage.getItem(sessionKey)) {
+      return { success: true };
+    }
+    try {
+      sessionStorage.setItem(sessionKey, '1');
+    } catch {
+      // ignore
+    }
+  }
+
   const device =
     payload.device ||
     (typeof window !== 'undefined'
@@ -135,12 +147,44 @@ export const ClaimSubdomainApi = async (
 };
 
 /**
+ * 9a. Check DNS Provisioning Status
+ * Endpoint: GET /api/portfolio/subdomain/status/
+ */
+export const GetSubdomainStatusApi = async (): Promise<import('./type').SubdomainStatusResponse> => {
+  return CommonApi('GET', '/api/portfolio/subdomain/status/');
+};
+
+/**
+ * 9b. Retry DNS Provisioning
+ * Endpoint: POST /api/portfolio/subdomain/retry/
+ */
+export const RetrySubdomainProvisioningApi = async (): Promise<import('./type').RetrySubdomainResponse> => {
+  return CommonApi('POST', '/api/portfolio/subdomain/retry/');
+};
+
+/**
  * 10. Retrieve Public Portfolio Resolved from Host / Subdomain
  * Endpoint: GET /api/public/portfolio-site/
  */
 export const GetPublicTenantPortfolioApi = async (
   subdomain?: string
 ): Promise<PortfolioConfig> => {
+  const isTenantHost =
+    typeof window !== 'undefined' &&
+    window.location.hostname.endsWith('.exshare.ai') &&
+    !window.location.hostname.startsWith('app.') &&
+    !window.location.hostname.startsWith('admin.');
+
+  if (isTenantHost) {
+    try {
+      const response = await import('axios').then(m => m.default.get('/api/public/portfolio-site/'));
+      return response.data as PortfolioConfig;
+    } catch (err: any) {
+      if (err?.response?.status === 404) throw err;
+      // Fallback below if proxy routing error
+    }
+  }
+
   const headers: Record<string, string> = {};
   if (subdomain) {
     headers['X-Tenant-Subdomain'] = subdomain;
@@ -170,6 +214,21 @@ export const SubmitPublicTenantInquiryApi = async (
   payload: import('./type').PublicTenantInquiryPayload,
   subdomain?: string
 ): Promise<import('./type').PublicTenantInquiryResponse> => {
+  const isTenantHost =
+    typeof window !== 'undefined' &&
+    window.location.hostname.endsWith('.exshare.ai') &&
+    !window.location.hostname.startsWith('app.') &&
+    !window.location.hostname.startsWith('admin.');
+
+  if (isTenantHost) {
+    try {
+      const response = await import('axios').then(m => m.default.post('/api/public/portfolio-site/inquiries/', payload));
+      return response.data as import('./type').PublicTenantInquiryResponse;
+    } catch (err: any) {
+      if (err?.response?.status) throw err;
+    }
+  }
+
   const headers: Record<string, string> = {};
   if (subdomain) {
     headers['X-Tenant-Subdomain'] = subdomain;
@@ -189,6 +248,33 @@ export const TrackPublicTenantViewApi = async (
   payload: { page_section?: string; device?: 'desktop' | 'mobile' | 'tablet' },
   subdomain?: string
 ): Promise<{ success: boolean; tracked?: boolean }> => {
+  if (typeof window !== 'undefined') {
+    const sessionKey = `tracked_tenant_view_${subdomain || window.location.hostname}_${payload.page_section || 'hero'}`;
+    if (sessionStorage.getItem(sessionKey)) {
+      return { success: true, tracked: false };
+    }
+    try {
+      sessionStorage.setItem(sessionKey, '1');
+    } catch {
+      // ignore
+    }
+  }
+
+  const isTenantHost =
+    typeof window !== 'undefined' &&
+    window.location.hostname.endsWith('.exshare.ai') &&
+    !window.location.hostname.startsWith('app.') &&
+    !window.location.hostname.startsWith('admin.');
+
+  if (isTenantHost) {
+    try {
+      const response = await import('axios').then(m => m.default.post('/api/public/portfolio-site/track-view/', payload));
+      return response.data;
+    } catch {
+      // Silently fall through
+    }
+  }
+
   const headers: Record<string, string> = {};
   if (subdomain) {
     headers['X-Tenant-Subdomain'] = subdomain;
@@ -203,4 +289,5 @@ export const TrackPublicTenantViewApi = async (
     return { success: false };
   }
 };
+
 

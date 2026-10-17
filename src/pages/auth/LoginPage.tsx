@@ -197,7 +197,7 @@ export const LoginPage: React.FC = () => {
               isVerifying={verifyOtpMutation.isPending}
               isResending={resendOtpMutation.isPending}
               validityMinutes={10}
-              resendCooldownSeconds={30}
+              resendCooldownSeconds={60}
               idPrefix="login-otp"
               submitLabel="Verify & Sign In"
             />

@@ -53,6 +53,10 @@ export interface ZipDownloadItem {
   type?: 'image' | 'video' | string;
   /** Item-specific watermark override */
   watermarkOptions?: WatermarkDownloadOptions;
+  /** Direct download endpoint with verified CORS */
+  downloadUrl?: string;
+  /** Media UUID */
+  id?: string;
 }
 
 export type DownloadProgressCallback = (
@@ -70,6 +74,10 @@ export interface DownloadMultipleAsZipOptions {
   onProgress?: DownloadProgressCallback;
   /** Watermark configuration applied to all image items in this archive */
   watermarkOptions?: WatermarkDownloadOptions;
+  /** Format choice */
+  format?: 'original' | 'web';
+  /** Optional fallback server ZIP archive endpoint URL */
+  serverZipUrl?: string;
 }
 
 // ─── PURE UTILITY FUNCTIONS ────────────────────────────────────────────────────
@@ -89,15 +97,31 @@ export function resolveImageUrl(url: string): string {
     try {
       return new URL(rawBaseURL).origin;
     } catch {
-      return window.location.origin;
+      return typeof window !== 'undefined' ? window.location.origin : '';
     }
   })();
 
-  // If URL starts with http://localhost:8000 or http://127.0.0.1:8000, and our API base is a remote tunnel,
-  // rewrite localhost to tunnel origin so the browser doesn't fail on mixed content or unreachable port
+  const isCurrentPageHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
+  const isBaseOriginHttps = Boolean(baseOrigin && baseOrigin.startsWith('https://'));
+
+  // 1. Rewrite localhost:8000 or 127.0.0.1:8000 to API tunnel origin when backend is remote
   if (baseOrigin && !baseOrigin.includes('localhost') && !baseOrigin.includes('127.0.0.1')) {
     if (url.startsWith('http://localhost:8000') || url.startsWith('http://127.0.0.1:8000')) {
-      return url.replace(/^http:\/\/(localhost|127\.0\.0\.1):8000/, baseOrigin);
+      url = url.replace(/^http:\/\/(localhost|127\.0\.0\.1):8000/, baseOrigin);
+    }
+  }
+
+  // 2. Prevent mixed-content blocking: If frontend is on HTTPS or API base is on HTTPS,
+  // ensure any http:// URL pointing to devtunnels, API domain, or remote host is upgraded to https://
+  if (url.startsWith('http://') && (isCurrentPageHttps || isBaseOriginHttps)) {
+    try {
+      const parsedUrl = new URL(url);
+      const isLocalHostTarget = parsedUrl.hostname === 'localhost' || parsedUrl.hostname === '127.0.0.1';
+      if (!isLocalHostTarget || isBaseOriginHttps) {
+        url = url.replace(/^http:\/\//i, 'https://');
+      }
+    } catch {
+      url = url.replace(/^http:\/\//i, 'https://');
     }
   }
 
@@ -154,110 +178,200 @@ export function saveBlobAs(blob: Blob, filename: string): void {
   }, 1000);
 }
 
+/**
+ * Triggers a download via a hidden iframe.
+ * Used for backend attachment endpoints (Content-Disposition: attachment)
+ * to guarantee that the download starts directly without opening a new tab
+ * or navigating away from the current page.
+ */
+export function triggerAttachmentDownload(url: string, filename?: string): void {
+  if (typeof document === 'undefined' || !url) return;
+  const resolved = resolveImageUrl(url);
+
+  // Strategy 1: Hidden anchor trigger (highest browser compatibility for file attachments)
+  try {
+    const anchor = document.createElement('a');
+    anchor.href = resolved;
+    if (filename) {
+      anchor.download = filename;
+    }
+    anchor.style.display = 'none';
+    document.body.appendChild(anchor);
+    anchor.click();
+    setTimeout(() => {
+      try {
+        document.body.removeChild(anchor);
+      } catch {
+        // Ignore cleanup
+      }
+    }, 1500);
+  } catch {
+    // Strategy 2: Hidden iframe fallback
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.left = '-9999px';
+    iframe.style.top = '-9999px';
+    iframe.style.width = '1px';
+    iframe.style.height = '1px';
+    iframe.style.opacity = '0';
+    iframe.style.pointerEvents = 'none';
+    iframe.src = resolved;
+    document.body.appendChild(iframe);
+    setTimeout(() => {
+      try {
+        document.body.removeChild(iframe);
+      } catch {
+        // Ignore cleanup
+      }
+    }, 45000);
+  }
+}
+
 // ─── MULTI-STRATEGY BLOB EXTRACTION ENGINE ─────────────────────────────────────
 
 /**
- * Fetches an image URL and converts it to a binary Blob using a resilient 4-layer fallback:
- * 1. Fetch with credentials & devtunnel header (authenticated backend/tunnel session)
- * 2. Fetch with CORS mode (public CDN / wildcard Access-Control-Allow-Origin)
+ * Fetches an image URL and converts it to a binary Blob using a resilient multi-layer fallback:
+ * 1. Checks candidate URLs (downloadUrl, mediaId download endpoint, rawUrl)
+ * 2. Clean fetch with standard CORS mode
  * 3. AxiosInstance GET with responseType='blob'
- * 4. HTML5 Canvas draw with cache-busting parameter
+ * 4. Fetch with credentials
+ * 5. Standard fetch in default mode
+ * 6. HTML5 Canvas draw with cache-busting parameter
  */
-async function fetchImageBlob(rawUrl: string): Promise<Blob> {
-  const url = resolveImageUrl(rawUrl);
+async function fetchImageBlob(
+  rawUrl: string,
+  downloadUrl?: string,
+  id?: string
+): Promise<Blob> {
+  const rawCandidates: string[] = [];
 
-  // Strategy 1: Fetch with credentials & devtunnel header
-  try {
-    const response = await fetch(url, {
-      mode: 'cors',
-      credentials: 'include',
-      headers: {
-        'X-Tunnel-Skip-Anti-Phishing-Page': 'true',
-      },
-    });
-    if (response.ok) {
-      const blob = await response.blob();
-      if (blob.size > 0 && !blob.type.includes('text/html')) {
-        return blob;
-      }
-    }
-  } catch {
-    // Continue to next strategy
+  if (downloadUrl) {
+    rawCandidates.push(downloadUrl);
+  }
+  if (id) {
+    rawCandidates.push(`/api/galleries/media/${id}/download/`);
   }
 
-  // Strategy 2: Fetch without credentials (works when server sends Access-Control-Allow-Origin: *)
-  try {
-    const response = await fetch(url, {
-      mode: 'cors',
-      headers: {
-        'X-Tunnel-Skip-Anti-Phishing-Page': 'true',
-      },
-    });
-    if (response.ok) {
-      const blob = await response.blob();
-      if (blob.size > 0 && !blob.type.includes('text/html')) {
-        return blob;
-      }
-    }
-  } catch {
-    // Continue to next strategy
+  // Check if filename contains a UUID pattern
+  const filename = rawUrl.split('/').pop() || '';
+  const uuidMatch = filename.match(/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/i);
+  if (uuidMatch && uuidMatch[1]) {
+    rawCandidates.push(`/api/galleries/media/${uuidMatch[1]}/download/`);
   }
 
-  // Strategy 3: AxiosInstance with responseType 'blob' (inherits configured auth & interceptors)
-  try {
-    const axiosRes = await axiosInstance.get(url, {
-      responseType: 'blob',
-      headers: {
-        'X-Tunnel-Skip-Anti-Phishing-Page': 'true',
-      },
-    });
-    if (axiosRes.data && axiosRes.data instanceof Blob && axiosRes.data.size > 0) {
-      return axiosRes.data;
-    }
-  } catch {
-    // Continue to next strategy
-  }
+  rawCandidates.push(rawUrl);
 
-  // Strategy 4: HTML5 Image + Canvas Draw fallback
-  return new Promise<Blob>((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
+  const candidates = Array.from(
+    new Set(rawCandidates.filter(Boolean).map((u) => resolveImageUrl(u)))
+  );
 
-    img.onload = () => {
-      try {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.naturalWidth || img.width;
-        canvas.height = img.naturalHeight || img.height;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          throw new Error('Canvas 2D context unavailable');
+  for (const url of candidates) {
+    // Strategy 1: Standard clean fetch with CORS mode
+    try {
+      const response = await fetch(url, {
+        mode: 'cors',
+      });
+      if (response.ok) {
+        const blob = await response.blob();
+        if (blob.size > 0 && !blob.type.includes('text/html')) {
+          return blob;
         }
-        ctx.drawImage(img, 0, 0);
-
-        canvas.toBlob(
-          (blob) => {
-            if (blob && blob.size > 0) {
-              resolve(blob);
-            } else {
-              reject(new Error('Failed to convert canvas to blob'));
-            }
-          },
-          'image/jpeg',
-          0.95
-        );
-      } catch (err) {
-        reject(err);
       }
-    };
+    } catch {
+      // Continue to next strategy
+    }
 
-    img.onerror = () => {
-      reject(new Error(`Failed to load image from ${url}`));
-    };
+    // Strategy 2: AxiosInstance with responseType 'blob' (inherits auth & interceptors)
+    try {
+      const axiosRes = await axiosInstance.get(url, {
+        responseType: 'blob',
+      });
+      if (axiosRes.data && axiosRes.data instanceof Blob && axiosRes.data.size > 0) {
+        return axiosRes.data;
+      }
+    } catch {
+      // Continue to next strategy
+    }
 
-    // Cache-busting query parameter ensures browser does not reuse non-CORS cached entry
-    const sep = url.includes('?') ? '&' : '?';
-    img.src = `${url}${sep}_cors=${Date.now()}`;
-  });
+    // Strategy 3: Fetch with credentials
+    try {
+      const response = await fetch(url, {
+        mode: 'cors',
+        credentials: 'include',
+      });
+      if (response.ok) {
+        const blob = await response.blob();
+        if (blob.size > 0 && !blob.type.includes('text/html')) {
+          return blob;
+        }
+      }
+    } catch {
+      // Continue to next strategy
+    }
+
+    // Strategy 4: Standard fetch default mode
+    try {
+      const response = await fetch(url);
+      if (response.ok) {
+        const blob = await response.blob();
+        if (blob.size > 0 && !blob.type.includes('text/html')) {
+          return blob;
+        }
+      }
+    } catch {
+      // Continue to next strategy
+    }
+
+    // Strategy 5: HTML5 Image + Canvas Draw fallback
+    try {
+      const canvasBlob = await new Promise<Blob>((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+
+        img.onload = () => {
+          try {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.naturalWidth || img.width;
+            canvas.height = img.naturalHeight || img.height;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+              throw new Error('Canvas 2D context unavailable');
+            }
+            ctx.drawImage(img, 0, 0);
+
+            canvas.toBlob(
+              (blob) => {
+                if (blob && blob.size > 0) {
+                  resolve(blob);
+                } else {
+                  reject(new Error('Failed to convert canvas to blob'));
+                }
+              },
+              'image/jpeg',
+              0.95
+            );
+          } catch (err) {
+            reject(err);
+          }
+        };
+
+        img.onerror = () => {
+          reject(new Error(`Failed to load image from ${url}`));
+        };
+
+        const sep = url.includes('?') ? '&' : '?';
+        img.src = `${url}${sep}_cors=${Date.now()}`;
+      });
+
+      if (canvasBlob && canvasBlob.size > 0) {
+        return canvasBlob;
+      }
+    } catch {
+      // Continue to next candidate URL
+    }
+  }
+
+  throw new Error(`Failed to fetch image blob for ${rawUrl}`);
 }
 
 // ─── WATERMARK CANVAS STAMPING ENGINE ──────────────────────────────────────────
@@ -508,19 +622,78 @@ export async function stampWatermarkOnBlob(
       ctx.restore();
     }
 
-    // 4. Export watermarked canvas as high-quality Blob
-    const mimeType = blob.type === 'image/png' ? 'image/png' : 'image/jpeg';
+    // 4. Export watermarked canvas as high-quality JPEG Blob (quality 0.86 preserves clarity while preventing file size inflation)
+    const mimeType = 'image/jpeg';
     const outputBlob = await new Promise<Blob>((resolve) => {
       canvas.toBlob(
         (b) => resolve(b || blob),
         mimeType,
-        0.95
+        0.86
       );
     });
 
     return outputBlob;
   } catch (err) {
     console.warn('Canvas watermark stamping encountered an issue, preserving original file:', err);
+    return blob;
+  }
+}
+
+/**
+ * Optimizes an image blob for web sharing & ZIP archive efficiency:
+ * - Downscales resolution to a max dimension (default: 2560px) while maintaining aspect ratio
+ * - Compresses as high-quality JPEG (default: 0.84 quality)
+ * - Guarantees the output is never larger than the input
+ */
+export async function optimizeImageBlobForWeb(
+  blob: Blob,
+  maxDimension = 2560,
+  quality = 0.84
+): Promise<Blob> {
+  if (!blob.type.startsWith('image/') || blob.type === 'image/svg+xml') {
+    return blob;
+  }
+
+  try {
+    const bitmap = await createImageBitmap(blob).catch(() => null);
+    if (!bitmap) return blob;
+
+    let { width, height } = bitmap;
+    if (width > maxDimension || height > maxDimension) {
+      if (width > height) {
+        height = Math.round((height * maxDimension) / width);
+        width = maxDimension;
+      } else {
+        width = Math.round((width * maxDimension) / height);
+        height = maxDimension;
+      }
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      bitmap.close?.();
+      return blob;
+    }
+
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(bitmap, 0, 0, width, height);
+    bitmap.close?.();
+
+    const optimized = await new Promise<Blob | null>((resolve) => {
+      canvas.toBlob((b) => resolve(b), 'image/jpeg', quality);
+    });
+
+    // Guarantee: Only use optimized blob if it actually reduced the file size
+    if (optimized && optimized.size < blob.size) {
+      return optimized;
+    }
+    return blob;
+  } catch (err) {
+    console.warn('Image optimization skipped, using source blob:', err);
     return blob;
   }
 }
@@ -648,31 +821,71 @@ export function getGalleryWatermarkOptions(
  * @param watermarkOptions Optional watermark configuration
  * @returns Promise resolving to boolean indicating whether download succeeded
  */
+export interface SingleDownloadOptions {
+  url: string;
+  preferredFilename?: string;
+  watermarkOptions?: WatermarkDownloadOptions;
+  format?: 'original' | 'web';
+  downloadUrl?: string;
+  rawUrl?: string;
+  id?: string;
+}
+
+/**
+ * Downloads a single image directly to the user's computer without opening a new tab.
+ * Automatically bakes in the watermark if watermarkOptions.enabled is true.
+ *
+ * Supports polymorphic signature:
+ * downloadSingleImage(url, filename, watermarkOptions, format)
+ * OR
+ * downloadSingleImage({ url, preferredFilename, watermarkOptions, format, downloadUrl, rawUrl, id })
+ */
 export async function downloadSingleImage(
-  url: string,
+  urlOrOptions: string | SingleDownloadOptions,
   preferredFilename?: string,
-  watermarkOptions?: WatermarkDownloadOptions
+  watermarkOptions?: WatermarkDownloadOptions,
+  formatChoice: 'original' | 'web' = 'original'
 ): Promise<boolean> {
-  const filename = sanitizeFilename(preferredFilename || 'photo');
-  const targetUrl = resolveImageUrl(url);
+  const opts: SingleDownloadOptions =
+    typeof urlOrOptions === 'string'
+      ? {
+          url: urlOrOptions,
+          preferredFilename,
+          watermarkOptions,
+          format: formatChoice,
+        }
+      : urlOrOptions;
+
+  const filename = sanitizeFilename(opts.preferredFilename || 'photo');
+  const targetFormat = opts.format || 'original';
+
+  // If RAW/original is requested and a rawUrl is available, prioritize it; otherwise use url
+  const sourceUrl = targetFormat === 'original' && opts.rawUrl ? opts.rawUrl : opts.url;
+  const targetUrl = resolveImageUrl(sourceUrl);
 
   try {
-    let blob = await fetchImageBlob(targetUrl);
-    if (watermarkOptions?.enabled) {
-      blob = await stampWatermarkOnBlob(blob, watermarkOptions);
+    let blob = await fetchImageBlob(targetUrl, opts.downloadUrl, opts.id);
+    if (opts.format === 'web') {
+      blob = await optimizeImageBlobForWeb(blob, 2560, 0.84);
+    }
+    if (opts.watermarkOptions?.enabled) {
+      blob = await stampWatermarkOnBlob(blob, opts.watermarkOptions);
     }
     saveBlobAs(blob, filename);
     return true;
   } catch (err) {
-    console.warn('Direct blob download failed, attempting browser trigger fallback:', err);
-    // Ultimate fallback: standard hidden anchor without _blank target
-    const a = document.createElement('a');
-    a.href = targetUrl;
-    a.download = filename;
-    a.style.display = 'none';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    console.warn('Direct blob download failed, falling back to hidden iframe attachment:', err);
+    // If backend download attachment endpoint is available or targetUrl has Content-Disposition,
+    // trigger download via hidden iframe so the browser NEVER navigates or opens a new tab!
+    const attachmentUrl = opts.downloadUrl
+      ? resolveImageUrl(opts.downloadUrl)
+      : targetUrl;
+
+    if (attachmentUrl) {
+      triggerAttachmentDownload(attachmentUrl);
+      return true;
+    }
+
     return false;
   }
 }
@@ -686,14 +899,21 @@ export async function downloadMultipleAsZip({
   zipFilename,
   onProgress,
   watermarkOptions,
+  format,
+  serverZipUrl,
 }: DownloadMultipleAsZipOptions): Promise<void> {
   if (!items || items.length === 0) {
+    if (serverZipUrl) {
+      triggerAttachmentDownload(serverZipUrl);
+      return;
+    }
     throw new Error('No items provided to download');
   }
 
   const zip = new JSZip();
   const total = items.length;
   let completed = 0;
+  let addedCount = 0;
   const usedFilenames = new Set<string>();
 
   // Ensure unique filenames inside the archive to prevent accidental overwrites
@@ -723,14 +943,27 @@ export async function downloadMultipleAsZip({
         );
 
         try {
-          let blob = await fetchImageBlob(item.url);
+          let blob = await fetchImageBlob(item.url, item.downloadUrl, item.id);
           const activeWatermark = item.watermarkOptions || watermarkOptions;
           if (activeWatermark?.enabled && item.type !== 'video') {
             blob = await stampWatermarkOnBlob(blob, activeWatermark);
           }
-          zip.file(entryName, blob);
-        } catch {
-          // If individual image download fails, continue with remaining items
+
+          // Optimize image file size when web format is chosen
+          const isWebFormat = (format || 'original') === 'web';
+          if (isWebFormat && item.type !== 'video') {
+            blob = await optimizeImageBlobForWeb(blob, 2560, 0.84);
+          }
+
+          zip.file(entryName, blob, {
+            compression: 'DEFLATE',
+            compressionOptions: {
+              level: 9,
+            },
+          });
+          addedCount += 1;
+        } catch (fetchErr) {
+          console.warn(`Could not bundle image ${entryName} directly:`, fetchErr);
         } finally {
           completed += 1;
           const fetchProgress = Math.round((completed / total) * 80); // 0% to 80% for network fetch
@@ -738,17 +971,38 @@ export async function downloadMultipleAsZip({
         }
       })
     );
+
+    // If the very first batch completely failed (e.g. CORS restrictions on remote media server)
+    // and serverZipUrl is present, immediately stream archive via backend endpoint
+    if (i === 0 && addedCount === 0 && serverZipUrl && items.length > 4) {
+      console.warn('Cross-origin direct image fetching blocked by server CORS policy, delegating archive generation directly to server.');
+      onProgress?.(100, total, total);
+      triggerAttachmentDownload(serverZipUrl, zipFilename);
+      return;
+    }
+  }
+
+  // If no items could be fetched into the client zip and a server ZIP URL is provided,
+  // trigger direct server archive download
+  if (addedCount === 0 && serverZipUrl) {
+    onProgress?.(100, total, total);
+    triggerAttachmentDownload(serverZipUrl, zipFilename);
+    return;
+  }
+
+  if (addedCount === 0) {
+    throw new Error('Unable to retrieve photographs to package into the ZIP archive.');
   }
 
   onProgress?.(85, total, total);
 
-  // Generate the compressed ZIP archive
+  // Generate the compressed ZIP archive with maximum level 9 DEFLATE compression
   const zipBlob = await zip.generateAsync(
     {
       type: 'blob',
       compression: 'DEFLATE',
       compressionOptions: {
-        level: 6,
+        level: 9,
       },
     },
     (metadata) => {

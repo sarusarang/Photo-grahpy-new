@@ -1,6 +1,7 @@
 import axios, { AxiosError } from "axios";
 import type { AxiosRequestConfig } from "axios";
 import { toast } from "sonner";
+import { handleAxiosThrottleError } from "@/utils/throttleHandler";
 
 
 
@@ -69,13 +70,20 @@ axiosInstance.interceptors.response.use(
             url.includes("/auth/passwordless/") ||
             url.includes("/photographers/onboarding/");
 
-        const isPublicGuestRoute =
+        const isTenantHost =
             typeof window !== "undefined" &&
+            ((window.location.hostname.endsWith(".exshare.ai") && !window.location.hostname.startsWith("app.") && !window.location.hostname.startsWith("admin.")) ||
+             (window.location.hostname.endsWith(".localhost") && !window.location.hostname.startsWith("localhost")));
+
+        const isPublicGuestRoute =
+            url.includes("/public/") ||
+            isTenantHost ||
+            (typeof window !== "undefined" &&
             (window.location.pathname.startsWith("/gallery/") ||
              window.location.pathname.startsWith("/events/") ||
              window.location.pathname.startsWith("/e/") ||
              window.location.pathname.startsWith("/portfolio/") ||
-             window.location.pathname.startsWith("/guest/"));
+             window.location.pathname.startsWith("/guest/")));
 
         if (error.response?.status === 401 && !originalRequest._retry && !isAuthCheckRoute && !isPublicGuestRoute) {
             originalRequest._retry = true;
@@ -121,6 +129,11 @@ axiosInstance.interceptors.response.use(
 
                 return Promise.reject(refreshError);
             }
+        }
+
+        // Handle 429 Throttling / Rate Limiting
+        if (error.response?.status === 429) {
+            handleAxiosThrottleError(error as any);
         }
 
         // Handle other errors

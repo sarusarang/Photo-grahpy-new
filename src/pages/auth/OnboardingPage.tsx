@@ -368,7 +368,7 @@ export const OnboardingPage: React.FC = () => {
               isResending={resendOtpMutation.isPending}
               hideHeader={true}
               validityMinutes={10}
-              resendCooldownSeconds={30}
+              resendCooldownSeconds={60}
               idPrefix="reg-otp"
               submitLabel="Verify Email"
             />

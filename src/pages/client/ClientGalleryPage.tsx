@@ -12,6 +12,7 @@ import { SelectionBar } from '../../components/gallery/SelectionBar';
 import { MediaShareModal } from '../../components/gallery/MediaShareModal';
 import { StoryVideoCreatorModal } from '../../components/gallery/StoryVideoCreatorModal';
 import { ClientGalleryNavbar } from '../../components/gallery/ClientGalleryNavbar';
+import { GalleryContactModal } from '../../components/gallery/GalleryContactModal';
 import { SmoothScrollProvider, useLenisScroll } from '../../components/common/SmoothScroll';
 import { Lock, Clock, AlertTriangle, Mail, Loader2, Archive, RotateCcw, Sparkles } from 'lucide-react';
 import { isGalleryExpired, getExpiryStatus } from '../../utils/expiryUtils';
@@ -20,14 +21,21 @@ import {
   usePublicGallery,
   useVerifyGalleryPin,
   useTrackPublicGalleryView,
-  useTrackPublicGalleryFavorite,
 } from '@/hooks/useAtelierQueries';
-import { GetGalleryDownloadZipUrl } from '@/service/galleries/PublicGalleryApi';
+import { ViewerAuthModal } from '../../components/gallery/ViewerAuthModal';
+import { useGalleryViewerLikes } from '../../hooks/useGalleryViewerLikes';
+import { GetGalleryDownloadZipUrl, GetPublicGalleryApi } from '@/service/galleries/PublicGalleryApi';
 import { GalleryDetailSkeleton } from '@/components/common/LoadingSkeleton';
 import { useGallerySeo } from '@/hooks/useSeo';
 import type { GalleryGridDesign } from '../../components/gallery/UniversalPhotoGrid';
 import { getInitialGalleryCover, handleCoverImageError } from '@/utils/coverImageUtils';
-import { downloadSingleImage, downloadMultipleAsZip, getGalleryWatermarkOptions } from '@/utils/downloadUtils';
+import {
+  downloadSingleImage,
+  downloadMultipleAsZip,
+  getGalleryWatermarkOptions,
+  triggerAttachmentDownload,
+} from '@/utils/downloadUtils';
+import { DownloadOptionsModal } from '@/components/gallery/DownloadOptionsModal';
 
 const ClientGalleryContent: React.FC = () => {
   const { galleryId } = useParams<{ galleryId: string }>();
@@ -45,11 +53,24 @@ const ClientGalleryContent: React.FC = () => {
 
   const { mutateAsync: verifyPinMutation, isPending: isVerifyingPin } = useVerifyGalleryPin();
   const { mutate: trackViewMutation } = useTrackPublicGalleryView();
-  const { mutateAsync: trackFavoriteMutationAsync } = useTrackPublicGalleryFavorite();
 
-  // Local overrides for optimistic favorites & loading
-  const [localFavoritesOverride, setLocalFavoritesOverride] = useState<Record<string, boolean>>({});
-  const [favoritingMediaIds, setFavoritingMediaIds] = useState<Set<string>>(new Set());
+  // ── Viewing User Likes & Email OTP Auth ──
+  const {
+    viewer: _viewer,
+    viewerEmail,
+    isViewerAuthenticated: _isViewerAuthenticated,
+    likedMediaIds,
+    favoritesCount,
+    favoritingMediaIds,
+    isBulkFavoriting,
+    isAuthModalOpen,
+    setIsAuthModalOpen,
+    handleToggleFavorite,
+    handleBulkFavorite,
+    handleAuthSuccess,
+    handleLogoutViewer,
+  } = useGalleryViewerLikes(galleryId || '', (apiGallery as any)?.media || []);
+
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   // User's active grid layout design across all templates with localStorage persistence
@@ -76,7 +97,7 @@ const ClientGalleryContent: React.FC = () => {
     }
   };
 
-  // Normalize server gallery with resilient demo fallback
+  // Normalize server gallery with resilient demo fallback & viewer likes
   const gallery = useMemo<Gallery | null>(() => {
     // If backend reported studio plan expired, DO NOT fallback to demo data
     const isPlanExpiredError =
@@ -97,18 +118,16 @@ const ClientGalleryContent: React.FC = () => {
       base = normalizeServerGallery(apiGallery);
     }
     if (!base) return null;
-    if (Object.keys(localFavoritesOverride).length > 0) {
-      return {
-        ...base,
-        media: base.media.map((m) =>
-          localFavoritesOverride[m.id] !== undefined
-            ? { ...m, isFavorite: localFavoritesOverride[m.id] }
-            : m
-        ),
-      };
-    }
-    return base;
-  }, [apiGallery, localFavoritesOverride, galleryError]);
+
+    return {
+      ...base,
+      favoritesCount,
+      media: base.media.map((m) => ({
+        ...m,
+        isFavorite: likedMediaIds.has(m.id),
+      })),
+    };
+  }, [apiGallery, likedMediaIds, favoritesCount, galleryError]);
 
   // Track gallery view once on mount when gallery is loaded
   const hasTrackedViewRef = useRef(false);
@@ -160,6 +179,9 @@ const ClientGalleryContent: React.FC = () => {
   const [selectedMediaIds, setSelectedMediaIds] = useState<Set<string>>(new Set());
   const [isShareSelectedOpen, setIsShareSelectedOpen] = useState(false);
 
+  // Studio Direct Inquiries Contact Modal state
+  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
+
   // Story & Reel Video Creator state
   const [isStoryVideoModalOpen, setIsStoryVideoModalOpen] = useState(false);
   const [storyVideoInitialItems, setStoryVideoInitialItems] = useState<any[]>([]);
@@ -186,6 +208,26 @@ const ClientGalleryContent: React.FC = () => {
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState(false);
+  const [pinCooldown, setPinCooldown] = useState(0);
+
+  useEffect(() => {
+    if (pinCooldown <= 0) return;
+    const interval = setInterval(() => {
+      setPinCooldown((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [pinCooldown]);
+
+  useEffect(() => {
+    const handleThrottle = (e: Event) => {
+      const customEvent = e as CustomEvent<{ seconds?: number; url?: string }>;
+      if (customEvent.detail?.url?.includes('verify-pin') || customEvent.detail?.url?.includes('verify-password')) {
+        setPinCooldown(customEvent.detail.seconds || 30);
+      }
+    };
+    window.addEventListener('api-throttled', handleThrottle);
+    return () => window.removeEventListener('api-throttled', handleThrottle);
+  }, []);
 
   // Top navbar scroll tracking: only display navbar when user starts to scroll down
   const [isScrolled, setIsScrolled] = useState(false);
@@ -209,6 +251,16 @@ const ClientGalleryContent: React.FC = () => {
   // Selected ZIP download state
   const [isPreparingSelectedZip, setIsPreparingSelectedZip] = useState(false);
   const [selectedZipProgress, setSelectedZipProgress] = useState(0);
+
+  // Format Selection (RAW vs JPEG) Download Options Modal state
+  const [downloadModalConfig, setDownloadModalConfig] = useState<{
+    isOpen: boolean;
+    item?: any;
+    items?: any[];
+    totalCount?: number;
+    isAll?: boolean;
+    title?: string;
+  }>({ isOpen: false });
 
   if (isGalleryLoading || (Boolean(rawQueryTemplate) && isAuthLoading)) {
     return (
@@ -592,7 +644,7 @@ const ClientGalleryContent: React.FC = () => {
   // Handle PIN unlock
   const handlePinSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!pinInput.trim()) return;
+    if (!pinInput.trim() || isVerifyingPin || pinCooldown > 0) return;
 
     try {
       const res = await verifyPinMutation({
@@ -604,7 +656,13 @@ const ClientGalleryContent: React.FC = () => {
         setPinError(false);
         showToast('Unlocked', 'Access granted to client collection.', 'success');
       }
-    } catch {
+    } catch (err: any) {
+      if (err?.response?.status === 429) {
+        const match = err?.response?.data?.detail?.match(/(\d+)\s*seconds?/i);
+        const retrySec = match ? parseInt(match[1], 10) : 30;
+        setPinCooldown(retrySec);
+        return;
+      }
       // Local fallback check if backend password matches
       if (gallery.password && pinInput.trim() === gallery.password) {
         setIsUnlocked(true);
@@ -643,35 +701,6 @@ const ClientGalleryContent: React.FC = () => {
     setSelectedMediaIds(new Set());
   };
 
-  // Toggle favorite with live API mutation
-  const handleToggleFavorite = async (mediaId: string) => {
-    if (!gallery || favoritingMediaIds.has(mediaId)) return;
-    const currentFav = gallery.media.find((m) => m.id === mediaId)?.isFavorite ?? false;
-    const nextFav = !currentFav;
-
-    setLocalFavoritesOverride((prev) => ({
-      ...prev,
-      [mediaId]: nextFav,
-    }));
-    setFavoritingMediaIds((prev) => new Set(prev).add(mediaId));
-
-    try {
-      await trackFavoriteMutationAsync({
-        slugOrId: gallery.slug || gallery.id,
-        mediaId,
-        isFavorite: nextFav,
-      });
-    } catch {
-      // safe fallback
-    } finally {
-      setFavoritingMediaIds((prev) => {
-        const next = new Set(prev);
-        next.delete(mediaId);
-        return next;
-      });
-    }
-  };
-
   // Resolve default photographer identity for watermarking and attribution (strictly photographer's name by default)
   const defaultPhotographerName =
     gallery?.photographerName ||
@@ -685,141 +714,227 @@ const ClientGalleryContent: React.FC = () => {
     gallery?.watermark_text ||
     (defaultPhotographerName.startsWith('©') ? defaultPhotographerName : `© ${defaultPhotographerName}`);
 
-  // Handle "Download All" action directly packaging client-side ZIP with high-res files
-  const handleDownloadAll = async () => {
+  // Format Selection (RAW vs JPEG) Download Options Modal state (state initialized at component top level)
+
+  // Handle "Download All" action - open format selector
+  const handleDownloadAll = () => {
     if (!gallery || !gallery.media || gallery.media.length === 0) {
       showToast('No Media', 'There are no photos to download in this gallery.', 'warning');
       return;
     }
-
-    setIsPreparingZip(true);
-    setZipProgress(5);
-
-    try {
-      showToast(
-        'Packaging Master Archive',
-        `Bundling ${gallery.media.length} full-resolution photographs into a ZIP file...`,
-        'info'
-      );
-
-      const items = gallery.media
-        .map((m, idx) => ({
-          url: (m.url || m.thumbnailUrl || '') as string,
-          filename: m.title || `${gallery.slug || 'gallery'}-photo-${String(idx + 1).padStart(3, '0')}.jpg`,
-        }))
-        .filter((item) => Boolean(item.url));
-
-      const zipFilename = `${gallery.slug || 'gallery'}-full-collection.zip`;
-      const watermarkOpts = getGalleryWatermarkOptions(gallery, defaultPhotographerName);
-
-      await downloadMultipleAsZip({
-        items,
-        zipFilename,
-        onProgress: (percent) => setZipProgress(percent),
-        watermarkOptions: watermarkOpts,
-      });
-
-      showToast(
-        'Master ZIP Ready',
-        `Downloaded all ${items.length} original full-resolution files.`,
-        'success'
-      );
-    } catch (err) {
-      console.error('Failed to bundle client-side ZIP:', err);
-      // Fallback: trigger backend ZIP url if client-side zip creation encounters an issue
-      const fallbackZipUrl = GetGalleryDownloadZipUrl(gallery.slug || gallery.id);
-      showToast('Fallback Download', 'Downloading gallery archive via server stream...', 'info');
-      const a = document.createElement('a');
-      a.href = fallbackZipUrl;
-      a.download = `${gallery.slug || 'gallery'}-collection.zip`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    } finally {
-      setIsPreparingZip(false);
-      setZipProgress(0);
-    }
+    const totalCount = gallery.totalMediaCount || gallery.media.length;
+    setDownloadModalConfig({
+      isOpen: true,
+      item: undefined,
+      items: gallery.media,
+      totalCount,
+      isAll: true,
+      title: `${gallery.title} (All Photos)`,
+    });
   };
 
-  // Handle direct single photo download from tile button
-  const handleDownloadSinglePhoto = async (e: React.MouseEvent, item: any) => {
+  // Handle direct single photo download from tile button - open format selector
+  const handleDownloadSinglePhoto = (e: React.MouseEvent, item: any) => {
     e.stopPropagation();
-    const targetUrl = item.url || item.thumbnailUrl;
-    if (!targetUrl) {
-      showToast('Unavailable', 'Photo file is not available for download.', 'warning');
+    setDownloadModalConfig({
+      isOpen: true,
+      item,
+      items: undefined,
+      totalCount: 1,
+      isAll: false,
+      title: item.title || `${gallery?.slug || 'gallery'}-photo`,
+    });
+  };
+
+  // Handle "Download Selected" action - open format selector
+  const handleDownloadSelected = () => {
+    if (!gallery || selectedMediaIds.size === 0) return;
+    const selectedList = gallery.media.filter((m) => selectedMediaIds.has(m.id));
+
+    if (selectedMediaIds.size === 1 && selectedList.length === 1) {
+      setDownloadModalConfig({
+        isOpen: true,
+        item: selectedList[0],
+        items: undefined,
+        totalCount: 1,
+        isAll: false,
+        title: selectedList[0].title || `${gallery?.slug || 'gallery'}-photo`,
+      });
       return;
     }
-    const targetName = item.title || `${gallery?.slug || 'gallery'}-photo.jpg`;
-    showToast('Downloading Photo', `Saving "${targetName}"...`, 'info');
-    const watermarkOpts = getGalleryWatermarkOptions(gallery, defaultPhotographerName);
-    const success = await downloadSingleImage(targetUrl, targetName, watermarkOpts);
-    if (success) {
-      showToast('Photo Saved', `"${targetName}" saved successfully.`, 'success');
-    }
+
+    setDownloadModalConfig({
+      isOpen: true,
+      item: undefined,
+      items: selectedList,
+      totalCount: selectedMediaIds.size,
+      isAll: false,
+      title: `${selectedMediaIds.size} Selected Photographs`,
+    });
   };
 
-  // Handle "Download Selected" action
-  const handleDownloadSelected = async () => {
-    if (!gallery || selectedMediaIds.size === 0) return;
+  // Execute download after user chooses RAW vs JPEG & Watermark in modal
+  const handleExecuteDownloadOptions = async ({
+    format,
+    withWatermark,
+    onProgress,
+  }: {
+    format: 'original' | 'web';
+    withWatermark: boolean;
+    onProgress?: (percent: number, statusText?: string) => void;
+  }) => {
+    if (!gallery) return;
+    const watermarkOpts = {
+      ...getGalleryWatermarkOptions(gallery, defaultPhotographerName),
+      enabled: withWatermark,
+    };
 
-    const selectedList = gallery.media.filter((m) => selectedMediaIds.has(m.id));
-    if (selectedList.length === 0) return;
-
-    setIsPreparingSelectedZip(true);
-    setSelectedZipProgress(5);
-
-    try {
-      const watermarkOpts = getGalleryWatermarkOptions(gallery, defaultPhotographerName);
-
-      // If only 1 photo is selected, download directly without unnecessary zip overhead
-      if (selectedList.length === 1) {
-        const item = selectedList[0];
-        const targetUrl = item.url || item.thumbnailUrl;
-        if (!targetUrl) {
-          showToast('Unavailable', 'Photo file is not available for download.', 'warning');
-          return;
-        }
-        const targetName = item.title || `${gallery.slug || 'gallery'}-photo.jpg`;
-        showToast('Downloading Photo', `Saving "${targetName}" directly to your device...`, 'info');
-        await downloadSingleImage(targetUrl, targetName, watermarkOpts);
-        showToast('Photo Saved', `Downloaded 1 photograph successfully.`, 'success');
+    // 1. Single Photo Download
+    if (downloadModalConfig.item) {
+      const item = downloadModalConfig.item;
+      const targetUrl = item.url || item.thumbnailUrl;
+      if (!targetUrl) {
+        showToast('Unavailable', 'Photo file is not available for download.', 'warning');
         return;
       }
-
+      const targetName = item.title || `${gallery.slug || 'gallery'}-photo.jpg`;
+      onProgress?.(30, `Downloading ${targetName}...`);
       showToast(
-        'Packaging Selected',
-        `Bundling ${selectedList.length} selected photographs into a ZIP file...`,
+        'Downloading Photo',
+        `Saving "${targetName}" (${format === 'original' ? 'RAW / Original' : 'Web JPEG'})...`,
+        'info'
+      );
+      const success = await downloadSingleImage({
+        url: targetUrl,
+        preferredFilename: targetName,
+        watermarkOptions: watermarkOpts,
+        format,
+        downloadUrl: item.downloadUrl,
+        rawUrl: item.rawUrl,
+      });
+      onProgress?.(100, 'Download complete!');
+      if (success) {
+        showToast('Photo Saved', `"${targetName}" downloaded to your device.`, 'success');
+      } else {
+        showToast('Download Started', 'Initiated download. Please check your browser downloads.', 'info');
+      }
+      return;
+    }
+
+    // 2. Multi-Photo ZIP Download
+    const isAll = Boolean(
+      downloadModalConfig.isAll ||
+      (!downloadModalConfig.item &&
+        (!downloadModalConfig.items ||
+          downloadModalConfig.items.length === gallery.media.length ||
+          (downloadModalConfig.totalCount && downloadModalConfig.totalCount >= (gallery.totalMediaCount || gallery.media.length))))
+    );
+
+    const expectedCount =
+      downloadModalConfig.totalCount ||
+      (isAll ? gallery.totalMediaCount || gallery.media.length : selectedMediaIds.size) ||
+      gallery.media.length;
+
+    let targetItems = downloadModalConfig.items || gallery.media;
+
+    if (
+      (isAll && gallery.totalMediaCount && targetItems.length < gallery.totalMediaCount) ||
+      (!isAll && selectedMediaIds.size > targetItems.length) ||
+      (downloadModalConfig.totalCount && targetItems.length < downloadModalConfig.totalCount)
+    ) {
+      try {
+        onProgress?.(5, `Loading all ${expectedCount} photos from server...`);
+        const fullGallery = await GetPublicGalleryApi(gallery.slug || gallery.id, { all_media: true });
+        const normalizedFull = normalizeServerGallery(fullGallery);
+        if (isAll) {
+          targetItems = normalizedFull.media;
+        } else if (selectedMediaIds.size > 0) {
+          targetItems = normalizedFull.media.filter((m) => selectedMediaIds.has(m.id));
+        } else {
+          targetItems = normalizedFull.media;
+        }
+      } catch (fetchErr) {
+        console.warn('Could not fetch full public gallery media list for zip, falling back to loaded items:', fetchErr);
+      }
+    }
+
+    if (!targetItems || targetItems.length === 0) return;
+
+    const finalCount = targetItems.length;
+
+    if (isAll) {
+      setIsPreparingZip(true);
+      setZipProgress(5);
+    } else {
+      setIsPreparingSelectedZip(true);
+      setSelectedZipProgress(5);
+    }
+
+    const zipFilename = isAll
+      ? `${gallery.slug || 'gallery'}-${format}-collection.zip`
+      : `${gallery.slug || 'gallery'}-selected-${finalCount}-${format}.zip`;
+
+    const fallbackZipUrl = GetGalleryDownloadZipUrl(gallery.slug || gallery.id, undefined, format);
+
+    try {
+      showToast(
+        'Packaging Archive',
+        `Bundling ${finalCount} photos (${format === 'original' ? 'RAW / Original' : 'Web JPEG'})...`,
         'info'
       );
 
-      const items = selectedList
+      const items = targetItems
         .map((m, idx) => ({
-          url: (m.url || m.thumbnailUrl || '') as string,
-          filename: m.title || `${gallery.slug || 'gallery'}-selected-${String(idx + 1).padStart(3, '0')}.jpg`,
+          url: (format === 'original' && m.rawUrl
+            ? m.rawUrl
+            : format === 'web' && m.previewUrl
+            ? m.previewUrl
+            : m.url || m.thumbnailUrl || '') as string,
+          downloadUrl: m.downloadUrl,
+          id: m.id,
+          filename: m.title || `${gallery.slug || 'gallery'}-photo-${String(idx + 1).padStart(3, '0')}.jpg`,
           type: m.type,
         }))
         .filter((item) => Boolean(item.url));
 
-      const zipFilename = `${gallery.slug || 'gallery'}-selected-${selectedList.length}-photos.zip`;
-
       await downloadMultipleAsZip({
         items,
         zipFilename,
-        onProgress: (percent) => setSelectedZipProgress(percent),
+        onProgress: (percent, current, total) => {
+          if (isAll) setZipProgress(percent);
+          else setSelectedZipProgress(percent);
+          onProgress?.(
+            percent,
+            current > 0
+              ? `Packaging ${current} of ${total} photos (${percent}%)...`
+              : `Packaging archive (${percent}%)...`
+          );
+        },
         watermarkOptions: watermarkOpts,
+        format,
+        serverZipUrl: fallbackZipUrl,
       });
+
+      onProgress?.(100, 'Download started!');
 
       showToast(
         'Archive Ready',
-        `Downloaded ${selectedList.length} selected photographs.`,
+        `Downloaded ${finalCount} photographs successfully.`,
         'success'
       );
     } catch (err) {
-      console.error('Failed to bundle selected photos ZIP:', err);
-      showToast('Download Error', 'Could not create ZIP archive for selected photos.', 'error');
+      console.warn('Direct zip bundling failed, streaming archive via server:', err);
+      showToast('Downloading Archive', 'Streaming archive directly from server...', 'info');
+      triggerAttachmentDownload(fallbackZipUrl);
+      onProgress?.(100, 'Streaming download started!');
     } finally {
-      setIsPreparingSelectedZip(false);
-      setSelectedZipProgress(0);
+      if (isAll) {
+        setIsPreparingZip(false);
+        setZipProgress(0);
+      } else {
+        setIsPreparingSelectedZip(false);
+        setSelectedZipProgress(0);
+      }
     }
   };
 
@@ -851,27 +966,34 @@ const ClientGalleryContent: React.FC = () => {
           <form onSubmit={handlePinSubmit} className="space-y-4">
             <input
               type="password"
-              placeholder="Enter PIN / Password"
+              placeholder={pinCooldown > 0 ? `Locked (${pinCooldown}s)` : "Enter PIN / Password"}
               value={pinInput}
+              disabled={isVerifyingPin || pinCooldown > 0}
               onChange={(e) => setPinInput(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl bg-neutral-950 border border-neutral-800 text-center text-sm tracking-widest text-white focus:outline-none focus:border-amber-400"
+              className="w-full px-4 py-3 rounded-xl bg-neutral-950 border border-neutral-800 text-center text-sm tracking-widest text-white focus:outline-none focus:border-amber-400 disabled:opacity-50 disabled:cursor-not-allowed"
             />
-            {pinError && (
+            {pinCooldown > 0 ? (
+              <p className="text-xs text-amber-400 font-mono">
+                Too many attempts. PIN input locked for {pinCooldown}s.
+              </p>
+            ) : pinError ? (
               <p className="text-xs text-rose-400 font-mono">
                 Incorrect code. Please enter the valid PIN sent by your photographer.
               </p>
-            )}
+            ) : null}
 
             <button
               type="submit"
-              disabled={isVerifyingPin}
-              className="w-full py-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              disabled={isVerifyingPin || pinCooldown > 0}
+              className="w-full py-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isVerifyingPin ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
                   <span>Verifying PIN...</span>
                 </>
+              ) : pinCooldown > 0 ? (
+                `Locked for ${pinCooldown}s`
               ) : (
                 'Unlock Gallery'
               )}
@@ -942,6 +1064,11 @@ const ClientGalleryContent: React.FC = () => {
         onStartSlideshow={() => handleStartSlideshow(0)}
         onDownloadAll={handleDownloadAll}
         onCreateStoryVideo={() => handleOpenStoryVideoCreator()}
+        onOpenContact={() => setIsContactModalOpen(true)}
+        viewerEmail={viewerEmail}
+        favoritesCount={favoritesCount}
+        onOpenViewerAuth={() => setIsAuthModalOpen(true)}
+        onLogoutViewer={handleLogoutViewer}
       />
 
       {/* Gentle Expiry Warning Banner (only if expiring in less than 48 hours) */}
@@ -962,6 +1089,7 @@ const ClientGalleryContent: React.FC = () => {
         onSelectGridDesign={handleSelectGridDesign}
         onOpenLightbox={(idx) => setLightboxIndex(idx)}
         onToggleFavorite={handleToggleFavorite}
+        favoritingMediaIds={favoritingMediaIds}
         selectedMediaIds={selectedMediaIds}
         onToggleSelectMedia={handleToggleSelectMedia}
         onStartSlideshow={handleStartSlideshow}
@@ -972,6 +1100,7 @@ const ClientGalleryContent: React.FC = () => {
           setIsShareSelectedOpen(true);
         }}
         onCreateStoryVideo={() => handleOpenStoryVideoCreator()}
+        onOpenContact={() => setIsContactModalOpen(true)}
       />
 
       {/* Multi-Select Floating Action Toolbar */}
@@ -986,6 +1115,10 @@ const ClientGalleryContent: React.FC = () => {
         onCreateStoryVideo={() =>
           handleOpenStoryVideoCreator(gallery.media.filter((m) => selectedMediaIds.has(m.id)))
         }
+        onBulkFavorite={(targetState) => {
+          handleBulkFavorite(targetState, Array.from(selectedMediaIds));
+        }}
+        isBulkFavoriting={isBulkFavoriting}
         isDownloading={isPreparingSelectedZip}
         downloadProgress={selectedZipProgress}
       />
@@ -1078,6 +1211,44 @@ const ClientGalleryContent: React.FC = () => {
           defaultPhotographerName={defaultPhotographerName}
         />
       )}
+
+      {/* Studio Direct Inquiry & Contact Popup Modal */}
+      {gallery && (
+        <GalleryContactModal
+          isOpen={isContactModalOpen}
+          onClose={() => setIsContactModalOpen(false)}
+          gallery={gallery}
+          theme={activeTemplate}
+          studioName={gallery.studioName || photographer?.studioName}
+          photographerName={defaultPhotographerName}
+        />
+      )}
+
+      {/* Format Selection (RAW vs JPEG) Download Options Modal */}
+      {gallery && (
+        <DownloadOptionsModal
+          isOpen={downloadModalConfig.isOpen}
+          onClose={() => setDownloadModalConfig({ isOpen: false })}
+          item={downloadModalConfig.item}
+          items={downloadModalConfig.items}
+          totalCount={downloadModalConfig.totalCount}
+          galleryTitle={downloadModalConfig.title || gallery.title}
+          watermarkOptions={getGalleryWatermarkOptions(gallery, defaultPhotographerName)}
+          showWatermarkToggle={false}
+          onConfirmDownload={handleExecuteDownloadOptions}
+          theme={activeTemplate === 'editorial' || activeTemplate === 'minimal' ? 'light' : 'dark'}
+        />
+      )}
+
+      {/* Viewing User Email + OTP Authentication Modal (Triggered ONLY when user attempts to like) */}
+      <ViewerAuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        galleryIdOrSlug={gallery.slug || gallery.id}
+        galleryTitle={gallery.title}
+        onSuccess={handleAuthSuccess}
+        pendingCount={selectedMediaIds.size > 0 ? selectedMediaIds.size : 1}
+      />
     </div>
   );
 };

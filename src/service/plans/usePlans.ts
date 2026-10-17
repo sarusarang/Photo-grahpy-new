@@ -242,6 +242,9 @@ export const usePlanUpgradeFlow = (onSuccess?: (plan: StudioPlan) => void) => {
   const { user, photographer } = useAuth();
 
   const handleUpgrade = async (plan: StudioPlan) => {
+    if (upgradingPlanId !== null || checkoutMutation.isPending || verifyMutation.isPending) {
+      return;
+    }
     setUpgradingPlanId(plan.id);
 
     try {

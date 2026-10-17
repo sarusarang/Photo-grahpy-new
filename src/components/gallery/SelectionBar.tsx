@@ -6,9 +6,11 @@ import {
   Share2,
   Loader2,
   Film,
+  Heart,
+  HeartOff,
 } from 'lucide-react';
 
-interface SelectionBarProps {
+export interface SelectionBarProps {
   selectedCount: number;
   totalCount: number;
   onClearSelection: () => void;
@@ -17,6 +19,8 @@ interface SelectionBarProps {
   onPlaySlideshow: () => void;
   onShareSelected?: () => void;
   onCreateStoryVideo?: () => void;
+  onBulkFavorite?: (targetFavoriteState: boolean) => void;
+  isBulkFavoriting?: boolean;
   isDownloading?: boolean;
   downloadProgress?: number;
 }
@@ -30,6 +34,8 @@ export const SelectionBar: React.FC<SelectionBarProps> = ({
   onPlaySlideshow,
   onShareSelected,
   onCreateStoryVideo,
+  onBulkFavorite,
+  isBulkFavoriting = false,
   isDownloading = false,
   downloadProgress = 0,
 }) => {
@@ -91,7 +97,37 @@ export const SelectionBar: React.FC<SelectionBarProps> = ({
         <div className="hidden sm:block w-px h-6 bg-white/10 shrink-0" />
 
         {/* Bottom/Right Section: Action Buttons */}
-        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 justify-stretch sm:justify-end">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 justify-stretch sm:justify-end flex-wrap sm:flex-nowrap">
+          {/* Bulk Like Selected Photos */}
+          {onBulkFavorite && (
+            <button
+              onClick={() => onBulkFavorite(true)}
+              disabled={isBulkFavoriting}
+              className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl sm:rounded-full bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/50 text-rose-300 hover:text-white text-xs font-bold tracking-wide transition-all active:scale-95 whitespace-nowrap cursor-pointer shadow-md shadow-rose-500/15 touch-manipulation disabled:opacity-50"
+              title="Add all selected photos to your Liked collection"
+            >
+              {isBulkFavoriting ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-rose-400" />
+              ) : (
+                <Heart className="w-3.5 h-3.5 fill-rose-500 text-rose-500" />
+              )}
+              <span>Like ({selectedCount})</span>
+            </button>
+          )}
+
+          {/* Bulk Unlike Selected Photos */}
+          {onBulkFavorite && (
+            <button
+              onClick={() => onBulkFavorite(false)}
+              disabled={isBulkFavoriting}
+              className="inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-xl sm:rounded-full bg-neutral-900/90 hover:bg-neutral-800 border border-neutral-700/70 hover:border-rose-400/40 text-neutral-300 hover:text-white text-xs font-medium tracking-wide transition-all active:scale-95 whitespace-nowrap cursor-pointer shadow-sm touch-manipulation disabled:opacity-50"
+              title="Remove all selected photos from Liked"
+            >
+              <HeartOff className="w-3.5 h-3.5 text-neutral-400" />
+              <span className="hidden xs:inline">Unlike</span>
+            </button>
+          )}
+
           {/* Share Selected Photos Button */}
           {onShareSelected && (
             <button

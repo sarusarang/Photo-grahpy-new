@@ -1,14 +1,14 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import {
   X,
   UploadCloud,
   Loader2,
   Trash2,
-  Maximize2,
   Sparkles,
   CheckCircle2,
   Minus,
+  FileImage,
 } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { UploadProgressCard, MinimizedUploadWidget } from '@/components/common/upload';
@@ -27,6 +27,78 @@ export interface CullingUploadModalProps {
   availableStorageDisplay?: string;
 }
 
+// ─── Resilient Photo Thumbnail Card ──────────────────────────────────────────
+
+const CullingPhotoCard: React.FC<{
+  file: File;
+  index: number;
+  isAnalyzing: boolean;
+  onRemove: (index: number) => void;
+}> = ({ file, index, isAnalyzing, onRemove }) => {
+  const [thumbSrc, setThumbSrc] = useState<string>(() => {
+    try {
+      return URL.createObjectURL(file);
+    } catch {
+      return '';
+    }
+  });
+  const [loadFailed, setLoadFailed] = useState(false);
+
+  useEffect(() => {
+    let url = thumbSrc;
+    if (!url) {
+      try {
+        url = URL.createObjectURL(file);
+        setThumbSrc(url);
+        setLoadFailed(false);
+      } catch {
+        setLoadFailed(true);
+      }
+    }
+    return () => {
+      if (url && url.startsWith('blob:')) {
+        URL.revokeObjectURL(url);
+      }
+    };
+  }, [file]);
+
+  return (
+    <div className="group relative aspect-square rounded-xl bg-neutral-900 border border-white/10 overflow-hidden flex items-center justify-center">
+      {thumbSrc && !loadFailed ? (
+        <img
+          src={thumbSrc}
+          alt={file.name}
+          loading="lazy"
+          onError={() => setLoadFailed(true)}
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+        />
+      ) : (
+        <div className="w-full h-full flex flex-col items-center justify-center p-2 text-center bg-neutral-900 select-none">
+          <FileImage className="w-5 h-5 text-amber-500/80 mb-1" />
+          <span className="text-[9px] text-neutral-400 truncate max-w-full font-mono">
+            {file.name}
+          </span>
+        </div>
+      )}
+      {!isAnalyzing && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemove(index);
+          }}
+          className="absolute top-1.5 right-1.5 p-1 rounded-md bg-black/70 text-white/80 hover:text-red-400 hover:bg-black transition-colors opacity-0 group-hover:opacity-100 cursor-pointer"
+          title="Remove photo"
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+        </button>
+      )}
+      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-1.5 text-[10px] text-neutral-300 truncate font-mono">
+        {file.name}
+      </div>
+    </div>
+  );
+};
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export const CullingUploadModal: React.FC<CullingUploadModalProps> = ({
@@ -42,7 +114,6 @@ export const CullingUploadModal: React.FC<CullingUploadModalProps> = ({
 }) => {
   const { showToast } = useToast();
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [previews, setPreviews] = useState<Array<{ name: string; size: number; url: string }>>([]);
   const [isMinimized, setIsMinimized] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -50,10 +121,8 @@ export const CullingUploadModal: React.FC<CullingUploadModalProps> = ({
   // ─── File Management ────────────────────────────────────────────────────────
 
   const handleClear = useCallback(() => {
-    previews.forEach((p) => URL.revokeObjectURL(p.url));
-    setPreviews([]);
     setSelectedFiles([]);
-  }, [previews]);
+  }, []);
 
   const handleAddFiles = useCallback(
     (incomingFiles: FileList | File[]) => {
@@ -88,32 +157,13 @@ export const CullingUploadModal: React.FC<CullingUploadModalProps> = ({
         }
       }
 
-      setSelectedFiles((prev) => {
-        const next = [...prev, ...validFiles];
-        // Only generate in-memory object URLs for up to 36 photos to prevent browser memory freeze on 2,000 photos
-        setPreviews((oldPreviews) => {
-          const remainingSlots = Math.max(0, 36 - oldPreviews.length);
-          if (remainingSlots <= 0) return oldPreviews;
-          const filesToPreview = validFiles.slice(0, remainingSlots);
-          return [
-            ...oldPreviews,
-            ...filesToPreview.map((file) => ({
-              name: file.name,
-              size: file.size,
-              url: URL.createObjectURL(file),
-            })),
-          ];
-        });
-        return next;
-      });
+      setSelectedFiles((prev) => [...prev, ...validFiles]);
     },
-    [showToast]
+    [selectedFiles, validateStorageQuota, showToast]
   );
 
   const handleRemoveFile = (index: number) => {
-    URL.revokeObjectURL(previews[index].url);
     setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
-    setPreviews((prev) => prev.filter((_, i) => i !== index));
   };
 
   // ─── Drag & Drop ────────────────────────────────────────────────────────────
@@ -297,39 +347,21 @@ export const CullingUploadModal: React.FC<CullingUploadModalProps> = ({
               </div>
 
               <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2.5 max-h-56 overflow-y-auto pr-1">
-                {previews.map((preview, idx) => (
-                  <div
-                    key={`${preview.name}-${idx}`}
-                    className="group relative aspect-square rounded-xl bg-neutral-900 border border-white/10 overflow-hidden"
-                  >
-                    <img
-                      src={preview.url}
-                      alt={preview.name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                    />
-                    {!isAnalyzing && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleRemoveFile(idx);
-                        }}
-                        className="absolute top-1.5 right-1.5 p-1 rounded-md bg-black/70 text-white/80 hover:text-red-400 hover:bg-black transition-colors opacity-0 group-hover:opacity-100 cursor-pointer"
-                        title="Remove photo"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-1.5 text-[10px] text-neutral-300 truncate">
-                      {preview.name}
-                    </div>
-                  </div>
+                {selectedFiles.slice(0, 48).map((file, idx) => (
+                  <CullingPhotoCard
+                    key={`${file.name}-${file.size}-${idx}`}
+                    file={file}
+                    index={idx}
+                    isAnalyzing={isAnalyzing}
+                    onRemove={handleRemoveFile}
+                  />
                 ))}
 
                 {/* Additional overflow badge for large batches (e.g. 500 - 2,000 photos) */}
-                {selectedFiles.length > previews.length && (
+                {selectedFiles.length > 48 && (
                   <div className="aspect-square rounded-xl bg-amber-500/10 border border-amber-500/30 flex flex-col items-center justify-center p-2 text-center">
                     <span className="text-base font-black text-amber-400">
-                      +{selectedFiles.length - previews.length}
+                      +{selectedFiles.length - 48}
                     </span>
                     <span className="text-[10px] text-neutral-400 leading-tight mt-0.5">
                       more photos queued for upload

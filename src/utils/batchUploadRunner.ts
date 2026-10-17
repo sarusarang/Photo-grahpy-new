@@ -164,6 +164,7 @@ export const formatSpeed = (bytesPerSec: number): string => {
 
 const getItemByteSize = (item: any): number => {
   if (!item) return 0;
+  if (item.file && typeof item.file.size === 'number' && item.file.size > 0) return item.file.size;
   if (typeof item.size === 'number' && item.size > 0) return item.size;
   if (typeof item.sizeBytes === 'number' && item.sizeBytes > 0) return item.sizeBytes;
   if (typeof item.sizeMB === 'number' && item.sizeMB > 0) return item.sizeMB * 1024 * 1024;
@@ -340,7 +341,6 @@ export const executeBatchUpload = async <TItem, TResult>(
 
   let activeStreams = 0;
   let hasFailed = false;
-  let fatalError: any = null;
 
   // Pause controller subscription
   if (pauseController) {
@@ -553,6 +553,17 @@ export const executeBatchUpload = async <TItem, TResult>(
           }
         }
 
+        // Adaptive 429 Rate Throttling recovery: automatically wait specified seconds and retry
+        if (err?.response?.status === 429) {
+          const detail = String(err?.response?.data?.detail || err?.message || '');
+          const match = detail.match(/(\d+)\s*seconds?/i);
+          const waitSecs = match ? Math.min(60, Math.max(5, parseInt(match[1], 10))) : 10;
+          reportProgress(`Upload rate-limited by server — waiting ${waitSecs}s to auto-resume...`);
+          await new Promise((resolve) => setTimeout(resolve, (waitSecs + 1) * 1000));
+          if (signal?.aborted) throw createAbortError();
+          continue;
+        }
+
         if (isFatalUploadError(err, signal, chunk.length)) {
           throw err;
         }
@@ -567,14 +578,10 @@ export const executeBatchUpload = async <TItem, TResult>(
 
     if (!success) {
       if (onBatchError) {
-        try {
-          const fallbackResult = await onBatchError(lastError, chunk, batchIndex);
-          if (fallbackResult !== undefined) {
-            resultsByBatchIndex.set(batchIndex, fallbackResult as TResult);
-            allResults.push(fallbackResult as TResult);
-          }
-        } catch (fallbackErr: any) {
-          throw fallbackErr;
+        const fallbackResult = await onBatchError(lastError, chunk, batchIndex);
+        if (fallbackResult !== undefined) {
+          resultsByBatchIndex.set(batchIndex, fallbackResult as TResult);
+          allResults.push(fallbackResult as TResult);
         }
       } else {
         throw lastError;
@@ -606,13 +613,12 @@ export const executeBatchUpload = async <TItem, TResult>(
     await Promise.all(workerPromises);
   } catch (err: any) {
     hasFailed = true;
-    fatalError = err;
     const currentUploaded = Array.from(resultsByBatchIndex.values());
     if (currentUploaded.length > 0) {
-      fatalError.uploadedMedia = currentUploaded;
-      fatalError.uploadedPhotos = currentUploaded;
+      err.uploadedMedia = currentUploaded;
+      err.uploadedPhotos = currentUploaded;
     }
-    throw fatalError;
+    throw err;
   }
 
   // Sort results by batch index for consistent ordering
@@ -633,3 +639,8 @@ export const executeBatchUpload = async <TItem, TResult>(
     metrics: finalMetrics,
   };
 };
+
+/**
+ * Standard alias for the batch upload pipeline orchestrator
+ */
+export const runBatchUploadPipeline = executeBatchUpload;

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Play, Download, Loader2, Clock, Film } from 'lucide-react';
+import { Play, Download, Loader2, Clock, Film, Mail, Heart } from 'lucide-react';
 import { FullscreenButton } from '../common/FullscreenButton';
 import type { GalleryGridDesign } from './UniversalPhotoGrid';
 
@@ -20,6 +20,13 @@ export interface ClientGalleryNavbarProps {
   onStartSlideshow: () => void;
   onDownloadAll: () => void;
   onCreateStoryVideo?: () => void;
+  onOpenContact?: () => void;
+  viewerEmail?: string;
+  favoritesCount?: number;
+  onOpenViewerAuth?: () => void;
+  onLogoutViewer?: () => void;
+  onToggleFavoritesSection?: () => void;
+  isFavoritesSectionActive?: boolean;
 }
 
 /**
@@ -39,6 +46,13 @@ export const ClientGalleryNavbar: React.FC<ClientGalleryNavbarProps> = ({
   onStartSlideshow,
   onDownloadAll,
   onCreateStoryVideo,
+  onOpenContact,
+  viewerEmail,
+  favoritesCount = 0,
+  onOpenViewerAuth,
+  onLogoutViewer,
+  onToggleFavoritesSection,
+  isFavoritesSectionActive = false,
 }) => {
   return (
     <header
@@ -78,6 +92,72 @@ export const ClientGalleryNavbar: React.FC<ClientGalleryNavbarProps> = ({
         {/* Fullscreen Toggle */}
         <FullscreenButton theme="navbar" showLabel={false} compact={true} />
 
+        {/* Quick Liked Filter Trigger */}
+        {onToggleFavoritesSection && (
+          <button
+            type="button"
+            onClick={onToggleFavoritesSection}
+            className={`inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border text-xs font-semibold cursor-pointer active:scale-95 transition-all ${
+              isFavoritesSectionActive
+                ? 'bg-rose-500 text-white border-rose-400 shadow-sm shadow-rose-500/30'
+                : 'bg-neutral-900/90 hover:bg-neutral-800 border-neutral-700/60 text-neutral-300 hover:text-white'
+            }`}
+            title="View your Liked photos"
+          >
+            <Heart
+              className={`w-3.5 h-3.5 ${
+                isFavoritesSectionActive
+                  ? 'fill-white text-white'
+                  : favoritesCount > 0
+                  ? 'fill-rose-500 text-rose-500'
+                  : 'text-neutral-400'
+              }`}
+            />
+            <span className="hidden sm:inline">Liked</span>
+            {favoritesCount > 0 && (
+              <span
+                className={`text-[10px] font-bold px-1.5 py-0.2 rounded-md ${
+                  isFavoritesSectionActive
+                    ? 'bg-white/20 text-white'
+                    : 'bg-rose-500/20 text-rose-400'
+                }`}
+              >
+                {favoritesCount}
+              </span>
+            )}
+          </button>
+        )}
+
+        {/* Viewer Identity / Sign In Pill */}
+        {viewerEmail ? (
+          <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-neutral-900/90 border border-neutral-700/60 text-[11px] font-mono text-neutral-300 shadow-sm">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+            <span className="truncate max-w-[110px]" title={`Favorites saved under ${viewerEmail}`}>
+              {viewerEmail}
+            </span>
+            {onLogoutViewer && (
+              <button
+                type="button"
+                onClick={onLogoutViewer}
+                className="text-neutral-500 hover:text-rose-400 transition-colors ml-0.5 cursor-pointer"
+                title="Sign out of favorites"
+              >
+                ×
+              </button>
+            )}
+          </div>
+        ) : onOpenViewerAuth ? (
+          <button
+            type="button"
+            onClick={onOpenViewerAuth}
+            className="hidden lg:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-neutral-900/90 hover:bg-neutral-800 border border-neutral-700/60 text-[11px] font-mono text-neutral-400 hover:text-white transition-colors cursor-pointer shadow-sm"
+            title="Sign in with email to save your favorites"
+          >
+            <Heart className="w-3 h-3 text-rose-400" />
+            <span>Sign In</span>
+          </button>
+        ) : null}
+
         {/* Quick Slideshow Trigger */}
         <button
           onClick={onStartSlideshow}
@@ -97,6 +177,18 @@ export const ClientGalleryNavbar: React.FC<ClientGalleryNavbarProps> = ({
           >
             <Film className="w-3.5 h-3.5 text-amber-400" />
             <span className="hidden md:inline">Make Reel</span>
+          </button>
+        )}
+
+        {/* Studio Inquire / Book Trigger */}
+        {onOpenContact && (
+          <button
+            onClick={onOpenContact}
+            className="inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-neutral-900/90 hover:bg-neutral-800 border border-amber-400/40 text-amber-300 hover:text-white transition-all text-xs font-semibold cursor-pointer active:scale-95 shadow-xs"
+            title="Directly inquire or book the studio"
+          >
+            <Mail className="w-3.5 h-3.5 text-amber-400" />
+            <span className="hidden sm:inline">Inquire</span>
           </button>
         )}
 

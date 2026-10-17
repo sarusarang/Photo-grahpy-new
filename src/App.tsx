@@ -184,6 +184,10 @@ export default function App() {
           {/* Public Photographer Portfolio Route (No Auth Required) */}
           <Route path="/portfolio/:photographerId" element={<PortfolioPage />} />
 
+          {/* Public Tenant Portfolio Route (Direct Preview & Development Testing) */}
+          <Route path="/tenant-portfolio" element={<PublicTenantPortfolioPage />} />
+          <Route path="/tenant-portfolio/:subdomain" element={<PublicTenantPortfolioPage />} />
+
           {/* Public Client Gallery Route (Separate Layout) */}
           <Route path="/gallery/:galleryId" element={<ClientGalleryPage />} />
 

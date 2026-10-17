@@ -5,6 +5,7 @@ import {
   Film,
   Camera,
   Check,
+  Heart,
 } from 'lucide-react';
 import { useLenisScroll } from '../common/SmoothScroll';
 import type { GalleryGridDesign } from './UniversalPhotoGrid';
@@ -35,6 +36,7 @@ export const ClientSectionFilterBar: React.FC<ClientSectionFilterBarProps> = ({
   sections = [],
   activeFilter,
   onSelectFilter,
+  favoritesCount = 0,
   totalPhotosCount = 0,
   totalVideosCount = 0,
   theme = 'masonry',
@@ -259,6 +261,7 @@ export const ClientSectionFilterBar: React.FC<ClientSectionFilterBarProps> = ({
 
   // Active state helpers
   const isAiFaceActive = activeFilter.type === 'ai-face';
+  const isFavoritesActive = activeFilter.type === 'favorites';
   const isSectionActive = (title: string) =>
     activeFilter.type === 'section' && activeFilter.title.toLowerCase() === title.toLowerCase();
   const isAllActive = activeFilter.type === 'all';
@@ -349,6 +352,45 @@ export const ClientSectionFilterBar: React.FC<ClientSectionFilterBarProps> = ({
                 <span className="text-[10px] sm:text-[11px]">({totalVideosCount})</span>
               </button>
             )}
+
+            {/* ─── 4. Liked / Favorites Section Pill ─── */}
+            <button
+              type="button"
+              onClick={(e) =>
+                handlePillClick(
+                  activeFilter.type === 'favorites' ? { type: 'all' } : { type: 'favorites' },
+                  e
+                )
+              }
+              className={`flex items-center gap-1.5 sm:gap-2 px-3.5 sm:px-5 py-1.5 sm:py-2.5 rounded-full text-[11px] sm:text-[13px] uppercase tracking-wider transition-all duration-200 cursor-pointer whitespace-nowrap shrink-0 active:scale-95 touch-manipulation ${
+                isFavoritesActive
+                  ? 'bg-rose-500 text-white font-bold shadow-lg shadow-rose-500/30 ring-2 ring-rose-400/50 scale-[1.02]'
+                  : st.inactivePill
+              }`}
+              title={isFavoritesActive ? 'Show all photos' : 'Filter by liked photos only'}
+            >
+              <Heart
+                className={`w-3.5 h-3.5 transition-transform ${
+                  isFavoritesActive
+                    ? 'fill-white text-white scale-110'
+                    : favoritesCount > 0
+                    ? 'fill-rose-500 text-rose-500 scale-105'
+                    : 'text-neutral-400'
+                }`}
+              />
+              <span>Liked</span>
+              <span
+                className={`text-[10px] sm:text-[11px] font-bold px-1.5 py-0.5 rounded-md leading-none transition-colors ${
+                  isFavoritesActive
+                    ? 'bg-white/25 text-white'
+                    : favoritesCount > 0
+                    ? 'bg-rose-500/20 text-rose-400'
+                    : 'bg-neutral-800/80 text-neutral-400'
+                }`}
+              >
+                {favoritesCount}
+              </span>
+            </button>
 
 
             {/* ─── 5. Visible Section Title Pills ─── */}

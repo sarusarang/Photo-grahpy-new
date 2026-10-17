@@ -18,6 +18,11 @@ export interface MediaItem {
   isFavorite?: boolean;
   duration?: string; // For videos e.g. "01:45"
   videoEmbedUrl?: string;
+  downloadUrl?: string;
+  previewUrl?: string;
+  rawUrl?: string;
+  originalFilename?: string;
+  mimeType?: string;
 }
 
 export interface Gallery {
@@ -74,8 +79,12 @@ export interface Gallery {
   totalSizeBytes?: number;
   totalSizeMB?: number;
   totalSizeFormatted?: string;
+  photographerId?: string | number;
+  photographerSlug?: string;
   photographerName?: string;
+  photographerEmail?: string;
   studioName?: string;
+  studioEmail?: string;
 }
 
 export interface GallerySection {

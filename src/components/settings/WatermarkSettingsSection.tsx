@@ -17,7 +17,6 @@ import {
   Palette,
   RotateCcw,
   Check,
-  Maximize2,
 } from 'lucide-react';
 import { usePhotographerProfile, useUpdateWatermark } from '@/service/profile/useProfile';
 import { usePlanQuota } from '@/hooks/usePlanQuota';

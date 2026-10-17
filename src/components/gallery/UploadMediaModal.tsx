@@ -5,9 +5,12 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useGallery } from '../../context/GalleryContext';
 import { useToast } from '../ui/Toast';
 import { usePlanQuota } from '@/hooks/usePlanQuota';
-import { useBulkUploadGalleryMedia, useAddGallerySection, useGalleryDetail } from '@/hooks/useAtelierQueries';
+import { useAddGallerySection, useGalleryDetail } from '@/hooks/useAtelierQueries';
 import { normalizeServerMediaItem, normalizeServerGallery } from '@/utils/galleryNormalizer';
-import { SetGalleryCoverImageApi, SetGalleryTemplateBannerApi } from '@/service/galleries/GalleryApi';
+import {
+  SetGalleryCoverImageApi,
+  SetGalleryTemplateBannerApi,
+} from '@/service/galleries/GalleryApi';
 import { PlanUpgradeModal } from '../billing/PlanUpgradeModal';
 import { useUploadGuard } from '@/hooks/useUploadGuard';
 import {
@@ -25,14 +28,15 @@ import {
   AlertTriangle,
   ZapOff,
   Minus,
-  Maximize2,
-  CheckCircle2,
-  ExternalLink,
   AlertOctagon,
 } from 'lucide-react';
+import { CommonApi } from '@/lib/CommonApi';
 import { UploadProgressCard, MinimizedUploadWidget } from '@/components/common/upload';
+import type { MediaItem } from '@/types/atelier';
+import { getUploadBatchSize, getMaxBatchBytes, getUploadConcurrency } from '@/utils/uploadConfig';
 import {
   createPauseController,
+  runBatchUploadPipeline,
   type BatchUploadPauseController,
   type UploadProgressMetrics,
 } from '@/utils/batchUploadRunner';
@@ -51,7 +55,7 @@ export interface UploadMediaModalProps {
   onUploadComplete?: () => void;
 }
 
-interface QueuedFile {
+export interface QueuedFileItem {
   id: string;
   file?: File;
   previewUrl: string;
@@ -61,7 +65,10 @@ interface QueuedFile {
   aspectRatio: number;
   type: 'photo' | 'video';
   duration?: string;
+  section?: string;
 }
+
+export type QueuedFile = QueuedFileItem;
 
 const DEFAULT_SECTION_SUGGESTIONS = [
   'Highlights',
@@ -72,6 +79,90 @@ const DEFAULT_SECTION_SUGGESTIONS = [
   'Family',
   'Party',
 ];
+
+interface QueuedPhotoCardProps {
+  item: QueuedFile;
+  isUploading: boolean;
+  onRemove: (id: string) => void;
+}
+
+const QueuedPhotoCard: React.FC<QueuedPhotoCardProps> = ({ item, isUploading, onRemove }) => {
+  const [thumbSrc, setThumbSrc] = useState<string>(() => {
+    if (item.previewUrl) return item.previewUrl;
+    if (item.file) {
+      try {
+        return URL.createObjectURL(item.file);
+      } catch {
+        return '';
+      }
+    }
+    return '';
+  });
+  const [loadFailed, setLoadFailed] = useState(false);
+
+  useEffect(() => {
+    let createdLocally = false;
+    let url = item.previewUrl;
+
+    if (!url && item.file) {
+      try {
+        url = URL.createObjectURL(item.file);
+        createdLocally = true;
+        setThumbSrc(url);
+        setLoadFailed(false);
+      } catch {
+        setLoadFailed(true);
+      }
+    } else if (url) {
+      setThumbSrc(url);
+      setLoadFailed(false);
+    }
+
+    return () => {
+      if (createdLocally && url && url.startsWith('blob:')) {
+        URL.revokeObjectURL(url);
+      }
+    };
+  }, [item.previewUrl, item.file]);
+
+  return (
+    <div className="group relative rounded-xl overflow-hidden bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 aspect-square shadow-sm flex items-center justify-center">
+      {thumbSrc && !loadFailed ? (
+        <img
+          src={thumbSrc}
+          alt={item.title}
+          loading="lazy"
+          onError={() => setLoadFailed(true)}
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+        />
+      ) : (
+        <div className="w-full h-full flex flex-col items-center justify-center p-2 text-center bg-neutral-900/60 select-none">
+          <FileImage className="w-6 h-6 text-amber-500/80 mb-1" />
+          <span className="text-[10px] text-neutral-300 truncate max-w-full px-1 font-mono">
+            {item.title}
+          </span>
+        </div>
+      )}
+      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-1.5">
+        <button
+          type="button"
+          disabled={isUploading}
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemove(item.id);
+          }}
+          className="self-end p-1 rounded-full bg-rose-600 text-white hover:bg-rose-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+          title="Remove"
+        >
+          <Trash2 className="w-3 h-3" />
+        </button>
+        <span className="text-[10px] text-white/90 truncate font-mono bg-black/60 px-1 rounded">
+          {item.sizeMB} MB
+        </span>
+      </div>
+    </div>
+  );
+};
 
 export const UploadMediaModal: React.FC<UploadMediaModalProps> = ({
   isOpen,
@@ -190,7 +281,22 @@ export const UploadMediaModal: React.FC<UploadMediaModalProps> = ({
     }
   }, [isOpen]);
 
-  const { mutateAsync: bulkUploadMutation } = useBulkUploadGalleryMedia(galleryId);
+  // Cleanup object URLs on unmount to completely eliminate memory leaks
+  useEffect(() => {
+    return () => {
+      queuedPhotos.forEach((item) => {
+        if (item.previewUrl?.startsWith('blob:')) {
+          URL.revokeObjectURL(item.previewUrl);
+        }
+      });
+      queuedVideos.forEach((item) => {
+        if (item.previewUrl?.startsWith('blob:')) {
+          URL.revokeObjectURL(item.previewUrl);
+        }
+      });
+    };
+  }, [queuedPhotos, queuedVideos]);
+
   const addSectionMutation = useAddGallerySection();
 
   // ── 1. Storage Quota Calculations (Live Backend API) ───────────
@@ -328,11 +434,13 @@ export const UploadMediaModal: React.FC<UploadMediaModalProps> = ({
 
     const newQueued: QueuedFile[] = [];
 
-    const existingCount = queuedPhotos.length;
     incomingValidFiles.forEach((file, index) => {
-      // Eagerly generate previews for up to 48 items to prevent browser memory freeze on 1,000+ photo batches
-      const shouldGeneratePreview = existingCount + index < 48;
-      const previewUrl = shouldGeneratePreview ? URL.createObjectURL(file) : '';
+      let previewUrl = '';
+      try {
+        previewUrl = URL.createObjectURL(file);
+      } catch (e) {
+        console.warn('Could not generate object URL for preview:', e);
+      }
       const cleanTitle = file.name.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ').trim();
 
       newQueued.push({
@@ -344,6 +452,7 @@ export const UploadMediaModal: React.FC<UploadMediaModalProps> = ({
         sizeMB: Number((file.size / (1024 * 1024)).toFixed(2)) || 2.5,
         aspectRatio: 1.5,
         type: 'photo',
+        section: selectedSection,
       });
     });
 
@@ -397,6 +506,7 @@ export const UploadMediaModal: React.FC<UploadMediaModalProps> = ({
         sizeMB: Number((file.size / (1024 * 1024)).toFixed(1)) || 15.0,
         aspectRatio: 1.77,
         type: 'video',
+        section: selectedSection,
       });
     });
 
@@ -435,16 +545,24 @@ export const UploadMediaModal: React.FC<UploadMediaModalProps> = ({
     setQueuedVideos([]);
   };
 
-  // ── 7. Execute Photo Batch Upload ──────────────────────────────
-  const handlePhotoBatchUpload = async () => {
-    if (isUploading || queuedPhotos.length === 0) return;
+  // ── 7. Execute High-Speed Parallel Pipeline Upload ─────────────
+  const executePipelineUpload = async (mediaType: 'photo' | 'video') => {
+    if (isUploading) return;
+    const isVideo = mediaType === 'video';
+    const queueList = isVideo ? queuedVideos : queuedPhotos;
 
-    const nativeFiles = queuedPhotos.map((q) => q.file).filter((f): f is File => Boolean(f));
-    if (nativeFiles.length === 0) {
-      showToast('No Files', 'No valid image files available to upload.', 'warning');
+    if (queueList.length === 0) {
+      showToast('No Files', `No ${mediaType} files queued for upload.`, 'warning');
       return;
     }
 
+    const nativeFiles = queueList.map((q) => q.file).filter((f): f is File => Boolean(f));
+    if (nativeFiles.length === 0) {
+      showToast('No Files', `No valid ${mediaType} files available to upload.`, 'warning');
+      return;
+    }
+
+    // Storage quota validation
     const validation = planQuota.validateStorageQuota(nativeFiles, 0);
     if (!validation.valid) {
       showToast(
@@ -466,60 +584,149 @@ export const UploadMediaModal: React.FC<UploadMediaModalProps> = ({
     setIsPaused(false);
     setUploadError(null);
     setIsUploading(true);
-    setUploadProgress(10);
-    const startTxt = `Preparing ${nativeFiles.length} photo(s)...`;
+    setUploadProgress(5);
+    const startTxt = `Preparing ${nativeFiles.length} ${mediaType}(s)...`;
     setUploadStatusText(startTxt);
     onUploadStart?.(controller, nativeFiles.length);
-    onUploadProgress?.(10, startTxt);
+    onUploadProgress?.(5, startTxt);
 
     try {
-      setUploadProgress(15);
-      const uploadTxt = `Uploading ${nativeFiles.length} photo(s) to "${selectedSection}"...`;
-      setUploadStatusText(uploadTxt);
-      onUploadProgress?.(15, uploadTxt);
+      const itemsToUpload: QueuedFileItem[] = queueList.map((item) => ({
+        ...item,
+        section: item.section || selectedSection,
+      }));
 
-      const res = await bulkUploadMutation({
-        files: nativeFiles,
-        sectionTitle: selectedSection,
-        type: 'photo',
+      // Dynamic high-throughput batch configuration from .env / .env.local
+      const batchSize = getUploadBatchSize(isVideo);
+      const maxBatchBytes = getMaxBatchBytes();
+      const concurrency = getUploadConcurrency();
+
+      const pipelineResult = await runBatchUploadPipeline<QueuedFileItem, MediaItem[]>({
+        items: itemsToUpload,
+        batchSize,
+        maxBatchBytes,
+        concurrency,
+        itemLabel: mediaType,
         signal: controller.signal,
         pauseController: pauseCtrl,
-        onProgress: (percent: number, statusText?: string, metrics?: any) => {
-          const p = Math.min(98, Math.max(5, percent));
-          const text = statusText || `Uploading photos: ${percent}%...`;
+        onProgress: (percent, statusText, metrics) => {
+          const p = Math.min(99, Math.max(5, percent));
+          const text = statusText || `Uploading ${mediaType}s: ${percent}%...`;
           setUploadProgress(p);
           setUploadStatusText(text);
           if (metrics) setUploadMetrics(metrics);
           onUploadProgress?.(p, text);
         },
-      });
+        uploadBatch: async (batchItems: QueuedFileItem[], onBatchProgress) => {
+          // Bundle all files of this batch into ONE multi-file FormData request!
+          // This avoids firing dozens of concurrent requests that trigger Django rate limiting (429)!
+          const formData = new FormData();
+          let hasVideo = false;
+          let hasPhoto = false;
 
-      setUploadProgress(95);
-      setUploadStatusText('Processing gallery thumbnails & CDN cache...');
-      onUploadProgress?.(95, 'Processing gallery thumbnails & CDN cache...');
+          batchItems.forEach((item) => {
+            if (!item.file) return;
+            const isVid =
+              item.type === 'video' ||
+              item.file.type.startsWith('video/') ||
+              /\.(mp4|mov|webm|mkv|avi|m4v|3gp)$/i.test(item.file.name);
 
-      if (res?.media && res.media.length > 0) {
-        const mappedItems = res.media.map((m) => normalizeServerMediaItem(m, galleryId));
-        addMediaToGallery(galleryId, mappedItems);
+            if (isVid) {
+              formData.append('videos', item.file);
+              hasVideo = true;
+            } else {
+              formData.append('photos', item.file);
+              hasPhoto = true;
+            }
+          });
 
-        const firstPhoto = mappedItems.find((m) => m.type !== 'video') || mappedItems[0];
-        if (firstPhoto?.url) {
-          const currentTpl = gallery?.templateId || 'editorial';
-          try {
-            await Promise.allSettled([
-              SetGalleryCoverImageApi(galleryId, firstPhoto.url, firstPhoto.id),
-              SetGalleryTemplateBannerApi(galleryId, currentTpl, firstPhoto.url, firstPhoto.id),
-            ]);
-          } catch {
-            // safe fallback
+          const section = selectedSection || batchItems[0]?.section || 'HIGHLIGHTS';
+          formData.append('section_title', section);
+          if (hasVideo && !hasPhoto) {
+            formData.append('type', 'video');
+          } else {
+            formData.append('type', 'photo');
           }
-        }
-      }
+
+          const res = await CommonApi<any>(
+            'POST',
+            `/api/galleries/${galleryId}/upload/`,
+            formData,
+            {
+              timeout: isVideo ? 600000 : 300000,
+              signal: controller.signal,
+              onUploadProgress: (progressEvent) => {
+                if (progressEvent.total && onBatchProgress) {
+                  const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                  onBatchProgress(percent, progressEvent.loaded);
+                }
+              },
+            }
+          );
+
+          let mediaList: MediaItem[] = [];
+          if (Array.isArray(res)) {
+            mediaList = res;
+          } else if (res && Array.isArray(res.media)) {
+            mediaList = res.media;
+          } else if (res && Array.isArray(res.data)) {
+            mediaList = res.data;
+          } else if (res && res.id) {
+            mediaList = [res];
+          } else if (res && res.data && res.data.id) {
+            mediaList = [res.data];
+          }
+
+          return mediaList;
+        },
+        onBatchSuccess: (batchResults, batchItems) => {
+          // 🛠️ MEMORY SAFETY CHECK: Clean up URL.revokeObjectURL immediately for every file in the completed batch
+          batchItems.forEach((item) => {
+            if (item.previewUrl && item.previewUrl.startsWith('blob:')) {
+              URL.revokeObjectURL(item.previewUrl);
+            }
+          });
+
+          // Remove uploaded items from current queued state
+          const uploadedIds = new Set(batchItems.map((b) => b.id));
+          if (isVideo) {
+            setQueuedVideos((prev) => prev.filter((v) => !uploadedIds.has(v.id)));
+          } else {
+            setQueuedPhotos((prev) => prev.filter((p) => !uploadedIds.has(p.id)));
+          }
+
+          // Flatten and add media to gallery state immediately
+          if (batchResults && batchResults.length > 0) {
+            const normalized = batchResults.map((m) => normalizeServerMediaItem(m, galleryId));
+            addMediaToGallery(galleryId, normalized);
+
+            // Auto-assign cover image & template banner if first photo
+            const firstPhoto = normalized.find((m) => m.type !== 'video') || normalized[0];
+            if (firstPhoto?.url && (!gallery?.coverImage || gallery.media.length === 0)) {
+              const currentTpl = gallery?.templateId || 'editorial';
+              Promise.allSettled([
+                SetGalleryCoverImageApi(galleryId, firstPhoto.url, firstPhoto.id),
+                SetGalleryTemplateBannerApi(galleryId, currentTpl, firstPhoto.url, firstPhoto.id),
+              ]).catch(() => {});
+            }
+          }
+        },
+      });
 
       setUploadProgress(100);
       onUploadProgress?.(100, 'Upload Complete');
-      showToast('Upload Successful', `Saved ${res?.total_uploaded || nativeFiles.length} photo(s) to "${selectedSection}".`, 'success');
-      clearAllPhotos();
+      showToast(
+        'Upload Successful',
+        `Successfully uploaded ${pipelineResult.totalItems} ${mediaType}(s) to "${selectedSection}".`,
+        'success'
+      );
+
+      if (isVideo) {
+        clearAllVideos();
+      } else {
+        clearAllPhotos();
+      }
+
       setMinimizedState(false);
       setIsWidgetDismissed(false);
       await syncGalleryStateImmediately();
@@ -529,25 +736,26 @@ export const UploadMediaModal: React.FC<UploadMediaModalProps> = ({
       await syncGalleryStateImmediately();
       if (err?.name === 'AbortError' || err?.name === 'CanceledError' || err?.code === 'ERR_CANCELED') {
         if (err?.uploadedMedia && err.uploadedMedia.length > 0) {
-          const mappedItems = err.uploadedMedia.map((m: any) => normalizeServerMediaItem(m, galleryId));
+          const flatted = err.uploadedMedia.flat();
+          const mappedItems = flatted.map((m: any) => normalizeServerMediaItem(m, galleryId));
           addMediaToGallery(galleryId, mappedItems);
-          showToast('Partial Upload Saved', `Saved ${mappedItems.length} photo(s) before cancellation.`, 'info');
+          showToast('Partial Upload Saved', `Saved ${mappedItems.length} ${mediaType}(s) before cancellation.`, 'info');
         }
         return;
       }
 
       if (err?.uploadedMedia && err.uploadedMedia.length > 0) {
-        const mappedItems = err.uploadedMedia.map((m: any) => normalizeServerMediaItem(m, galleryId));
+        const flatted = err.uploadedMedia.flat();
+        const mappedItems = flatted.map((m: any) => normalizeServerMediaItem(m, galleryId));
         addMediaToGallery(galleryId, mappedItems);
-        showToast('Partial Upload Saved', `Saved ${mappedItems.length} photos before stopping.`, 'warning');
+        showToast('Partial Upload Saved', `Saved ${mappedItems.length} ${mediaType}(s) before stopping.`, 'warning');
       }
 
       const errorData = err?.response?.data;
       if (
         errorData?.upgrade_required ||
         errorData?.error_code === 'STORAGE_LIMIT_EXCEEDED' ||
-        err?.response?.status === 403 ||
-        err?.response?.status === 413
+        err?.response?.status === 403
       ) {
         const errorMsg =
           errorData?.detail ||
@@ -562,11 +770,18 @@ export const UploadMediaModal: React.FC<UploadMediaModalProps> = ({
         return;
       }
 
+      if (err?.response?.status === 413) {
+        const payloadMsg = 'Payload too large for tunnel/proxy (HTTP 413). The batch size has been automatically throttled.';
+        showToast('Payload Too Large', payloadMsg, 'error');
+        setUploadError(payloadMsg);
+        return;
+      }
+
       const failureMsg =
         errorData?.detail ||
         errorData?.message ||
         err?.message ||
-        'Failed to upload photos to server. Please try again.';
+        `Failed to upload ${mediaType}(s) to server. Please try again.`;
       showToast('Upload Failed', failureMsg, 'error');
       setUploadError(failureMsg);
     } finally {
@@ -579,148 +794,8 @@ export const UploadMediaModal: React.FC<UploadMediaModalProps> = ({
     }
   };
 
-  // ── 8. Execute Video Batch Upload (Batch Multi-Video API) ───────
-  const handleVideoBatchUpload = async () => {
-    if (isUploading || queuedVideos.length === 0) return;
-
-    const nativeVideos = queuedVideos.map((q) => q.file).filter((f): f is File => Boolean(f));
-    if (nativeVideos.length === 0) {
-      showToast('No Files', 'No valid video files available to upload.', 'warning');
-      return;
-    }
-
-    const validation = planQuota.validateStorageQuota(nativeVideos, 0);
-    if (!validation.valid) {
-      showToast(
-        validation.errorTitle || 'Storage Limit Exceeded',
-        validation.errorMessage || 'Storage limit reached.',
-        'error'
-      );
-      setQuotaError({
-        code: 'STORAGE_LIMIT_EXCEEDED',
-        message: validation.errorMessage || 'Storage limit reached. Upgrade your plan to continue.',
-      });
-      return;
-    }
-
-    const controller = new AbortController();
-    const pauseCtrl = createPauseController();
-    abortControllerRef.current = controller;
-    pauseControllerRef.current = pauseCtrl;
-    setIsPaused(false);
-    setUploadError(null);
-    setIsUploading(true);
-    setUploadProgress(10);
-    const startTxt = `Preparing ${nativeVideos.length} video(s)...`;
-    setUploadStatusText(startTxt);
-    onUploadStart?.(controller, nativeVideos.length);
-    onUploadProgress?.(10, startTxt);
-
-    try {
-      setUploadProgress(15);
-      const uploadTxt = `Uploading ${nativeVideos.length} video(s) to "${selectedSection}"...`;
-      setUploadStatusText(uploadTxt);
-      onUploadProgress?.(15, uploadTxt);
-
-      const res = await bulkUploadMutation({
-        files: nativeVideos,
-        sectionTitle: selectedSection,
-        type: 'video',
-        signal: controller.signal,
-        pauseController: pauseCtrl,
-        onProgress: (percent: number, statusText?: string, metrics?: any) => {
-          const p = Math.min(98, Math.max(5, percent));
-          const text = statusText || `Uploading videos: ${percent}%...`;
-          setUploadProgress(p);
-          setUploadStatusText(text);
-          if (metrics) setUploadMetrics(metrics);
-          onUploadProgress?.(p, text);
-        },
-      });
-
-      setUploadProgress(95);
-      setUploadStatusText('Processing video transcodes & thumbnails...');
-      onUploadProgress?.(95, 'Processing video transcodes & thumbnails...');
-
-      if (res?.media && res.media.length > 0) {
-        const mappedItems = res.media.map((m) => normalizeServerMediaItem(m, galleryId));
-        addMediaToGallery(galleryId, mappedItems);
-
-        const firstMedia = mappedItems[0];
-        if (firstMedia?.url && (!gallery?.coverImage || gallery.media.length === 0)) {
-          const currentTpl = gallery?.templateId || 'editorial';
-          try {
-            await Promise.allSettled([
-              SetGalleryCoverImageApi(galleryId, firstMedia.url, firstMedia.id),
-              SetGalleryTemplateBannerApi(galleryId, currentTpl, firstMedia.url, firstMedia.id),
-            ]);
-          } catch {
-            // safe fallback
-          }
-        }
-      }
-
-      setUploadProgress(100);
-      onUploadProgress?.(100, 'Upload Complete');
-      showToast('Videos Uploaded', `Successfully saved ${res?.total_uploaded || nativeVideos.length} video(s) to "${selectedSection}".`, 'success');
-      clearAllVideos();
-      setMinimizedState(false);
-      setIsWidgetDismissed(false);
-      await syncGalleryStateImmediately();
-      onUploadComplete?.();
-      onClose();
-    } catch (err: any) {
-      await syncGalleryStateImmediately();
-      if (err?.name === 'AbortError' || err?.name === 'CanceledError' || err?.code === 'ERR_CANCELED') {
-        if (err?.uploadedMedia && err.uploadedMedia.length > 0) {
-          const mappedItems = err.uploadedMedia.map((m: any) => normalizeServerMediaItem(m, galleryId));
-          addMediaToGallery(galleryId, mappedItems);
-          showToast('Partial Upload Saved', `Saved ${mappedItems.length} video(s) before cancellation.`, 'info');
-        }
-        return;
-      }
-
-      if (err?.uploadedMedia && err.uploadedMedia.length > 0) {
-        const mappedItems = err.uploadedMedia.map((m: any) => normalizeServerMediaItem(m, galleryId));
-        addMediaToGallery(galleryId, mappedItems);
-        showToast('Partial Upload Saved', `Saved ${mappedItems.length} video(s) before stopping.`, 'warning');
-      }
-
-      const errorData = err?.response?.data;
-      if (
-        errorData?.upgrade_required ||
-        errorData?.error_code === 'STORAGE_LIMIT_EXCEEDED' ||
-        err?.response?.status === 403 ||
-        err?.response?.status === 413
-      ) {
-        const msg =
-          errorData?.detail ||
-          errorData?.message ||
-          'Studio cloud storage limit reached. Please upgrade to continue.';
-        showToast('Storage Limit Exceeded', msg, 'error');
-        setQuotaError({
-          code: errorData?.error_code || errorData?.code || 'STORAGE_LIMIT_EXCEEDED',
-          message: msg,
-        });
-        setUploadError(msg);
-      } else {
-        const failureMsg =
-          errorData?.detail ||
-          errorData?.message ||
-          err?.message ||
-          'Failed to upload video(s) to server. Please try again.';
-        showToast('Upload Failed', failureMsg, 'error');
-        setUploadError(failureMsg);
-      }
-    } finally {
-      setIsUploading(false);
-      setIsPaused(false);
-      abortControllerRef.current = null;
-      pauseControllerRef.current = null;
-      await syncGalleryStateImmediately();
-      onUploadComplete?.();
-    }
-  };
+  const handlePhotoBatchUpload = () => executePipelineUpload('photo');
+  const handleVideoBatchUpload = () => executePipelineUpload('video');
 
   if (!isOpen && !isUploading) return null;
 
@@ -1186,34 +1261,12 @@ export const UploadMediaModal: React.FC<UploadMediaModalProps> = ({
                 {/* Thumbnail Grid (renders up to 48 items to maintain silky performance for 100+ files) */}
                 <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3 max-h-64 overflow-y-auto p-1 custom-scrollbar">
                   {queuedPhotos.slice(0, 48).map((q) => (
-                    <div
+                    <QueuedPhotoCard
                       key={q.id}
-                      className="group relative rounded-xl overflow-hidden bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 aspect-square shadow-sm"
-                    >
-                      <img
-                        src={q.previewUrl}
-                        alt={q.title}
-                        loading="lazy"
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-1.5">
-                        <button
-                          type="button"
-                          disabled={isUploading}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            removeQueuedPhoto(q.id);
-                          }}
-                          className="self-end p-1 rounded-full bg-rose-600 text-white hover:bg-rose-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
-                          title="Remove"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </button>
-                        <span className="text-[10px] text-white/90 truncate font-mono bg-black/60 px-1 rounded">
-                          {q.sizeMB} MB
-                        </span>
-                      </div>
-                    </div>
+                      item={q}
+                      isUploading={isUploading}
+                      onRemove={removeQueuedPhoto}
+                    />
                   ))}
                   {queuedPhotos.length > 48 && (
                     <div className="rounded-xl border-2 border-dashed border-amber-400/40 bg-amber-400/10 flex flex-col items-center justify-center p-3 text-center aspect-square">

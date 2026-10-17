@@ -10,8 +10,12 @@ import type {
  * 1. Retrieve Public Client Gallery (no auth required)
  * Endpoint: GET /api/public/galleries/{id_or_slug}/
  */
-export const GetPublicGalleryApi = async (slugOrId: string): Promise<Gallery> => {
-  return CommonApi<Gallery>('GET', `/api/public/galleries/${slugOrId}/`);
+export const GetPublicGalleryApi = async (
+  slugOrId: string,
+  params?: { all_media?: boolean }
+): Promise<Gallery> => {
+  const query = params?.all_media ? '?all_media=true' : '';
+  return CommonApi<Gallery>('GET', `/api/public/galleries/${slugOrId}/${query}`);
 };
 
 /**
@@ -56,10 +60,11 @@ export const TrackGalleryFavoriteApi = async (
  * 5. Stream High-Speed ZIP Download URL
  * Endpoint: GET /api/public/galleries/{id_or_slug}/download-zip/
  */
-export const GetGalleryDownloadZipUrl = (slugOrId: string, section?: string): string => {
+export const GetGalleryDownloadZipUrl = (slugOrId: string, section?: string, format?: string): string => {
   const base = (import.meta.env.VITE_API_BASE_URL || 'https://server.exshare.ai/api').trim();
   const normalized = base.endsWith('/') ? base : `${base}/`;
   const url = new URL(`${normalized}public/galleries/${slugOrId}/download-zip/`);
   if (section) url.searchParams.set('section', section);
+  if (format) url.searchParams.set('format', format === 'original' ? 'raw' : 'jpeg');
   return url.toString();
 };

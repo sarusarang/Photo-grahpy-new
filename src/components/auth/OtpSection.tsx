@@ -30,7 +30,7 @@ export interface OtpSectionProps {
   submitLabel?: string;
   /** Total validity period for OTP in minutes (defaults to 10 minutes) */
   validityMinutes?: number;
-  /** Cooldown in seconds between resends (defaults to 30 seconds) */
+  /** Cooldown in seconds between resends (defaults to 60 seconds) */
   resendCooldownSeconds?: number;
   /** Prefix for OTP inputs IDs (defaults to "auth-otp") */
   idPrefix?: string;
@@ -52,7 +52,7 @@ export const OtpSection: React.FC<OtpSectionProps> = ({
   title = 'Check your email',
   submitLabel = 'Verify & Sign In',
   validityMinutes = 10,
-  resendCooldownSeconds = 30,
+  resendCooldownSeconds = 60,
   idPrefix = 'auth-otp',
   hideHeader = false,
   errorMessage = null,

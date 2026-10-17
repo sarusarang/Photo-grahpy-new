@@ -10,6 +10,8 @@ import { useGalleryTemplateState } from '../useGalleryTemplateState';
 export const EditorialLayout: React.FC<TemplateLayoutProps> = ({
   gallery,
   onOpenLightbox,
+  onToggleFavorite,
+  favoritingMediaIds,
   selectedMediaIds = new Set(),
   onToggleSelectMedia,
   studioName = 'EX SHARE',
@@ -18,6 +20,7 @@ export const EditorialLayout: React.FC<TemplateLayoutProps> = ({
   onSelectGridDesign: passedSetGridDesign,
   onDownloadSingle,
   onCreateStoryVideo,
+  onOpenContact,
 }) => {
   const {
     gallerySections,
@@ -28,6 +31,7 @@ export const EditorialLayout: React.FC<TemplateLayoutProps> = ({
     coverImage,
     shootDate,
     filteredMedia,
+    favoritesCount,
     photosCount,
     videosCount,
     findOriginalIndex,
@@ -82,6 +86,7 @@ export const EditorialLayout: React.FC<TemplateLayoutProps> = ({
         sections={gallerySections}
         activeFilter={activeFilter}
         onSelectFilter={setActiveFilter}
+        favoritesCount={favoritesCount}
         totalPhotosCount={photosCount}
         totalVideosCount={videosCount}
         theme="editorial"
@@ -121,11 +126,23 @@ export const EditorialLayout: React.FC<TemplateLayoutProps> = ({
         media={filteredMedia}
         gridDesign={gridDesign}
         onOpenLightbox={onOpenLightbox}
+        onToggleFavorite={onToggleFavorite}
+        favoritingMediaIds={favoritingMediaIds}
         selectedMediaIds={selectedMediaIds}
         onToggleSelectMedia={onToggleSelectMedia}
         onDownloadSingle={onDownloadSingle}
         theme="editorial"
         findOriginalIndex={findOriginalIndex}
+        emptyMessage={
+          activeFilter.type === 'favorites'
+            ? 'No Liked Photos Yet'
+            : 'No imagery found'
+        }
+        emptySubMessage={
+          activeFilter.type === 'favorites'
+            ? 'Click the heart icon on any photograph to add it to your liked collection.'
+            : 'Try adjusting your section filter or face search criteria.'
+        }
         watermarkEnabled={watermarkEnabled}
         watermarkText={watermarkText}
         watermarkOpacity={gallery.watermark_opacity}
@@ -143,6 +160,7 @@ export const EditorialLayout: React.FC<TemplateLayoutProps> = ({
         studioName={resolvedStudio}
         mediaCount={gallery.media.length}
         theme="editorial"
+        onOpenContact={onOpenContact}
       />
     </div>
   );

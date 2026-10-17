@@ -17,6 +17,8 @@ const isVideoUrl = (url?: string): boolean => {
 export const CinematicLayout: React.FC<TemplateLayoutProps> = ({
   gallery,
   onOpenLightbox,
+  onToggleFavorite,
+  favoritingMediaIds,
   selectedMediaIds = new Set(),
   onToggleSelectMedia,
   studioName,
@@ -25,6 +27,7 @@ export const CinematicLayout: React.FC<TemplateLayoutProps> = ({
   onSelectGridDesign: passedSetGridDesign,
   onDownloadSingle,
   onCreateStoryVideo,
+  onOpenContact,
 }) => {
   const {
     gallerySections,
@@ -35,6 +38,7 @@ export const CinematicLayout: React.FC<TemplateLayoutProps> = ({
     coverImage,
     shootDate,
     filteredMedia,
+    favoritesCount,
     photosCount,
     videosCount,
     findOriginalIndex,
@@ -159,6 +163,7 @@ export const CinematicLayout: React.FC<TemplateLayoutProps> = ({
         sections={gallerySections}
         activeFilter={activeFilter}
         onSelectFilter={setActiveFilter}
+        favoritesCount={favoritesCount}
         totalPhotosCount={photosCount}
         totalVideosCount={videosCount}
         theme="cinematic"
@@ -198,13 +203,23 @@ export const CinematicLayout: React.FC<TemplateLayoutProps> = ({
         media={filteredMedia}
         gridDesign={gridDesign}
         onOpenLightbox={onOpenLightbox}
+        onToggleFavorite={onToggleFavorite}
+        favoritingMediaIds={favoritingMediaIds}
         selectedMediaIds={selectedMediaIds}
         onToggleSelectMedia={onToggleSelectMedia}
         onDownloadSingle={onDownloadSingle}
         theme="cinematic"
         findOriginalIndex={findOriginalIndex}
-        emptyMessage="No footage matching filter"
-        emptySubMessage="Select another section or clear your active search."
+        emptyMessage={
+          activeFilter.type === 'favorites'
+            ? 'No Liked Photos Yet'
+            : 'No footage matching filter'
+        }
+        emptySubMessage={
+          activeFilter.type === 'favorites'
+            ? 'Click the heart icon on any photograph or frame to add it to your liked collection.'
+            : 'Select another section or clear your active search.'
+        }
         watermarkEnabled={watermarkEnabled}
         watermarkText={watermarkText}
         watermarkOpacity={gallery.watermark_opacity}
@@ -222,6 +237,7 @@ export const CinematicLayout: React.FC<TemplateLayoutProps> = ({
         studioName={resolvedStudio}
         mediaCount={gallery.media.length}
         theme="cinematic"
+        onOpenContact={onOpenContact}
       />
     </div>
   );

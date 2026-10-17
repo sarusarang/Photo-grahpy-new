@@ -3,14 +3,12 @@ import type { PortfolioConfig } from '../../types/portfolio';
 import { useToast } from '../ui/Toast';
 import { QRCodeStudioBox } from '../gallery/share/QRCodeStudioBox';
 import { SocialShareButton } from '../gallery/share/SocialShareButton';
-import { ShareUrlBar } from '../gallery/share/ShareUrlBar';
 import {
   X,
   Share2,
   Copy,
   ExternalLink,
   Smartphone,
-  Sparkles,
   QrCode,
   MapPin,
   Check,

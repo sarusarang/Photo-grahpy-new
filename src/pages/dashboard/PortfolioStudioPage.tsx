@@ -31,7 +31,6 @@ import {
   MessageSquare,
   TrendingUp,
   Smartphone,
-  Sparkles,
   LayoutTemplate,
   Check,
   Edit3,
@@ -39,18 +38,11 @@ import {
   RefreshCw,
   ArrowRight,
   ShieldCheck,
-  Camera,
   Users,
   Radio,
-  Clock,
   MapPin,
-  CheckCircle2,
-  AlertCircle,
   BarChart3,
-  ArrowUpRight,
-  ChevronRight,
   Trophy,
-  Activity,
   Lock,
 } from 'lucide-react';
 
@@ -72,10 +64,11 @@ export const PortfolioStudioPage: React.FC = () => {
     })
   );
 
-  const { data: serverConfig, isLoading: isServerLoading, refetch } = usePortfolioConfig();
+  const { data: serverConfig, isLoading: _isServerLoading, refetch } = usePortfolioConfig();
   const updatePortfolioMutation = useUpdatePortfolioConfig();
 
   const claimedSubdomain = config.subdomain || (serverConfig as any)?.subdomain;
+  const claimedSubdomainStatus = config.subdomainStatus || (serverConfig as any)?.subdomain_status || (serverConfig as any)?.status || null;
   const publicUrl = claimedSubdomain ? getSubdomainPublicUrl(claimedSubdomain) : getPortfolioShareUrl(portfolioId);
 
   // Live Backend Analytics & Inquiries Queries
@@ -83,18 +76,18 @@ export const PortfolioStudioPage: React.FC = () => {
     data: serverAnalytics,
     isLoading: isAnalyticsLoading,
     isError: isAnalyticsError,
-    error: analyticsError,
+    error: _analyticsError,
     refetch: refetchAnalytics,
   } = usePortfolioAnalytics();
 
   const {
     data: serverInquiries,
-    isLoading: isInquiriesLoading,
+    isLoading: _isInquiriesLoading,
     refetch: refetchInquiries,
   } = useInquiries();
 
   const {
-    data: serverInquiryStats,
+    data: _serverInquiryStats,
   } = useInquiriesAnalytics();
 
   const planQuota = usePlanQuota();
@@ -668,10 +661,12 @@ export const PortfolioStudioPage: React.FC = () => {
           <div className="flex justify-center">
             <PortfolioSubdomainSetting
               currentSubdomain={claimedSubdomain}
+              currentStatus={claimedSubdomainStatus as any}
+              studioName={config.studioName}
               onSubdomainUpdated={(newSubdomain, fullUrl) => {
-                const updated = savePortfolioConfig({ subdomain: newSubdomain });
+                const updated = savePortfolioConfig({ subdomain: newSubdomain, subdomainStatus: 'active' });
                 setConfig(updated);
-                showToast('Subdomain Claimed', `Your portfolio is now live at ${fullUrl}`, 'success');
+                showToast('Subdomain Active', `Your portfolio is now live via Wildcard DNS at ${fullUrl}`, 'success');
                 refetch();
               }}
             />

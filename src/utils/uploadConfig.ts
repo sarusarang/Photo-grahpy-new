@@ -30,11 +30,11 @@ export const getMaxBatchBytes = (): number => {
 export const getUploadConcurrency = (): number => {
   const rawConcurrency = import.meta.env.VITE_UPLOAD_CONCURRENCY;
   const parsed = Number(rawConcurrency);
-  // Allow 1 to 5 parallel streams for maximum network pipe utilization without overloading browser
-  return Number.isInteger(parsed) && parsed > 0 ? Math.min(Math.max(1, parsed), 5) : DEFAULT_UPLOAD_CONCURRENCY;
+  // Allow 1 to 6 parallel streams for maximum network pipe utilization without overloading browser
+  return Number.isInteger(parsed) && parsed > 0 ? Math.min(Math.max(1, parsed), 6) : DEFAULT_UPLOAD_CONCURRENCY;
 };
 
-export const DEFAULT_UPLOAD_BATCH_SIZE = 30;
+export const DEFAULT_UPLOAD_BATCH_SIZE = 24;
 export const DEFAULT_VIDEO_BATCH_SIZE = 2;
 export const DEFAULT_MAX_BATCH_BYTES = 25 * 1024 * 1024; // 25 MB
-export const DEFAULT_UPLOAD_CONCURRENCY = 3;
+export const DEFAULT_UPLOAD_CONCURRENCY = 4;
