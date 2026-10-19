@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Lock, Play, Menu, X, ArrowRight, ShieldCheck, Sparkles } from 'lucide-react';
+import { Play, Menu, X, ArrowRight, ShieldCheck, Sparkles } from 'lucide-react';
 import { Logo } from '../common/Logo';
 import { useAuth } from '../../context/AuthContext';
 
@@ -128,32 +128,20 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
           {/* Nav Container with Precision Horizontal Baseline Alignment */}
           <div className="relative w-full h-[54px] flex items-center justify-between px-6 sm:px-10 lg:px-12">
             
-            {/* Left Navigation Links */}
+            {/* Left Navigation Links: Core Platform Discovery */}
             <nav className="relative z-10 hidden md:flex items-center gap-7 lg:gap-8 text-[11px] lg:text-xs font-semibold tracking-[0.18em] text-neutral-800 h-full">
-              <Link 
-                to="/#selected-projects" 
+              <a 
+                href="#selected-projects" 
                 className="hover:text-black transition-colors uppercase tracking-wider"
               >
-                STUDIO
-              </Link>
-              <Link 
-                to="/#selected-projects" 
+                FEATURES
+              </a>
+              <a 
+                href="#community-benefits" 
                 className="hover:text-black transition-colors uppercase tracking-wider"
               >
-                GALLERIES
-              </Link>
-              <Link 
-                to="/#upcoming-concept" 
-                className="hover:text-black transition-colors uppercase tracking-wider"
-              >
-                PROOFING
-              </Link>
-              <Link 
-                to="/#testimonials" 
-                className="hover:text-black transition-colors uppercase tracking-wider"
-              >
-                TETHERING
-              </Link>
+                CAPABILITIES
+              </a>
             </nav>
 
             {/* Center Brand Logo: Absolutely Centered at 50% & Optically Aligned inside Chamfered Pod */}
@@ -174,18 +162,13 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
             {/* Right Navigation Links & Action Buttons */}
             <div className="relative z-10 flex items-center gap-5 sm:gap-6 ml-auto h-full">
               <nav className="hidden lg:flex items-center gap-6 lg:gap-7 text-[11px] lg:text-xs font-semibold tracking-[0.18em] text-neutral-800">
-                <a 
-                  href="#selected-projects" 
+                <Link 
+                  to="/gallery/sarang-wedding-editorial" 
+                  target="_blank"
                   className="hover:text-black transition-colors uppercase tracking-wider"
                 >
-                  ATELIER
-                </a>
-                <a 
-                  href="#upcoming-concept" 
-                  className="hover:text-black transition-colors uppercase tracking-wider"
-                >
-                  SHOWCASE
-                </a>
+                  EXAMPLES
+                </Link>
               </nav>
 
               {/* Dynamic Sign In / Dashboard Pill Button */}
@@ -206,15 +189,6 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                 </Link>
               )}
 
-              {/* Black Circular Button with Lock Icon (from reference UI) */}
-              <Link
-                to={isAuthenticated ? "/dashboard/settings" : "/login"}
-                aria-label="Secure Atelier Vault"
-                className="hidden sm:flex w-8 sm:w-9 h-8 sm:h-9 rounded-full bg-[#111215] text-white items-center justify-center shadow-sm hover:bg-neutral-800 transition-all duration-200 hover:scale-105"
-                title="Atelier Security Lock"
-              >
-                <Lock className="w-3.5 h-3.5 text-white/90" />
-              </Link>
 
               {/* Mobile Menu Trigger */}
               <button
@@ -262,22 +236,23 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                   onClick={() => setMobileMenuOpen(false)}
                   className="text-neutral-300 hover:text-white"
                 >
-                  STUDIO GALLERIES
+                  FEATURES
                 </a>
                 <a
-                  href="#upcoming-concept"
+                  href="#community-benefits"
                   onClick={() => setMobileMenuOpen(false)}
                   className="text-neutral-300 hover:text-white"
                 >
-                  CLIENT PROOFING
+                  CAPABILITIES
                 </a>
-                <a
-                  href="#testimonials"
+                <Link
+                  to="/gallery/sarang-wedding-editorial"
+                  target="_blank"
                   onClick={() => setMobileMenuOpen(false)}
                   className="text-neutral-300 hover:text-white"
                 >
-                  LIVE TETHERING
-                </a>
+                  EXAMPLES
+                </Link>
               </div>
 
               <div className="flex flex-col gap-3">

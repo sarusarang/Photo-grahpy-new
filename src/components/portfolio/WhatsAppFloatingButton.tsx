@@ -23,7 +23,12 @@ export function cleanWhatsAppNumber(phone: string): string {
 }
 
 export interface WhatsAppFloatingButtonProps {
-  config: PortfolioConfig;
+  config?: PortfolioConfig;
+  whatsappNumber?: string;
+  prefillMessage?: string;
+  buttonLabel?: string;
+  enabled?: boolean;
+  iconOnly?: boolean;
   isEditable?: boolean;
   onUpdateConfig?: (updates: Partial<PortfolioConfig>) => void;
   theme?: 'light' | 'dark';
@@ -31,6 +36,11 @@ export interface WhatsAppFloatingButtonProps {
 
 export const WhatsAppFloatingButton: React.FC<WhatsAppFloatingButtonProps> = ({
   config,
+  whatsappNumber: propWhatsappNumber,
+  prefillMessage: propPrefillMessage,
+  buttonLabel: propButtonLabel,
+  enabled: propEnabled,
+  iconOnly = false,
   isEditable = false,
   onUpdateConfig,
   theme: _theme = 'light',
@@ -38,12 +48,13 @@ export const WhatsAppFloatingButton: React.FC<WhatsAppFloatingButtonProps> = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Fallback chain for phone number
-  const effectiveNumber = config.whatsappNumber || config.contactPhone || '';
-  const isEnabled = config.whatsappEnabled !== false;
-  const buttonLabel = config.whatsappButtonLabel || 'Chat on WhatsApp';
+  const effectiveNumber = propWhatsappNumber || config?.whatsappNumber || config?.contactPhone || '';
+  const isEnabled = propEnabled !== undefined ? propEnabled : config?.whatsappEnabled !== false;
+  const buttonLabel = propButtonLabel || config?.whatsappButtonLabel || 'Chat on WhatsApp';
   const prefillMessage =
-    config.whatsappPrefillMessage ||
-    `Hi, I'm interested in booking a photography session with ${config.studioName || 'your studio'}!`;
+    propPrefillMessage ||
+    config?.whatsappPrefillMessage ||
+    `Hi, I'm interested in booking a photography session with ${config?.studioName || 'your studio'}!`;
 
   // Local state for edit modal
   const [localEnabled, setLocalEnabled] = useState(isEnabled);
@@ -55,13 +66,13 @@ export const WhatsAppFloatingButton: React.FC<WhatsAppFloatingButtonProps> = ({
     if (isEditable) {
       e.preventDefault();
       e.stopPropagation();
-      setLocalEnabled(config.whatsappEnabled !== false);
-      setLocalNumber(config.whatsappNumber || config.contactPhone || '');
+      setLocalEnabled(config?.whatsappEnabled !== false);
+      setLocalNumber(config?.whatsappNumber || config?.contactPhone || '');
       setLocalMessage(
-        config.whatsappPrefillMessage ||
-          `Hi, I'm interested in booking a photography session with ${config.studioName || 'your studio'}!`
+        config?.whatsappPrefillMessage ||
+          `Hi, I'm interested in booking a photography session with ${config?.studioName || 'your studio'}!`
       );
-      setLocalLabel(config.whatsappButtonLabel || 'Chat on WhatsApp');
+      setLocalLabel(config?.whatsappButtonLabel || 'Chat on WhatsApp');
       setIsModalOpen(true);
     }
   };
@@ -120,8 +131,21 @@ export const WhatsAppFloatingButton: React.FC<WhatsAppFloatingButtonProps> = ({
               </span>
             </button>
           </div>
+        ) : iconOnly ? (
+          /* ICON ONLY FLOATING WHATSAPP BUTTON */
+          <a
+            href={whatsappUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Chat on WhatsApp"
+            className="w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center bg-[#25D366] hover:bg-[#20ba59] active:scale-95 text-white shadow-2xl shadow-[#25D366]/40 hover:shadow-[#25D366]/60 transition-all duration-300 group cursor-pointer relative"
+            title="Chat on WhatsApp"
+          >
+            <WhatsAppIcon className="w-6 h-6 sm:w-7 sm:h-7 shrink-0 group-hover:scale-110 transition-transform duration-300" />
+            <span className="absolute -inset-1 rounded-full bg-[#25D366]/25 animate-ping pointer-events-none -z-10 group-hover:hidden" />
+          </a>
         ) : (
-          /* PUBLIC VISITOR LINK */
+          /* PUBLIC VISITOR LINK WITH LABEL */
           <a
             href={whatsappUrl}
             target="_blank"

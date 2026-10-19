@@ -1556,19 +1556,19 @@ export const GalleryDetailPage: React.FC = () => {
 
       {/* 0. Studio Plan Expired Notice Banner */}
       {planQuota.isExpired && (
-        <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-rose-950/80 via-rose-900/50 to-neutral-900/80 border border-rose-500/40 text-rose-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xl backdrop-blur-xl animate-in fade-in duration-300">
+        <div className="p-4 sm:p-5 rounded-2xl bg-rose-500/10 dark:bg-gradient-to-r dark:from-rose-950/80 dark:via-rose-900/50 dark:to-neutral-900/80 border border-rose-500/30 dark:border-rose-500/40 text-rose-800 dark:text-rose-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm dark:shadow-xl backdrop-blur-xl animate-in fade-in duration-300">
           <div className="flex items-start sm:items-center gap-3.5">
-            <div className="p-2.5 rounded-xl bg-rose-500/20 text-rose-400 border border-rose-500/30 shrink-0">
+            <div className="p-2.5 rounded-xl bg-rose-500/15 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/30 shrink-0">
               <Lock className="w-5 h-5 stroke-[2]" />
             </div>
             <div className="space-y-0.5 text-xs">
               <div className="flex items-center gap-2">
-                <span className="font-mono text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                <span className="font-mono text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-rose-500/20 text-rose-700 dark:text-rose-300 border border-rose-500/30">
                   Public Links Suspended
                 </span>
-                <span className="font-bold text-white text-sm">Studio Plan Expired</span>
+                <span className="font-bold text-neutral-950 dark:text-white text-sm">Studio Plan Expired</span>
               </div>
-              <p className="text-neutral-300">
+              <p className="text-neutral-600 dark:text-neutral-300">
                 Public client viewing links, zip downloads, and sharing for this gallery are temporarily locked until your plan is renewed.
               </p>
             </div>

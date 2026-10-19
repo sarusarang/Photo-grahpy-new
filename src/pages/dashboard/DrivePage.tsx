@@ -514,7 +514,7 @@ export const GalleryPage: React.FC = () => {
                     setDateFilter('all');
                     setCustomRange({ from: '', to: '' });
                   }}
-                  className="p-0.5 hover:bg-neutral-800/50 rounded-full transition-colors cursor-pointer text-neutral-400 hover:text-white"
+                  className="p-0.5 hover:bg-neutral-200 dark:hover:bg-neutral-800/50 rounded-full transition-colors cursor-pointer text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
                   title="Clear date filter"
                 >
                   <X className="w-3 h-3" />
@@ -743,7 +743,7 @@ export const GalleryPage: React.FC = () => {
 
       {/* 3. Galleries Display */}
       {statusFilter === 'archived' && (
-        <div className="px-4 py-2.5 rounded-2xl bg-neutral-900/80 dark:bg-[#121319] border border-neutral-200 dark:border-neutral-800/90 backdrop-blur-md flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-xs animate-in fade-in duration-200">
+        <div className="px-4 py-2.5 rounded-2xl bg-amber-500/10 dark:bg-[#121319] border border-amber-500/20 dark:border-neutral-800/90 backdrop-blur-md flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-xs animate-in fade-in duration-200">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-7 h-7 rounded-xl bg-amber-400/10 border border-amber-400/25 flex items-center justify-center text-amber-500 dark:text-amber-400 shrink-0">
               <Trash2 className="w-3.5 h-3.5 stroke-[2.2]" />

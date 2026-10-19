@@ -64,11 +64,11 @@ export const DashboardLayout: React.FC = () => {
   // hold at loading screen to avoid prematurely flashing paywall or dashboard.
   if (planQuota.isLoading && !planQuota.hasActivePlan) {
     return (
-      <div className="h-screen w-full bg-[#0a0b0e] flex flex-col items-center justify-center gap-3 text-neutral-400">
+      <div className="h-screen w-full bg-[#f8f9fa] dark:bg-[#0a0b0e] flex flex-col items-center justify-center gap-3 text-neutral-600 dark:text-neutral-400 transition-colors">
         <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 to-amber-600 flex items-center justify-center text-black font-serif font-black text-2xl shadow-xl shadow-amber-500/20 animate-pulse">
           S
         </div>
-        <div className="flex items-center gap-2 text-xs font-mono text-neutral-400 mt-2">
+        <div className="flex items-center gap-2 text-xs font-mono text-neutral-500 dark:text-neutral-400 mt-2">
           <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-500" />
           <span>Verifying Studio Entitlements...</span>
         </div>

@@ -503,24 +503,24 @@ export const SmartCullPage: React.FC = () => {
   }, [activeCluster, photos]);
 
   return (
-    <div className="min-h-screen bg-[#0d0e12] text-neutral-200">
+    <div className="min-h-screen bg-[#f8f9fa] dark:bg-[#0d0e12] text-neutral-900 dark:text-neutral-200 transition-colors">
       {/* Top Banner / Studio Plan Gate Notice */}
       {!aiCullingEnabled && !isPlanLoading && (
         <div className="bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-transparent border-b border-amber-500/20 px-4 sm:px-8 py-3.5 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-amber-500/20 text-amber-400">
+            <div className="p-2 rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400">
               <Lock className="w-4 h-4" />
             </div>
             <div>
-              <p className="text-xs sm:text-sm font-semibold text-white flex items-center gap-2">
+              <p className="text-xs sm:text-sm font-semibold text-neutral-900 dark:text-white flex items-center gap-2">
                 <span>AI Smart Culling is locked on your current plan</span>
                 {planName && (
-                  <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-white/10 text-neutral-300">
+                  <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-neutral-200 dark:bg-white/10 text-neutral-800 dark:text-neutral-300">
                     {planName}
                   </span>
                 )}
               </p>
-              <p className="text-[11px] text-neutral-400">
+              <p className="text-[11px] text-neutral-600 dark:text-neutral-400">
                 Upgrade your Studio Subscription to enable unlimited AI photo culling, facial sharpness scoring, and instant gallery transfers.
               </p>
             </div>
@@ -540,17 +540,17 @@ export const SmartCullPage: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
         {/* User-friendly Error Alert */}
         {apiError && (
-          <div className="p-5 sm:p-6 rounded-3xl bg-neutral-900/90 border border-neutral-800 text-white space-y-4 animate-in fade-in duration-200 shadow-xl">
+          <div className="p-5 sm:p-6 rounded-3xl bg-white dark:bg-neutral-900/90 border border-neutral-200 dark:border-neutral-800 text-neutral-900 dark:text-white space-y-4 animate-in fade-in duration-200 shadow-xl">
             <div className="flex items-start justify-between gap-4">
               <div className="flex items-start gap-3.5">
-                <div className="p-2.5 rounded-2xl bg-amber-500/10 text-amber-400 border border-amber-500/20 shrink-0 mt-0.5">
+                <div className="p-2.5 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 shrink-0 mt-0.5">
                   <AlertTriangle className="w-5 h-5" />
                 </div>
                 <div className="space-y-1">
-                  <h3 className="text-sm sm:text-base font-bold text-white">
+                  <h3 className="text-sm sm:text-base font-bold text-neutral-900 dark:text-white">
                     {apiError.title}
                   </h3>
-                  <p className="text-xs sm:text-sm text-neutral-300 leading-relaxed max-w-2xl">
+                  <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-300 leading-relaxed max-w-2xl">
                     {apiError.message}
                   </p>
                 </div>
@@ -559,7 +559,7 @@ export const SmartCullPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setApiError(null)}
-                className="text-neutral-400 hover:text-white transition-colors cursor-pointer text-xs shrink-0"
+                className="text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors cursor-pointer text-xs shrink-0"
               >
                 Dismiss
               </button>
@@ -580,7 +580,7 @@ export const SmartCullPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setApiError(null)}
-                className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-neutral-300 text-xs font-medium transition-colors cursor-pointer"
+                className="px-4 py-2 rounded-xl bg-neutral-100 hover:bg-neutral-200 dark:bg-white/5 dark:hover:bg-white/10 text-neutral-700 dark:text-neutral-300 text-xs font-medium transition-colors cursor-pointer border border-neutral-200 dark:border-transparent"
               >
                 Dismiss
               </button>
@@ -588,11 +588,11 @@ export const SmartCullPage: React.FC = () => {
           </div>
         )}
         {/* Header */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-6 border-b border-white/10">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-6 border-b border-neutral-200 dark:border-white/10">
           <div className="space-y-2">
             <div className="flex items-center gap-2 flex-wrap">
               {aiCullingEnabled ? (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-semibold">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs font-semibold">
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   <span>Main Plan Included • {planName || 'Studio Plan'}</span>
                 </span>
@@ -600,22 +600,22 @@ export const SmartCullPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsUpgradeModalOpen(true)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 text-xs font-semibold cursor-pointer transition-colors"
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-700 dark:text-amber-300 text-xs font-semibold cursor-pointer transition-colors"
                 >
-                  <Lock className="w-3.5 h-3.5 text-amber-400" />
+                  <Lock className="w-3.5 h-3.5 text-amber-500" />
                   <span>AI Culling Locked • Upgrade {planName || 'Plan'}</span>
                 </button>
               )}
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-neutral-300 text-xs font-mono">
-                <HardDrive className="w-3.5 h-3.5 text-amber-400" />
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white dark:bg-white/5 border border-neutral-200 dark:border-white/10 text-neutral-700 dark:text-neutral-300 text-xs font-mono shadow-xs">
+                <HardDrive className="w-3.5 h-3.5 text-amber-500" />
                 <span>Storage Quota: {availableStorageDisplay} Free</span>
               </span>
             </div>
 
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight flex items-center gap-3">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-neutral-900 dark:text-white tracking-tight flex items-center gap-3 font-serif">
               AI Smart Cull & Deduplicator
             </h1>
-            <p className="text-sm text-neutral-400 max-w-2xl">
+            <p className="text-sm text-neutral-600 dark:text-neutral-400 max-w-2xl">
               Upload raw shoot batches without limits. Our AI analyzes blur, facial sharpness, closed eyes, and burst clusters, automatically recommending the best picks and saving gigabytes of cloud storage.
             </p>
           </div>
@@ -628,7 +628,7 @@ export const SmartCullPage: React.FC = () => {
                   type="button"
                   onClick={() => setIsDiscardModalOpen(true)}
                   disabled={isDiscarding}
-                  className="px-3.5 py-2.5 rounded-xl bg-white/5 hover:bg-red-500/10 border border-white/10 hover:border-red-500/30 text-neutral-300 hover:text-red-400 text-xs font-semibold transition-colors flex items-center gap-2 cursor-pointer"
+                  className="px-3.5 py-2.5 rounded-xl bg-white dark:bg-white/5 hover:bg-red-500/10 border border-neutral-200 dark:border-white/10 hover:border-red-500/30 text-neutral-700 dark:text-neutral-300 hover:text-red-500 dark:hover:text-red-400 text-xs font-semibold transition-colors flex items-center gap-2 cursor-pointer shadow-xs"
                   title="Discard this culling session and free staging storage"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -639,7 +639,7 @@ export const SmartCullPage: React.FC = () => {
                   type="button"
                   onClick={handleDownloadKeepersZip}
                   disabled={isZipping || keepers.length === 0}
-                  className="px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white text-xs font-bold transition-all flex items-center gap-2 cursor-pointer"
+                  className="px-4 py-2.5 rounded-xl bg-white dark:bg-white/5 hover:bg-neutral-100 dark:hover:bg-white/10 border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-xs"
                 >
                   {isZipping ? (
                     <>
@@ -698,24 +698,24 @@ export const SmartCullPage: React.FC = () => {
 
         {/* Restoring indicator */}
         {isRestoring && (
-          <div className="p-8 rounded-2xl bg-white/[0.02] border border-white/5 flex items-center justify-center gap-3 text-neutral-400 text-sm">
-            <Loader2 className="w-5 h-5 animate-spin text-amber-400" />
+          <div className="p-8 rounded-2xl bg-white dark:bg-white/[0.02] border border-neutral-200 dark:border-white/5 flex items-center justify-center gap-3 text-neutral-600 dark:text-neutral-400 text-sm shadow-xs">
+            <Loader2 className="w-5 h-5 animate-spin text-amber-500" />
             <span>Restoring active culling session from studio staging...</span>
           </div>
         )}
 
         {/* Empty State */}
         {!isRestoring && totalPhotos === 0 && (
-          <div className="p-12 sm:p-16 rounded-3xl bg-gradient-to-b from-white/[0.03] to-transparent border border-white/10 text-center space-y-6">
-            <div className="w-20 h-20 mx-auto rounded-3xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 shadow-xl shadow-amber-500/5">
+          <div className="p-12 sm:p-16 rounded-3xl bg-white dark:bg-gradient-to-b dark:from-white/[0.03] dark:to-transparent border border-neutral-200/90 dark:border-white/10 text-center space-y-6 shadow-xs dark:shadow-2xl">
+            <div className="w-20 h-20 mx-auto rounded-3xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-center text-amber-600 dark:text-amber-400 shadow-xl shadow-amber-500/5">
               <Sparkles className="w-10 h-10" />
             </div>
 
             <div className="space-y-2 max-w-lg mx-auto">
-              <h2 className="text-xl sm:text-2xl font-bold text-white">
+              <h2 className="text-xl sm:text-2xl font-bold font-serif text-neutral-900 dark:text-white">
                 {!aiCullingEnabled ? 'AI Smart Cull is Included in Studio Plans' : 'No Photos in Active Culling Session'}
               </h2>
-              <p className="text-xs sm:text-sm text-neutral-400 leading-relaxed">
+              <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed">
                 {!aiCullingEnabled
                   ? `AI Culling is included in our Studio Pro & Elite tiers. Your current plan (${planName || 'Standard'}) does not have this feature active. Upgrade your plan to process unlimited photos with automatic duplicate grouping and sharpness scoring.`
                   : 'Upload your raw camera batch to get started. Just like gallery uploads, you can upload as many photos as you need with zero individual fees.'}
@@ -749,33 +749,33 @@ export const SmartCullPage: React.FC = () => {
             </div>
 
             {/* Feature Highlights Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-10 text-left border-t border-white/10 mt-8">
-              <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/5 space-y-2">
-                <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center font-bold text-sm">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-10 text-left border-t border-neutral-200 dark:border-white/10 mt-8">
+              <div className="p-4 rounded-2xl bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200/90 dark:border-white/5 space-y-2">
+                <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold text-sm">
                   1
                 </div>
-                <h3 className="text-sm font-bold text-white">Burst Sequence Grouping</h3>
-                <p className="text-xs text-neutral-400">
+                <h3 className="text-sm font-bold text-neutral-900 dark:text-white">Burst Sequence Grouping</h3>
+                <p className="text-xs text-neutral-600 dark:text-neutral-400">
                   Perceptual AI groups similar poses, expressions, and burst sequences automatically.
                 </p>
               </div>
 
-              <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/5 space-y-2">
-                <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center font-bold text-sm">
+              <div className="p-4 rounded-2xl bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200/90 dark:border-white/5 space-y-2">
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold text-sm">
                   2
                 </div>
-                <h3 className="text-sm font-bold text-white">Sharpness & Eye Scoring</h3>
-                <p className="text-xs text-neutral-400">
+                <h3 className="text-sm font-bold text-neutral-900 dark:text-white">Sharpness & Eye Scoring</h3>
+                <p className="text-xs text-neutral-600 dark:text-neutral-400">
                   Detects micro-blur and picks the sharpest keeper so you don't have to zoom in 50 times.
                 </p>
               </div>
 
-              <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/5 space-y-2">
-                <div className="w-8 h-8 rounded-lg bg-sky-500/10 text-sky-400 flex items-center justify-center font-bold text-sm">
+              <div className="p-4 rounded-2xl bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200/90 dark:border-white/5 space-y-2">
+                <div className="w-8 h-8 rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center font-bold text-sm">
                   3
                 </div>
-                <h3 className="text-sm font-bold text-white">1-Click Client Delivery</h3>
-                <p className="text-xs text-neutral-400">
+                <h3 className="text-sm font-bold text-neutral-900 dark:text-white">1-Click Client Delivery</h3>
+                <p className="text-xs text-neutral-600 dark:text-neutral-400">
                   Export approved keepers directly into any client gallery or section in seconds.
                 </p>
               </div>
@@ -789,66 +789,66 @@ export const SmartCullPage: React.FC = () => {
             {/* Session Stats Banner */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {/* Total Uploaded */}
-              <div className="p-5 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-white/20 transition-all flex items-center justify-between gap-4 shadow-sm">
+              <div className="p-5 rounded-2xl bg-white dark:bg-white/[0.03] border border-neutral-200 dark:border-white/10 hover:border-neutral-300 dark:hover:border-white/20 transition-all flex items-center justify-between gap-4 shadow-xs">
                 <div className="space-y-1 min-w-0">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Total Uploaded</p>
-                  <p className="text-2xl sm:text-3xl font-black text-white flex items-baseline gap-2">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">Total Uploaded</p>
+                  <p className="text-2xl sm:text-3xl font-black text-neutral-900 dark:text-white flex items-baseline gap-2">
                     <span>{totalPhotos}</span>
-                    <span className="text-xs font-normal font-mono text-neutral-400">photos</span>
+                    <span className="text-xs font-normal font-mono text-neutral-500 dark:text-neutral-400">photos</span>
                   </p>
                 </div>
-                <div className="w-12 h-12 rounded-2xl bg-white/[0.08] border border-white/10 text-neutral-200 flex items-center justify-center shrink-0 shadow-inner">
-                  <Images className="w-5 h-5 text-neutral-300" />
+                <div className="w-12 h-12 rounded-2xl bg-neutral-100 dark:bg-white/[0.08] border border-neutral-200 dark:border-white/10 text-neutral-700 dark:text-neutral-200 flex items-center justify-center shrink-0 shadow-inner">
+                  <Images className="w-5 h-5 text-neutral-500 dark:text-neutral-300" />
                 </div>
               </div>
 
               {/* Approved Keepers */}
-              <div className="p-5 rounded-2xl bg-emerald-500/5 border border-emerald-500/20 hover:border-emerald-500/30 transition-all flex items-center justify-between gap-4 shadow-sm">
+              <div className="p-5 rounded-2xl bg-emerald-50/70 dark:bg-emerald-500/5 border border-emerald-200 dark:border-emerald-500/20 hover:border-emerald-300 dark:hover:border-emerald-500/30 transition-all flex items-center justify-between gap-4 shadow-xs">
                 <div className="space-y-1 min-w-0">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-emerald-400">Approved Keepers</p>
-                  <p className="text-2xl sm:text-3xl font-black text-emerald-300 flex items-baseline gap-2">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">Approved Keepers</p>
+                  <p className="text-2xl sm:text-3xl font-black text-emerald-800 dark:text-emerald-300 flex items-baseline gap-2">
                     <span>{keepers.length}</span>
-                    <span className="text-xs font-normal font-mono text-emerald-400/80">photos</span>
+                    <span className="text-xs font-normal font-mono text-emerald-600 dark:text-emerald-400/80">photos</span>
                   </p>
                 </div>
-                <div className="w-12 h-12 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shrink-0 shadow-sm shadow-emerald-500/20">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 shadow-sm shadow-emerald-500/20">
                   <CheckCircle2 className="w-5 h-5" />
                 </div>
               </div>
 
               {/* Duplicates Detected */}
-              <div className="p-5 rounded-2xl bg-red-500/5 border border-red-500/20 hover:border-red-500/30 transition-all flex items-center justify-between gap-4 shadow-sm">
+              <div className="p-5 rounded-2xl bg-rose-50/70 dark:bg-red-500/5 border border-rose-200 dark:border-red-500/20 hover:border-rose-300 dark:hover:border-red-500/30 transition-all flex items-center justify-between gap-4 shadow-xs">
                 <div className="space-y-1 min-w-0">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-red-400">Duplicates Detected</p>
-                  <p className="text-2xl sm:text-3xl font-black text-red-300 flex items-baseline gap-2">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-rose-700 dark:text-red-400">Duplicates Detected</p>
+                  <p className="text-2xl sm:text-3xl font-black text-rose-800 dark:text-red-300 flex items-baseline gap-2">
                     <span>{duplicates.length}</span>
-                    <span className="text-xs font-normal font-mono text-red-400/80">photos</span>
+                    <span className="text-xs font-normal font-mono text-rose-600 dark:text-red-400/80">photos</span>
                   </p>
                 </div>
-                <div className="w-12 h-12 rounded-2xl bg-red-500/15 border border-red-500/30 text-red-400 flex items-center justify-center shrink-0 shadow-sm shadow-red-500/20">
+                <div className="w-12 h-12 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-rose-600 dark:text-red-400 flex items-center justify-center shrink-0 shadow-sm shadow-rose-500/20">
                   <Copy className="w-5 h-5" />
                 </div>
               </div>
 
               {/* Cloud Storage Saved */}
-              <div className="p-5 rounded-2xl bg-amber-500/5 border border-amber-500/20 hover:border-amber-500/30 transition-all flex items-center justify-between gap-4 shadow-sm">
+              <div className="p-5 rounded-2xl bg-amber-50/70 dark:bg-amber-500/5 border border-amber-200 dark:border-amber-500/20 hover:border-amber-300 dark:hover:border-amber-500/30 transition-all flex items-center justify-between gap-4 shadow-xs">
                 <div className="space-y-1 min-w-0">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-amber-400">Cloud Storage Saved</p>
-                  <p className="text-2xl sm:text-3xl font-black text-amber-300 flex items-baseline gap-1.5 flex-wrap">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-400">Cloud Storage Saved</p>
+                  <p className="text-2xl sm:text-3xl font-black text-amber-800 dark:text-amber-300 flex items-baseline gap-1.5 flex-wrap">
                     <span>{totalSavedMB} MB</span>
-                    <span className="text-xs font-normal font-mono text-amber-400/80">
+                    <span className="text-xs font-normal font-mono text-amber-600 dark:text-amber-400/80">
                       ({storageReducedPercentage}%)
                     </span>
                   </p>
                 </div>
-                <div className="w-12 h-12 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center justify-center shrink-0 shadow-sm shadow-amber-500/20">
+                <div className="w-12 h-12 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 shadow-sm shadow-amber-500/20">
                   <HardDrive className="w-5 h-5" />
                 </div>
               </div>
             </div>
 
             {/* Filter Tabs & Controls */}
-            <div className="flex flex-wrap items-center justify-between gap-4 p-2 rounded-2xl bg-white/[0.02] border border-white/10">
+            <div className="flex flex-wrap items-center justify-between gap-4 p-2 rounded-2xl bg-white dark:bg-white/[0.02] border border-neutral-200 dark:border-white/10 shadow-xs">
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
@@ -856,7 +856,7 @@ export const SmartCullPage: React.FC = () => {
                   className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
                     activeTab === 'clusters'
                       ? 'bg-amber-400 text-black shadow-md shadow-amber-500/20'
-                      : 'bg-transparent text-neutral-300 hover:bg-white/5'
+                      : 'bg-transparent text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-white/5'
                   }`}
                 >
                   <Layers className="w-3.5 h-3.5" />
@@ -869,7 +869,7 @@ export const SmartCullPage: React.FC = () => {
                   className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
                     activeTab === 'keepers'
                       ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20'
-                      : 'bg-transparent text-neutral-300 hover:bg-white/5'
+                      : 'bg-transparent text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-white/5'
                   }`}
                 >
                   <CheckCircle2 className="w-3.5 h-3.5" />
@@ -882,7 +882,7 @@ export const SmartCullPage: React.FC = () => {
                   className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
                     activeTab === 'duplicates'
                       ? 'bg-red-500 text-white shadow-md shadow-red-500/20'
-                      : 'bg-transparent text-neutral-300 hover:bg-white/5'
+                      : 'bg-transparent text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-white/5'
                   }`}
                 >
                   <Trash2 className="w-3.5 h-3.5" />
@@ -894,8 +894,8 @@ export const SmartCullPage: React.FC = () => {
                   onClick={() => setActiveTab('all')}
                   className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
                     activeTab === 'all'
-                      ? 'bg-white/20 text-white shadow-md'
-                      : 'bg-transparent text-neutral-300 hover:bg-white/5'
+                      ? 'bg-neutral-900 text-white dark:bg-white/20 dark:text-white shadow-md'
+                      : 'bg-transparent text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-white/5'
                   }`}
                 >
                   <FileImage className="w-3.5 h-3.5" />
@@ -904,8 +904,8 @@ export const SmartCullPage: React.FC = () => {
               </div>
 
               {/* Threshold control */}
-              <div className="flex items-center gap-3 px-3 py-1.5 text-xs text-neutral-400">
-                <Sliders className="w-3.5 h-3.5 text-amber-400" />
+              <div className="flex items-center gap-3 px-3 py-1.5 text-xs text-neutral-500 dark:text-neutral-400">
+                <Sliders className="w-3.5 h-3.5 text-amber-500" />
                 <span>Sensitivity: {similarityThreshold}%</span>
               </div>
             </div>
@@ -919,21 +919,21 @@ export const SmartCullPage: React.FC = () => {
                   return (
                     <div
                       key={cluster.id}
-                      className="p-5 rounded-2xl bg-white/[0.02] border border-white/10 space-y-4 hover:border-white/20 transition-all"
+                      className="p-5 rounded-2xl bg-white dark:bg-white/[0.02] border border-neutral-200 dark:border-white/10 space-y-4 hover:border-neutral-300 dark:hover:border-white/20 transition-all shadow-xs"
                     >
-                      <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-white/5">
+                      <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-neutral-200 dark:border-white/5">
                         <div className="flex items-center gap-3">
-                          <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400">
+                          <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400">
                             <Sparkles className="w-4 h-4" />
                           </div>
                           <div>
-                            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                            <h3 className="text-sm font-bold text-neutral-900 dark:text-white flex items-center gap-2">
                               <span>{cluster.title}</span>
-                              <span className="text-[11px] font-mono font-medium px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                              <span className="text-[11px] font-mono font-medium px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
                                 {cluster.averageSimilarity}% Match
                               </span>
                             </h3>
-                            <p className="text-[11px] text-neutral-400">
+                            <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
                               {clusterPhotos.length} photos in sequence • 1 keeper, {clusterPhotos.length - 1} duplicates
                             </p>
                           </div>
@@ -945,7 +945,7 @@ export const SmartCullPage: React.FC = () => {
                             setActiveCompareClusterId(cluster.id);
                             setIsCompareModalOpen(true);
                           }}
-                          className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-semibold text-neutral-200 transition-colors flex items-center gap-1.5 cursor-pointer"
+                          className="px-3 py-1.5 rounded-xl bg-neutral-100 hover:bg-neutral-200 dark:bg-white/5 dark:hover:bg-white/10 text-xs font-semibold text-neutral-700 dark:text-neutral-200 transition-colors flex items-center gap-1.5 cursor-pointer border border-neutral-200 dark:border-transparent"
                         >
                           <Maximize2 className="w-3.5 h-3.5" />
                           <span>Compare Side-by-Side</span>
@@ -961,16 +961,16 @@ export const SmartCullPage: React.FC = () => {
                           return (
                             <div
                               key={photo.id}
-                              className={`group relative rounded-2xl overflow-hidden border bg-[#111218] transition-all duration-300 shadow-md hover:shadow-xl flex flex-col ${
+                              className={`group relative rounded-2xl overflow-hidden border bg-white dark:bg-[#111218] transition-all duration-300 shadow-xs hover:shadow-xl flex flex-col ${
                                 isBest
                                   ? 'border-amber-400/80 ring-2 ring-amber-400/25 shadow-amber-500/10'
                                   : isDiscarded
                                   ? 'border-red-500/30 opacity-75 hover:opacity-100'
-                                  : 'border-white/10 hover:border-white/20'
+                                  : 'border-neutral-200 dark:border-white/10 hover:border-neutral-300 dark:hover:border-white/20'
                               }`}
                             >
                               <div
-                                className="aspect-[4/5] bg-neutral-950 relative overflow-hidden cursor-pointer"
+                                className="aspect-[4/5] bg-neutral-100 dark:bg-neutral-950 relative overflow-hidden cursor-pointer"
                                 onClick={() => setPreviewPhoto(photo)}
                               >
                                 <img
@@ -1009,12 +1009,12 @@ export const SmartCullPage: React.FC = () => {
                                 </div>
                               </div>
 
-                              <div className="p-3.5 bg-[#14151d] border-t border-white/5 flex items-center justify-between gap-2">
+                              <div className="p-3.5 bg-neutral-50 dark:bg-[#14151d] border-t border-neutral-200 dark:border-white/5 flex items-center justify-between gap-2">
                                 <div className="min-w-0 flex-1">
-                                  <p className="text-xs font-bold text-white truncate" title={photo.name}>
+                                  <p className="text-xs font-bold text-neutral-900 dark:text-white truncate" title={photo.name}>
                                     {photo.name}
                                   </p>
-                                  <p className="text-[11px] font-mono text-neutral-400">
+                                  <p className="text-[11px] font-mono text-neutral-500 dark:text-neutral-400">
                                     {photo.sizeMB ? `${photo.sizeMB} MB` : 'In sequence'}
                                   </p>
                                 </div>
@@ -1026,8 +1026,8 @@ export const SmartCullPage: React.FC = () => {
                                   }}
                                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
                                     isDiscarded
-                                      ? 'bg-emerald-500/15 hover:bg-emerald-500 text-emerald-400 hover:text-white border border-emerald-500/30'
-                                      : 'bg-red-500/15 hover:bg-red-500 text-red-400 hover:text-white border border-red-500/30'
+                                      ? 'bg-emerald-500/15 hover:bg-emerald-500 text-emerald-600 dark:text-emerald-400 hover:text-white border border-emerald-500/30'
+                                      : 'bg-red-500/15 hover:bg-red-500 text-red-600 dark:text-red-400 hover:text-white border border-red-500/30'
                                   }`}
                                 >
                                   {isDiscarded ? (
@@ -1063,17 +1063,17 @@ export const SmartCullPage: React.FC = () => {
                   return (
                     <div
                       key={photo.id}
-                      className={`group relative rounded-2xl overflow-hidden border bg-[#111218] transition-all duration-300 shadow-lg hover:shadow-2xl flex flex-col ${
+                      className={`group relative rounded-2xl overflow-hidden border bg-white dark:bg-[#111218] transition-all duration-300 shadow-xs hover:shadow-2xl flex flex-col ${
                         isBest
                           ? 'border-amber-400/80 ring-2 ring-amber-400/25 shadow-amber-500/10'
                           : isDiscarded
                           ? 'border-red-500/30 opacity-80 hover:opacity-100'
-                          : 'border-white/10 hover:border-white/25'
+                          : 'border-neutral-200 dark:border-white/10 hover:border-neutral-300 dark:hover:border-white/25'
                       }`}
                     >
                       {/* Generous Height & Width Image Container */}
                       <div
-                        className="relative aspect-[4/5] w-full bg-neutral-950 overflow-hidden cursor-pointer"
+                        className="relative aspect-[4/5] w-full bg-neutral-100 dark:bg-neutral-950 overflow-hidden cursor-pointer"
                         onClick={() => setPreviewPhoto(photo)}
                       >
                         <img
@@ -1116,12 +1116,12 @@ export const SmartCullPage: React.FC = () => {
                       </div>
 
                       {/* Card Info & Actions Footer */}
-                      <div className="p-4 bg-[#14151d] border-t border-white/5 flex items-center justify-between gap-3">
+                      <div className="p-4 bg-neutral-50 dark:bg-[#14151d] border-t border-neutral-200 dark:border-white/5 flex items-center justify-between gap-3">
                         <div className="min-w-0 flex-1">
-                          <p className="text-xs font-bold text-white truncate" title={photo.name}>
+                          <p className="text-xs font-bold text-neutral-900 dark:text-white truncate" title={photo.name}>
                             {photo.name}
                           </p>
-                          <p className="text-[11px] font-mono text-neutral-400">
+                          <p className="text-[11px] font-mono text-neutral-500 dark:text-neutral-400">
                             {photo.sizeMB ? `${photo.sizeMB} MB` : 'Analyzed frame'}
                           </p>
                         </div>

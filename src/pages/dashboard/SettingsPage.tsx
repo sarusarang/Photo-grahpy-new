@@ -107,37 +107,42 @@ export const SettingsPage: React.FC = () => {
   return (
     <div className="dashboard-container p-4 sm:p-8 max-w-7xl mx-auto space-y-6 text-neutral-900 dark:text-neutral-100 transition-colors">
       {/* 1. Hero Banner matching exact screenshot */}
-      <div className="relative rounded-3xl overflow-hidden border border-neutral-200 dark:border-neutral-800/80 bg-neutral-900 dark:bg-[#0c0d12] p-6 sm:p-8 min-h-[160px] sm:min-h-[175px] flex items-center justify-between shadow-lg">
+      <div className="relative rounded-3xl overflow-hidden border border-neutral-200/90 dark:border-neutral-800/80 bg-gradient-to-r from-[#faf8f5] via-[#f7f4ec] to-[#f2ebde] dark:bg-[#0c0d12] p-6 sm:p-8 min-h-[160px] sm:min-h-[175px] flex items-center justify-between shadow-xs dark:shadow-lg">
         {/* Background Image: Sony Alpha Camera Body & Lens on Right */}
         <div className="absolute right-0 top-0 bottom-0 w-full sm:w-2/3 lg:w-1/2 overflow-hidden pointer-events-none select-none">
           <img
+            src="/sony_camera_light.jpg"
+            alt="Sony Camera"
+            className="w-full h-full object-cover object-right opacity-95 dark:hidden block"
+          />
+          <img
             src="/sony_camera_dark.jpg"
             alt="Sony Camera"
-            className="w-full h-full object-cover object-right opacity-90 mix-blend-screen"
+            className="w-full h-full object-cover object-right opacity-90 mix-blend-screen hidden dark:block"
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-neutral-900 via-neutral-900/80 to-transparent dark:from-[#0c0d12] dark:via-[#0c0d12]/80 dark:to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#faf8f5] via-[#faf8f5]/85 to-transparent dark:from-[#0c0d12] dark:via-[#0c0d12]/80 dark:to-transparent" />
         </div>
 
         {/* Left Side: Title & Subtitle */}
         <div className="relative z-10 max-w-xl">
-          <span className="text-[11px] uppercase tracking-[0.2em] font-mono font-bold text-amber-400 block mb-1.5">
+          <span className="text-[11px] uppercase tracking-[0.2em] font-mono font-bold text-amber-600 dark:text-amber-400 block mb-1.5">
             STUDIO PREFERENCES
           </span>
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-serif text-white tracking-tight font-bold">
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-serif text-neutral-950 dark:text-white tracking-tight font-bold">
             Settings & Plan
           </h1>
-          <p className="text-xs sm:text-sm text-neutral-300 dark:text-neutral-400 mt-2 leading-relaxed">
+          <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400 mt-2 leading-relaxed">
             Manage your photographer branding, billing tier, storage limits, and notification preferences.
           </p>
         </div>
 
         {/* Right Side: Quote before the camera */}
         <div className="hidden md:flex flex-col items-start relative z-10 mr-48 lg:mr-64 shrink-0 text-left">
-          <p className="font-serif italic text-neutral-200 dark:text-neutral-300 text-sm sm:text-base leading-snug">
+          <p className="font-serif italic text-neutral-700 dark:text-neutral-300 text-sm sm:text-base leading-snug">
             “Better photos<br />
             Better stories.”
           </p>
-          <div className="w-10 h-[1px] bg-neutral-600 dark:bg-neutral-700 mt-2.5" />
+          <div className="w-10 h-[1px] bg-neutral-300 dark:bg-neutral-700 mt-2.5" />
         </div>
       </div>
 

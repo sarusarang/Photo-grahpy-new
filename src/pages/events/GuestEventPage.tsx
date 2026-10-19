@@ -81,12 +81,12 @@ export const GuestEventPage: React.FC = () => {
 
   if (isEventLoading) {
     return (
-      <div className="min-h-screen bg-[#07080b] text-white p-8 max-w-4xl mx-auto space-y-6 pt-16">
+      <div className="min-h-screen bg-[#f8f9fa] dark:bg-[#07080b] text-neutral-900 dark:text-white p-8 max-w-4xl mx-auto space-y-6 pt-16 transition-colors">
         <div className="text-center space-y-2 mb-8">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-neutral-900 border border-neutral-800 text-[10px] font-mono uppercase tracking-widest text-amber-400">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-[10px] font-mono uppercase tracking-widest text-amber-600 dark:text-amber-400 shadow-xs">
             Connecting to Live Studio Event...
           </div>
-          <h2 className="text-2xl font-serif">Loading Event Stream</h2>
+          <h2 className="text-2xl font-serif text-neutral-900 dark:text-white">Loading Event Stream</h2>
         </div>
         <EventListSkeleton count={3} />
       </div>
@@ -207,7 +207,7 @@ export const GuestEventPage: React.FC = () => {
 
   if (isEventError || !event) {
     return (
-      <div className="min-h-screen bg-[#07080b] text-white flex items-center justify-center p-6">
+      <div className="min-h-screen bg-[#f8f9fa] dark:bg-[#07080b] text-neutral-900 dark:text-white flex items-center justify-center p-6 transition-colors">
         <ErrorState
           title="Event Link Not Found"
           message="The requested event link may have expired, or does not exist."

@@ -707,7 +707,7 @@ export const UploadMediaModal: React.FC<UploadMediaModalProps> = ({
               Promise.allSettled([
                 SetGalleryCoverImageApi(galleryId, firstPhoto.url, firstPhoto.id),
                 SetGalleryTemplateBannerApi(galleryId, currentTpl, firstPhoto.url, firstPhoto.id),
-              ]).catch(() => {});
+              ]).catch(() => { });
             }
           }
         },
@@ -888,549 +888,541 @@ export const UploadMediaModal: React.FC<UploadMediaModalProps> = ({
         <div className="flex-1 overflow-y-auto px-5 sm:px-7 py-4 sm:py-5 space-y-4 overscroll-contain custom-scrollbar">
           {/* ── Dynamic Storage Quota Bar & Status (Live Backend Data) ── */}
           <div className="p-3 rounded-2xl bg-neutral-50 dark:bg-neutral-900/70 border border-neutral-200 dark:border-neutral-800/90">
-          <div className="flex items-center justify-between text-xs mb-1.5">
-            <div className="flex items-center gap-2">
-              <HardDrive className={`w-3.5 h-3.5 ${isStorageFull ? 'text-rose-500' : 'text-neutral-400'}`} />
-              <span className="font-semibold text-neutral-800 dark:text-neutral-200 text-[11px]">
-                Studio Cloud Storage Quota
-              </span>
-            </div>
-            <div className="text-[11px] font-mono">
-              <span className="text-neutral-900 dark:text-white font-bold">{storageUsedGB} GB</span>
-              <span className="text-neutral-400"> / {isUnlimited ? 'Unlimited' : `${storageLimitGB} GB`}</span>
-              {!isUnlimited && (
-                <span className={`ml-2 font-bold ${isStorageFull ? 'text-rose-500' : storageUsedPercent >= 85 ? 'text-amber-500' : 'text-emerald-500'}`}>
-                  ({storageUsedPercent}%)
+            <div className="flex items-center justify-between text-xs mb-1.5">
+              <div className="flex items-center gap-2">
+                <HardDrive className={`w-3.5 h-3.5 ${isStorageFull ? 'text-rose-500' : 'text-neutral-400'}`} />
+                <span className="font-semibold text-neutral-800 dark:text-neutral-200 text-[11px]">
+                  Studio Cloud Storage Quota
                 </span>
-              )}
+              </div>
+              <div className="text-[11px] font-mono">
+                <span className="text-neutral-900 dark:text-white font-bold">{storageUsedGB} GB</span>
+                <span className="text-neutral-400"> / {isUnlimited ? 'Unlimited' : `${storageLimitGB} GB`}</span>
+                {!isUnlimited && (
+                  <span className={`ml-2 font-bold ${isStorageFull ? 'text-rose-500' : storageUsedPercent >= 85 ? 'text-amber-500' : 'text-emerald-500'}`}>
+                    ({storageUsedPercent}%)
+                  </span>
+                )}
+              </div>
             </div>
+
+            {!isUnlimited && (
+              <div className="h-1.5 w-full bg-neutral-200 dark:bg-neutral-800 rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${isStorageFull ? 'bg-rose-500' : storageUsedPercent >= 85 ? 'bg-amber-500' : 'bg-emerald-500'
+                    }`}
+                  style={{ width: `${Math.min(100, storageUsedPercent)}%` }}
+                />
+              </div>
+            )}
+
+            {/* Warning Banner if Expired, Full or Batch Exceeds Quota */}
+            {planQuota.isExpired ? (
+              <div className="mt-2.5 flex items-center justify-between gap-2 p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs">
+                <div className="flex items-center gap-2">
+                  <AlertOctagon className="w-4 h-4 shrink-0" />
+                  <span className="font-medium text-[11px]">
+                    Studio membership expired. File uploads are disabled until plan is renewed.
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setQuotaError({
+                    code: 'PLAN_EXPIRED',
+                    message: `Your subscription to "${planQuota.planName}" has expired. Please renew your plan to upload new media files.`,
+                  })}
+                  className="shrink-0 px-2.5 py-1 rounded-lg bg-gradient-to-r from-rose-500 to-amber-500 hover:from-rose-400 hover:to-amber-400 text-white font-bold text-[10px] uppercase tracking-wider transition-colors cursor-pointer"
+                >
+                  Renew Plan
+                </button>
+              </div>
+            ) : isStorageFull ? (
+              <div className="mt-2.5 flex items-center justify-between gap-2 p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs">
+                <div className="flex items-center gap-2">
+                  <ZapOff className="w-4 h-4 shrink-0" />
+                  <span className="font-medium text-[11px]">
+                    Storage limit reached ({storageUsedGB}/{storageLimitGB} GB). Uploads restricted.
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setQuotaError({
+                    code: 'STORAGE_LIMIT_EXCEEDED',
+                    message: `Your studio storage limit (${storageLimitGB} GB) is full. Upgrade your plan to increase capacity.`,
+                  })}
+                  className="shrink-0 px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-bold text-[10px] uppercase tracking-wider transition-colors cursor-pointer"
+                >
+                  Upgrade Plan
+                </button>
+              </div>
+            ) : wouldExceedLimit ? (
+              <div className="mt-2.5 flex items-center justify-between gap-2 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300 text-xs">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 shrink-0 text-amber-500" />
+                  <span className="font-medium text-[11px]">
+                    Batch size ({currentBatchDisplay}) exceeds estimated available {availableStorageDisplay}. Upload will proceed in automatic chunks.
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setQuotaError({
+                    code: 'STORAGE_LIMIT_EXCEEDED',
+                    message: `Selected media (${currentBatchDisplay}) exceeds available ${availableStorageDisplay}. Upgrade your plan to increase capacity.`,
+                  })}
+                  className="shrink-0 px-2 py-0.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-[10px] uppercase tracking-wider transition-colors cursor-pointer"
+                >
+                  Upgrade Plan
+                </button>
+              </div>
+            ) : null}
           </div>
 
-          {!isUnlimited && (
-            <div className="h-1.5 w-full bg-neutral-200 dark:bg-neutral-800 rounded-full overflow-hidden">
-              <div
-                className={`h-full rounded-full transition-all duration-500 ${
-                  isStorageFull ? 'bg-rose-500' : storageUsedPercent >= 85 ? 'bg-amber-500' : 'bg-emerald-500'
-                }`}
-                style={{ width: `${Math.min(100, storageUsedPercent)}%` }}
+          {/* ── Error UI State Banner ── */}
+          {uploadError && (
+            <div className="mt-4 p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-start justify-between gap-3 text-rose-700 dark:text-rose-400 text-xs">
+              <div className="flex items-start gap-2.5">
+                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-rose-500" />
+                <div>
+                  <p className="font-semibold text-rose-900 dark:text-rose-200">Upload Issue</p>
+                  <p className="text-[11px] text-rose-700/90 dark:text-rose-300/90 mt-0.5">{uploadError}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setUploadError(null)}
+                className="p-1 text-rose-400 hover:text-rose-600 dark:hover:text-rose-200 rounded-lg hover:bg-rose-500/10 transition-colors cursor-pointer"
+                title="Dismiss error"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+
+          {/* ── Section Selector & Creator ── */}
+          <div className="mt-4 p-4 rounded-2xl bg-neutral-100 dark:bg-neutral-900/70 border border-neutral-200 dark:border-neutral-800/80 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <FolderPlus className="w-4 h-4 text-amber-500" />
+                <span className="text-xs font-semibold text-neutral-800 dark:text-neutral-200 uppercase tracking-wider">
+                  Target Section:
+                </span>
+              </div>
+
+              {!isCreatingNewSection && (
+                <button
+                  type="button"
+                  disabled={isUploading}
+                  onClick={() => setIsCreatingNewSection(true)}
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-amber-600 dark:text-amber-400 hover:text-amber-500 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Plus className="w-3.5 h-3.5" /> New Section Title
+                </button>
+              )}
+            </div>
+
+            {/* Section Chips */}
+            <div className="flex flex-wrap items-center gap-2">
+              {existingSections.map((sec) => (
+                <button
+                  key={sec}
+                  type="button"
+                  disabled={isUploading}
+                  onClick={() => setSelectedSection(sec)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-mono font-medium transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${selectedSection === sec
+                      ? 'bg-amber-400 text-neutral-950 font-bold shadow-md ring-2 ring-amber-400/40'
+                      : 'bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700 hover:border-amber-400/50'
+                    }`}
+                >
+                  {selectedSection === sec && <Check className="w-3 h-3 inline mr-1 stroke-[2.5]" />}
+                  {sec}
+                </button>
+              ))}
+            </div>
+
+            {/* Inline Create New Section Input */}
+            {isCreatingNewSection && (
+              <div className="pt-2 border-t border-neutral-200 dark:border-neutral-800">
+                <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mb-2">
+                  Create a distinct category title for client gallery tabs:
+                </p>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="e.g. Ceremony, Reception, Portraits..."
+                    value={newSectionInput}
+                    disabled={isUploading}
+                    onChange={(e) => setNewSectionInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddNewSection();
+                      }
+                    }}
+                    autoFocus
+                    className="flex-1 px-3.5 py-2 rounded-xl bg-white dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 text-xs text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:border-amber-400 disabled:opacity-50"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleAddNewSection()}
+                    disabled={isUploading || addSectionMutation.isPending || !newSectionInput.trim()}
+                    className="px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer flex items-center gap-1.5"
+                  >
+                    {addSectionMutation.isPending ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : null}
+                    <span>Create &amp; Select</span>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isUploading}
+                    onClick={() => {
+                      setIsCreatingNewSection(false);
+                      setNewSectionInput('');
+                    }}
+                    className="px-3 py-2 rounded-xl text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 text-xs disabled:opacity-50 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </div>
+
+                {/* Suggestions */}
+                <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                  <span className="text-[10px] text-neutral-400 uppercase font-mono flex items-center gap-1">
+                    <Sparkles className="w-3 h-3 text-amber-500" /> Suggestions:
+                  </span>
+                  {DEFAULT_SECTION_SUGGESTIONS.filter(
+                    (sug) => !existingSections.some((ex) => ex.toUpperCase() === sug.toUpperCase())
+                  ).map((sug) => (
+                    <button
+                      key={sug}
+                      type="button"
+                      disabled={isUploading}
+                      onClick={() => handleAddNewSection(undefined, sug)}
+                      className="text-[10px] px-2.5 py-1 rounded-lg bg-neutral-200 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 hover:bg-amber-400 dark:hover:bg-amber-400 hover:text-neutral-950 dark:hover:text-neutral-950 hover:font-bold disabled:opacity-50 transition-all cursor-pointer flex items-center gap-1 active:scale-95"
+                      title={`Create & select "${sug.toUpperCase()}"`}
+                    >
+                      + {sug}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ── Loading State Progress Card with Live Speed, Elapsed/ETA & MB Uploaded ── */}
+          {isUploading && (
+            <div className="mt-4">
+              <UploadProgressCard
+                progress={uploadProgress}
+                statusText={uploadStatusText}
+                metrics={uploadMetrics}
+                targetSection={selectedSection}
+                isPaused={isPaused}
+                onPause={handlePauseUpload}
+                onResume={handleResumeUpload}
+                onCancel={handleCancelUpload}
               />
             </div>
           )}
 
-          {/* Warning Banner if Expired, Full or Batch Exceeds Quota */}
-          {planQuota.isExpired ? (
-            <div className="mt-2.5 flex items-center justify-between gap-2 p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs">
-              <div className="flex items-center gap-2">
-                <AlertOctagon className="w-4 h-4 shrink-0" />
-                <span className="font-medium text-[11px]">
-                  Studio membership expired. File uploads are disabled until plan is renewed.
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setQuotaError({
-                  code: 'PLAN_EXPIRED',
-                  message: `Your subscription to "${planQuota.planName}" has expired. Please renew your plan to upload new media files.`,
-                })}
-                className="shrink-0 px-2.5 py-1 rounded-lg bg-gradient-to-r from-rose-500 to-amber-500 hover:from-rose-400 hover:to-amber-400 text-white font-bold text-[10px] uppercase tracking-wider transition-colors cursor-pointer"
-              >
-                Renew Plan
-              </button>
-            </div>
-          ) : isStorageFull ? (
-            <div className="mt-2.5 flex items-center justify-between gap-2 p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs">
-              <div className="flex items-center gap-2">
-                <ZapOff className="w-4 h-4 shrink-0" />
-                <span className="font-medium text-[11px]">
-                  Storage limit reached ({storageUsedGB}/{storageLimitGB} GB). Uploads restricted.
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setQuotaError({
-                  code: 'STORAGE_LIMIT_EXCEEDED',
-                  message: `Your studio storage limit (${storageLimitGB} GB) is full. Upgrade your plan to increase capacity.`,
-                })}
-                className="shrink-0 px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-bold text-[10px] uppercase tracking-wider transition-colors cursor-pointer"
-              >
-                Upgrade Plan
-              </button>
-            </div>
-          ) : wouldExceedLimit ? (
-            <div className="mt-2.5 flex items-center justify-between gap-2 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300 text-xs">
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 shrink-0 text-amber-500" />
-                <span className="font-medium text-[11px]">
-                  Batch size ({currentBatchDisplay}) exceeds estimated available {availableStorageDisplay}. Upload will proceed in automatic chunks.
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setQuotaError({
-                  code: 'STORAGE_LIMIT_EXCEEDED',
-                  message: `Selected media (${currentBatchDisplay}) exceeds available ${availableStorageDisplay}. Upgrade your plan to increase capacity.`,
-                })}
-                className="shrink-0 px-2 py-0.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-[10px] uppercase tracking-wider transition-colors cursor-pointer"
-              >
-                Upgrade Plan
-              </button>
-            </div>
-          ) : null}
-        </div>
-
-        {/* ── Error UI State Banner ── */}
-        {uploadError && (
-          <div className="mt-4 p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-start justify-between gap-3 text-rose-700 dark:text-rose-400 text-xs">
-            <div className="flex items-start gap-2.5">
-              <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-rose-500" />
-              <div>
-                <p className="font-semibold text-rose-900 dark:text-rose-200">Upload Issue</p>
-                <p className="text-[11px] text-rose-700/90 dark:text-rose-300/90 mt-0.5">{uploadError}</p>
-              </div>
-            </div>
+          {/* ── Tabs: Photos vs Videos ── */}
+          <div className="mt-5 flex gap-2 border-b border-neutral-200 dark:border-neutral-800 pb-3">
             <button
-              type="button"
-              onClick={() => setUploadError(null)}
-              className="p-1 text-rose-400 hover:text-rose-600 dark:hover:text-rose-200 rounded-lg hover:bg-rose-500/10 transition-colors cursor-pointer"
-              title="Dismiss error"
+              disabled={isUploading}
+              onClick={() => setActiveTab('photos')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${activeTab === 'photos'
+                  ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 shadow-sm'
+                  : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-900'
+                }`}
             >
-              <X className="w-3.5 h-3.5" />
+              <FileImage className="w-4 h-4" /> Batch Photos
+              {queuedPhotos.length > 0 && (
+                <span className="ml-1 px-1.5 py-0.5 rounded-full bg-amber-400 text-neutral-950 text-[10px] font-bold">
+                  {queuedPhotos.length}
+                </span>
+              )}
+            </button>
+            <button
+              disabled={isUploading}
+              onClick={() => setActiveTab('video')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${activeTab === 'video'
+                  ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 shadow-sm'
+                  : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-900'
+                }`}
+            >
+              <Film className="w-4 h-4" /> Video Highlight Reels
+              {queuedVideos.length > 0 && (
+                <span className="ml-1 px-1.5 py-0.5 rounded-full bg-amber-400 text-neutral-950 text-[10px] font-bold">
+                  {queuedVideos.length}
+                </span>
+              )}
             </button>
           </div>
-        )}
 
-        {/* ── Section Selector & Creator ── */}
-        <div className="mt-4 p-4 rounded-2xl bg-neutral-100 dark:bg-neutral-900/70 border border-neutral-200 dark:border-neutral-800/80 space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <FolderPlus className="w-4 h-4 text-amber-500" />
-              <span className="text-xs font-semibold text-neutral-800 dark:text-neutral-200 uppercase tracking-wider">
-                Target Section:
-              </span>
-            </div>
+          {/* ── PHOTOS TAB CONTENT ── */}
+          {activeTab === 'photos' && (
+            <div className="mt-5 space-y-5">
+              <input
+                ref={photoInputRef}
+                type="file"
+                multiple
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  handlePhotoFiles(e.target.files);
+                  e.target.value = '';
+                }}
+              />
 
-            {!isCreatingNewSection && (
-              <button
-                type="button"
-                disabled={isUploading}
-                onClick={() => setIsCreatingNewSection(true)}
-                className="inline-flex items-center gap-1 text-xs font-semibold text-amber-600 dark:text-amber-400 hover:text-amber-500 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              {/* Drag and Drop Zone */}
+              <div
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  if (!isStorageFull && !isUploading) setIsDraggingPhotos(true);
+                }}
+                onDragLeave={(e) => {
+                  e.preventDefault();
+                  setIsDraggingPhotos(false);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setIsDraggingPhotos(false);
+                  if (!isStorageFull && !isUploading) handlePhotoFiles(e.dataTransfer.files);
+                }}
+                onClick={() => {
+                  if (isUploading) return;
+                  if (isStorageFull) {
+                    showToast('Storage Quota Full', `Your studio storage limit (${storageLimitGB} GB) is full. Upgrade to upload photos.`, 'error');
+                    setQuotaError({
+                      code: 'STORAGE_LIMIT_EXCEEDED',
+                      message: `Storage quota full (${storageLimitGB} GB). Upgrade your plan to upload photos.`,
+                    });
+                  } else {
+                    photoInputRef.current?.click();
+                  }
+                }}
+                className={`border-2 border-dashed rounded-3xl ${queuedPhotos.length > 0 ? 'p-4 sm:p-5' : 'p-6 sm:p-8'
+                  } text-center transition-all group ${isStorageFull || isUploading
+                    ? 'border-neutral-300 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/20 cursor-not-allowed opacity-75'
+                    : isDraggingPhotos
+                      ? 'border-amber-500 bg-amber-500/10 scale-[1.01] cursor-pointer'
+                      : 'border-neutral-300 dark:border-neutral-800 hover:border-amber-500 dark:hover:border-amber-400/60 bg-neutral-50 dark:bg-neutral-900/40 hover:bg-neutral-100 dark:hover:bg-neutral-900 cursor-pointer'
+                  }`}
               >
-                <Plus className="w-3.5 h-3.5" /> New Section Title
-              </button>
-            )}
-          </div>
-
-          {/* Section Chips */}
-          <div className="flex flex-wrap items-center gap-2">
-            {existingSections.map((sec) => (
-              <button
-                key={sec}
-                type="button"
-                disabled={isUploading}
-                onClick={() => setSelectedSection(sec)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-mono font-medium transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
-                  selectedSection === sec
-                    ? 'bg-amber-400 text-neutral-950 font-bold shadow-md ring-2 ring-amber-400/40'
-                    : 'bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700 hover:border-amber-400/50'
-                }`}
-              >
-                {selectedSection === sec && <Check className="w-3 h-3 inline mr-1 stroke-[2.5]" />}
-                {sec}
-              </button>
-            ))}
-          </div>
-
-          {/* Inline Create New Section Input */}
-          {isCreatingNewSection && (
-            <div className="pt-2 border-t border-neutral-200 dark:border-neutral-800">
-              <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mb-2">
-                Create a distinct category title for client gallery tabs:
-              </p>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="e.g. Ceremony, Reception, Portraits..."
-                  value={newSectionInput}
-                  disabled={isUploading}
-                  onChange={(e) => setNewSectionInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      handleAddNewSection();
-                    }
-                  }}
-                  autoFocus
-                  className="flex-1 px-3.5 py-2 rounded-xl bg-white dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 text-xs text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:border-amber-400 disabled:opacity-50"
-                />
-                <button
-                  type="button"
-                  onClick={() => handleAddNewSection()}
-                  disabled={isUploading || addSectionMutation.isPending || !newSectionInput.trim()}
-                  className="px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer flex items-center gap-1.5"
-                >
-                  {addSectionMutation.isPending ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : null}
-                  <span>Create &amp; Select</span>
-                </button>
-                <button
-                  type="button"
-                  disabled={isUploading}
-                  onClick={() => {
-                    setIsCreatingNewSection(false);
-                    setNewSectionInput('');
-                  }}
-                  className="px-3 py-2 rounded-xl text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 text-xs disabled:opacity-50 cursor-pointer"
-                >
-                  Cancel
-                </button>
+                <div className={`${queuedPhotos.length > 0 ? 'w-10 h-10 mb-2' : 'w-14 h-14 mb-3'} rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-500 flex items-center justify-center mx-auto group-hover:scale-110 transition-transform`}>
+                  <UploadCloud className={queuedPhotos.length > 0 ? 'w-5 h-5' : 'w-7 h-7'} />
+                </div>
+                <h4 className="text-sm font-semibold text-neutral-900 dark:text-white">
+                  {isStorageFull
+                    ? 'Storage Limit Reached — Uploads Restricted'
+                    : isUploading
+                      ? 'Upload in Progress...'
+                      : queuedPhotos.length > 0
+                        ? 'Drop more photos here or click to browse'
+                        : 'Drag multiple photos here or click to browse'}
+                </h4>
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
+                  {isStorageFull
+                    ? `You have reached your ${storageLimitGB} GB storage quota. Please upgrade.`
+                    : isUploading
+                      ? 'Please wait while current files are securely transferred'
+                      : 'Supports JPG, PNG, TIFF, or RAW files'}
+                </p>
+                {!isStorageFull && !isUploading && (
+                  <div className="mt-2.5 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-amber-400 text-neutral-950 text-xs font-bold shadow-md hover:bg-amber-300 transition-colors">
+                    <Plus className="w-3.5 h-3.5" /> {queuedPhotos.length > 0 ? 'Add More Photos' : 'Choose Photos from Computer'}
+                  </div>
+                )}
               </div>
 
-              {/* Suggestions */}
-              <div className="flex flex-wrap items-center gap-1.5 mt-2">
-                <span className="text-[10px] text-neutral-400 uppercase font-mono flex items-center gap-1">
-                  <Sparkles className="w-3 h-3 text-amber-500" /> Suggestions:
-                </span>
-                {DEFAULT_SECTION_SUGGESTIONS.filter(
-                  (sug) => !existingSections.some((ex) => ex.toUpperCase() === sug.toUpperCase())
-                ).map((sug) => (
-                  <button
-                    key={sug}
-                    type="button"
-                    disabled={isUploading}
-                    onClick={() => handleAddNewSection(undefined, sug)}
-                    className="text-[10px] px-2.5 py-1 rounded-lg bg-neutral-200 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 hover:bg-amber-400 dark:hover:bg-amber-400 hover:text-neutral-950 dark:hover:text-neutral-950 hover:font-bold disabled:opacity-50 transition-all cursor-pointer flex items-center gap-1 active:scale-95"
-                    title={`Create & select "${sug.toUpperCase()}"`}
-                  >
-                    + {sug}
-                  </button>
-                ))}
-              </div>
+              {/* Queued Photos Preview */}
+              {queuedPhotos.length > 0 && (
+                <div className="space-y-3 pt-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-semibold text-neutral-800 dark:text-neutral-200">
+                      {queuedPhotos.length} photo{queuedPhotos.length > 1 ? 's' : ''} queued ({currentBatchDisplay})
+                    </span>
+                    <button
+                      type="button"
+                      disabled={isUploading}
+                      onClick={clearAllPhotos}
+                      className="text-neutral-400 hover:text-rose-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                    >
+                      Clear All
+                    </button>
+                  </div>
+
+                  {/* Thumbnail Grid (renders up to 48 items to maintain silky performance for 100+ files) */}
+                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3 max-h-64 overflow-y-auto p-1 custom-scrollbar">
+                    {queuedPhotos.slice(0, 48).map((q) => (
+                      <QueuedPhotoCard
+                        key={q.id}
+                        item={q}
+                        isUploading={isUploading}
+                        onRemove={removeQueuedPhoto}
+                      />
+                    ))}
+                    {queuedPhotos.length > 48 && (
+                      <div className="rounded-xl border-2 border-dashed border-amber-400/40 bg-amber-400/10 flex flex-col items-center justify-center p-3 text-center aspect-square">
+                        <span className="text-base font-bold text-amber-500 font-mono">
+                          +{queuedPhotos.length - 48}
+                        </span>
+                        <span className="text-[10px] text-neutral-600 dark:text-neutral-400 font-medium leading-tight mt-0.5">
+                          more queued
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )}
-        </div>
 
-        {/* ── Loading State Progress Card with Live Speed, Elapsed/ETA & MB Uploaded ── */}
-        {isUploading && (
-          <div className="mt-4">
-            <UploadProgressCard
-              progress={uploadProgress}
-              statusText={uploadStatusText}
-              metrics={uploadMetrics}
-              targetSection={selectedSection}
-              isPaused={isPaused}
-              onPause={handlePauseUpload}
-              onResume={handleResumeUpload}
-              onCancel={handleCancelUpload}
-            />
-          </div>
-        )}
+          {/* ── VIDEO TAB CONTENT (IDENTICAL FILE PICKER UI AS PHOTOS, NO EMBED SECTION) ── */}
+          {activeTab === 'video' && (
+            <div className="mt-5 space-y-5">
+              <input
+                ref={videoInputRef}
+                type="file"
+                multiple
+                accept="video/*,.mp4,.mov,.webm,.mkv,.avi,.m4v,.3gp"
+                className="hidden"
+                onChange={(e) => {
+                  handleVideoFiles(e.target.files);
+                  e.target.value = '';
+                }}
+              />
 
-        {/* ── Tabs: Photos vs Videos ── */}
-        <div className="mt-5 flex gap-2 border-b border-neutral-200 dark:border-neutral-800 pb-3">
-          <button
-            disabled={isUploading}
-            onClick={() => setActiveTab('photos')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
-              activeTab === 'photos'
-                ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 shadow-sm'
-                : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-900'
-            }`}
-          >
-            <FileImage className="w-4 h-4" /> Batch Photos
-            {queuedPhotos.length > 0 && (
-              <span className="ml-1 px-1.5 py-0.5 rounded-full bg-amber-400 text-neutral-950 text-[10px] font-bold">
-                {queuedPhotos.length}
-              </span>
-            )}
-          </button>
-          <button
-            disabled={isUploading}
-            onClick={() => setActiveTab('video')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
-              activeTab === 'video'
-                ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 shadow-sm'
-                : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-900'
-            }`}
-          >
-            <Film className="w-4 h-4" /> Video Highlight Reels
-            {queuedVideos.length > 0 && (
-              <span className="ml-1 px-1.5 py-0.5 rounded-full bg-amber-400 text-neutral-950 text-[10px] font-bold">
-                {queuedVideos.length}
-              </span>
-            )}
-          </button>
-        </div>
-
-        {/* ── PHOTOS TAB CONTENT ── */}
-        {activeTab === 'photos' && (
-          <div className="mt-5 space-y-5">
-            <input
-              ref={photoInputRef}
-              type="file"
-              multiple
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => {
-                handlePhotoFiles(e.target.files);
-                e.target.value = '';
-              }}
-            />
-
-            {/* Drag and Drop Zone */}
-            <div
-              onDragOver={(e) => {
-                e.preventDefault();
-                if (!isStorageFull && !isUploading) setIsDraggingPhotos(true);
-              }}
-              onDragLeave={(e) => {
-                e.preventDefault();
-                setIsDraggingPhotos(false);
-              }}
-              onDrop={(e) => {
-                e.preventDefault();
-                setIsDraggingPhotos(false);
-                if (!isStorageFull && !isUploading) handlePhotoFiles(e.dataTransfer.files);
-              }}
-              onClick={() => {
-                if (isUploading) return;
-                if (isStorageFull) {
-                  showToast('Storage Quota Full', `Your studio storage limit (${storageLimitGB} GB) is full. Upgrade to upload photos.`, 'error');
-                  setQuotaError({
-                    code: 'STORAGE_LIMIT_EXCEEDED',
-                    message: `Storage quota full (${storageLimitGB} GB). Upgrade your plan to upload photos.`,
-                  });
-                } else {
-                  photoInputRef.current?.click();
-                }
-              }}
-              className={`border-2 border-dashed rounded-3xl ${
-                queuedPhotos.length > 0 ? 'p-4 sm:p-5' : 'p-6 sm:p-8'
-              } text-center transition-all group ${
-                isStorageFull || isUploading
-                  ? 'border-neutral-300 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/20 cursor-not-allowed opacity-75'
-                  : isDraggingPhotos
-                  ? 'border-amber-500 bg-amber-500/10 scale-[1.01] cursor-pointer'
-                  : 'border-neutral-300 dark:border-neutral-800 hover:border-amber-500 dark:hover:border-amber-400/60 bg-neutral-50 dark:bg-neutral-900/40 hover:bg-neutral-100 dark:hover:bg-neutral-900 cursor-pointer'
-              }`}
-            >
-              <div className={`${queuedPhotos.length > 0 ? 'w-10 h-10 mb-2' : 'w-14 h-14 mb-3'} rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-500 flex items-center justify-center mx-auto group-hover:scale-110 transition-transform`}>
-                <UploadCloud className={queuedPhotos.length > 0 ? 'w-5 h-5' : 'w-7 h-7'} />
+              {/* Video Drag and Drop Zone */}
+              <div
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  if (!isStorageFull && !isUploading) setIsDraggingVideos(true);
+                }}
+                onDragLeave={(e) => {
+                  e.preventDefault();
+                  setIsDraggingVideos(false);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setIsDraggingVideos(false);
+                  if (!isStorageFull && !isUploading) handleVideoFiles(e.dataTransfer.files);
+                }}
+                onClick={() => {
+                  if (isUploading) return;
+                  if (isStorageFull) {
+                    showToast('Storage Quota Full', `Your studio storage limit (${storageLimitGB} GB) is full. Upgrade to upload videos.`, 'error');
+                    setQuotaError({
+                      code: 'STORAGE_LIMIT_EXCEEDED',
+                      message: `Storage quota full (${storageLimitGB} GB). Upgrade your plan to upload videos.`,
+                    });
+                  } else {
+                    videoInputRef.current?.click();
+                  }
+                }}
+                className={`border-2 border-dashed rounded-3xl ${queuedVideos.length > 0 ? 'p-4 sm:p-5' : 'p-6 sm:p-8'
+                  } text-center transition-all group ${isStorageFull || isUploading
+                    ? 'border-neutral-300 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/20 cursor-not-allowed opacity-75'
+                    : isDraggingVideos
+                      ? 'border-amber-500 bg-amber-500/10 scale-[1.01] cursor-pointer'
+                      : 'border-neutral-300 dark:border-neutral-800 hover:border-amber-500 dark:hover:border-amber-400/60 bg-neutral-50 dark:bg-neutral-900/40 hover:bg-neutral-100 dark:hover:bg-neutral-900 cursor-pointer'
+                  }`}
+              >
+                <div className={`${queuedVideos.length > 0 ? 'w-10 h-10 mb-2' : 'w-14 h-14 mb-3'} rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-500 flex items-center justify-center mx-auto group-hover:scale-110 transition-transform`}>
+                  <Film className={queuedVideos.length > 0 ? 'w-5 h-5' : 'w-7 h-7'} />
+                </div>
+                <h4 className="text-sm font-semibold text-neutral-900 dark:text-white">
+                  {isStorageFull
+                    ? 'Storage Limit Reached — Uploads Restricted'
+                    : isUploading
+                      ? 'Upload in Progress...'
+                      : queuedVideos.length > 0
+                        ? 'Drop more videos here or click to browse'
+                        : 'Drag video files here or click to browse'}
+                </h4>
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
+                  {isStorageFull
+                    ? `You have reached your ${storageLimitGB} GB storage quota. Please upgrade.`
+                    : isUploading
+                      ? 'Please wait while current video reel is being uploaded'
+                      : 'Supports MP4, MOV, WebM, MKV — up to 4K resolution'}
+                </p>
+                {!isStorageFull && !isUploading && (
+                  <div className="mt-2.5 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-amber-400 text-neutral-950 text-xs font-bold shadow-md hover:bg-amber-300 transition-colors">
+                    <Film className="w-3.5 h-3.5" /> {queuedVideos.length > 0 ? 'Add More Videos' : 'Choose Videos from Computer'}
+                  </div>
+                )}
               </div>
-              <h4 className="text-sm font-semibold text-neutral-900 dark:text-white">
-                {isStorageFull
-                  ? 'Storage Limit Reached — Uploads Restricted'
-                  : isUploading
-                  ? 'Upload in Progress...'
-                  : queuedPhotos.length > 0
-                  ? 'Drop more photos here or click to browse'
-                  : 'Drag multiple photos here or click to browse'}
-              </h4>
-              <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-                {isStorageFull
-                  ? `You have reached your ${storageLimitGB} GB storage quota. Please upgrade.`
-                  : isUploading
-                  ? 'Please wait while current files are securely transferred'
-                  : 'Supports JPG, PNG, TIFF, or RAW files'}
-              </p>
-              {!isStorageFull && !isUploading && (
-                <div className="mt-2.5 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-amber-400 text-neutral-950 text-xs font-bold shadow-md hover:bg-amber-300 transition-colors">
-                  <Plus className="w-3.5 h-3.5" /> {queuedPhotos.length > 0 ? 'Add More Photos' : 'Choose Photos from Computer'}
-                </div>
-              )}
-            </div>
 
-            {/* Queued Photos Preview */}
-            {queuedPhotos.length > 0 && (
-              <div className="space-y-3 pt-2">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-semibold text-neutral-800 dark:text-neutral-200">
-                    {queuedPhotos.length} photo{queuedPhotos.length > 1 ? 's' : ''} queued ({currentBatchDisplay})
-                  </span>
-                  <button
-                    type="button"
-                    disabled={isUploading}
-                    onClick={clearAllPhotos}
-                    className="text-neutral-400 hover:text-rose-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
-                  >
-                    Clear All
-                  </button>
-                </div>
-
-                {/* Thumbnail Grid (renders up to 48 items to maintain silky performance for 100+ files) */}
-                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3 max-h-64 overflow-y-auto p-1 custom-scrollbar">
-                  {queuedPhotos.slice(0, 48).map((q) => (
-                    <QueuedPhotoCard
-                      key={q.id}
-                      item={q}
-                      isUploading={isUploading}
-                      onRemove={removeQueuedPhoto}
-                    />
-                  ))}
-                  {queuedPhotos.length > 48 && (
-                    <div className="rounded-xl border-2 border-dashed border-amber-400/40 bg-amber-400/10 flex flex-col items-center justify-center p-3 text-center aspect-square">
-                      <span className="text-base font-bold text-amber-500 font-mono">
-                        +{queuedPhotos.length - 48}
-                      </span>
-                      <span className="text-[10px] text-neutral-600 dark:text-neutral-400 font-medium leading-tight mt-0.5">
-                        more queued
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ── VIDEO TAB CONTENT (IDENTICAL FILE PICKER UI AS PHOTOS, NO EMBED SECTION) ── */}
-        {activeTab === 'video' && (
-          <div className="mt-5 space-y-5">
-            <input
-              ref={videoInputRef}
-              type="file"
-              multiple
-              accept="video/*,.mp4,.mov,.webm,.mkv,.avi,.m4v,.3gp"
-              className="hidden"
-              onChange={(e) => {
-                handleVideoFiles(e.target.files);
-                e.target.value = '';
-              }}
-            />
-
-            {/* Video Drag and Drop Zone */}
-            <div
-              onDragOver={(e) => {
-                e.preventDefault();
-                if (!isStorageFull && !isUploading) setIsDraggingVideos(true);
-              }}
-              onDragLeave={(e) => {
-                e.preventDefault();
-                setIsDraggingVideos(false);
-              }}
-              onDrop={(e) => {
-                e.preventDefault();
-                setIsDraggingVideos(false);
-                if (!isStorageFull && !isUploading) handleVideoFiles(e.dataTransfer.files);
-              }}
-              onClick={() => {
-                if (isUploading) return;
-                if (isStorageFull) {
-                  showToast('Storage Quota Full', `Your studio storage limit (${storageLimitGB} GB) is full. Upgrade to upload videos.`, 'error');
-                  setQuotaError({
-                    code: 'STORAGE_LIMIT_EXCEEDED',
-                    message: `Storage quota full (${storageLimitGB} GB). Upgrade your plan to upload videos.`,
-                  });
-                } else {
-                  videoInputRef.current?.click();
-                }
-              }}
-              className={`border-2 border-dashed rounded-3xl ${
-                queuedVideos.length > 0 ? 'p-4 sm:p-5' : 'p-6 sm:p-8'
-              } text-center transition-all group ${
-                isStorageFull || isUploading
-                  ? 'border-neutral-300 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/20 cursor-not-allowed opacity-75'
-                  : isDraggingVideos
-                  ? 'border-amber-500 bg-amber-500/10 scale-[1.01] cursor-pointer'
-                  : 'border-neutral-300 dark:border-neutral-800 hover:border-amber-500 dark:hover:border-amber-400/60 bg-neutral-50 dark:bg-neutral-900/40 hover:bg-neutral-100 dark:hover:bg-neutral-900 cursor-pointer'
-              }`}
-            >
-              <div className={`${queuedVideos.length > 0 ? 'w-10 h-10 mb-2' : 'w-14 h-14 mb-3'} rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-500 flex items-center justify-center mx-auto group-hover:scale-110 transition-transform`}>
-                <Film className={queuedVideos.length > 0 ? 'w-5 h-5' : 'w-7 h-7'} />
-              </div>
-              <h4 className="text-sm font-semibold text-neutral-900 dark:text-white">
-                {isStorageFull
-                  ? 'Storage Limit Reached — Uploads Restricted'
-                  : isUploading
-                  ? 'Upload in Progress...'
-                  : queuedVideos.length > 0
-                  ? 'Drop more videos here or click to browse'
-                  : 'Drag video files here or click to browse'}
-              </h4>
-              <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-                {isStorageFull
-                  ? `You have reached your ${storageLimitGB} GB storage quota. Please upgrade.`
-                  : isUploading
-                  ? 'Please wait while current video reel is being uploaded'
-                  : 'Supports MP4, MOV, WebM, MKV — up to 4K resolution'}
-              </p>
-              {!isStorageFull && !isUploading && (
-                <div className="mt-2.5 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-amber-400 text-neutral-950 text-xs font-bold shadow-md hover:bg-amber-300 transition-colors">
-                  <Film className="w-3.5 h-3.5" /> {queuedVideos.length > 0 ? 'Add More Videos' : 'Choose Videos from Computer'}
-                </div>
-              )}
-            </div>
-
-            {/* Queued Videos Preview Grid */}
-            {queuedVideos.length > 0 && (
-              <div className="space-y-3 pt-2">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-semibold text-neutral-800 dark:text-neutral-200">
-                    {queuedVideos.length} video{queuedVideos.length > 1 ? 's' : ''} queued ({currentBatchDisplay})
-                  </span>
-                  <button
-                    type="button"
-                    disabled={isUploading}
-                    onClick={clearAllVideos}
-                    className="text-neutral-400 hover:text-rose-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
-                  >
-                    Clear All
-                  </button>
-                </div>
-
-                {/* Video Cards Grid */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 max-h-64 overflow-y-auto p-1 custom-scrollbar">
-                  {queuedVideos.map((q) => (
-                    <div
-                      key={q.id}
-                      className="group relative rounded-xl overflow-hidden bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 aspect-video shadow-sm flex flex-col justify-between"
+              {/* Queued Videos Preview Grid */}
+              {queuedVideos.length > 0 && (
+                <div className="space-y-3 pt-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-semibold text-neutral-800 dark:text-neutral-200">
+                      {queuedVideos.length} video{queuedVideos.length > 1 ? 's' : ''} queued ({currentBatchDisplay})
+                    </span>
+                    <button
+                      type="button"
+                      disabled={isUploading}
+                      onClick={clearAllVideos}
+                      className="text-neutral-400 hover:text-rose-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
                     >
-                      {/* Video element for instant visual preview */}
-                      <video
-                        src={q.previewUrl}
-                        preload="metadata"
-                        muted
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 pointer-events-none"
-                      />
+                      Clear All
+                    </button>
+                  </div>
 
-                      {/* Video Type Pill */}
-                      <div className="absolute top-2 left-2 flex items-center gap-1 px-2 py-0.5 rounded-md bg-black/70 backdrop-blur-sm text-[10px] font-semibold text-amber-400">
-                        <Film className="w-3 h-3" />
-                        <span>VIDEO</span>
-                      </div>
+                  {/* Video Cards Grid */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 max-h-64 overflow-y-auto p-1 custom-scrollbar">
+                    {queuedVideos.map((q) => (
+                      <div
+                        key={q.id}
+                        className="group relative rounded-xl overflow-hidden bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 aspect-video shadow-sm flex flex-col justify-between"
+                      >
+                        {/* Video element for instant visual preview */}
+                        <video
+                          src={q.previewUrl}
+                          preload="metadata"
+                          muted
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 pointer-events-none"
+                        />
 
-                      {/* Hover Overlay with Delete & Details */}
-                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-2">
-                        <button
-                          type="button"
-                          disabled={isUploading}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            removeQueuedVideo(q.id);
-                          }}
-                          className="self-end p-1.5 rounded-full bg-rose-600 text-white hover:bg-rose-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
-                          title="Remove video"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        {/* Video Type Pill */}
+                        <div className="absolute top-2 left-2 flex items-center gap-1 px-2 py-0.5 rounded-md bg-black/70 backdrop-blur-sm text-[10px] font-semibold text-amber-400">
+                          <Film className="w-3 h-3" />
+                          <span>VIDEO</span>
+                        </div>
 
-                        <div>
-                          <p className="text-[11px] font-semibold text-white truncate drop-shadow">
-                            {q.title}
-                          </p>
-                          <span className="text-[10px] text-white/80 font-mono bg-black/60 px-1.5 py-0.5 rounded mt-0.5 inline-block">
-                            {q.sizeMB} MB
-                          </span>
+                        {/* Hover Overlay with Delete & Details */}
+                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-2">
+                          <button
+                            type="button"
+                            disabled={isUploading}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeQueuedVideo(q.id);
+                            }}
+                            className="self-end p-1.5 rounded-full bg-rose-600 text-white hover:bg-rose-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                            title="Remove video"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+
+                          <div>
+                            <p className="text-[11px] font-semibold text-white truncate drop-shadow">
+                              {q.title}
+                            </p>
+                            <span className="text-[10px] text-white/80 font-mono bg-black/60 px-1.5 py-0.5 rounded mt-0.5 inline-block">
+                              {q.sizeMB} MB
+                            </span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
-        )}
+              )}
+            </div>
+          )}
         </div>
 
         {/* ── Sticky Modal Action Footer: ALWAYS visible without scrolling ── */}
@@ -1477,15 +1469,14 @@ export const UploadMediaModal: React.FC<UploadMediaModalProps> = ({
               type="button"
               onClick={activeTab === 'photos' ? handlePhotoBatchUpload : handleVideoBatchUpload}
               disabled={isUploading || isStorageFull || currentQueuedList.length === 0}
-              className={`flex-1 sm:flex-initial px-5 py-2.5 rounded-xl font-bold text-xs tracking-wide shadow-md transition-all flex items-center justify-center gap-2 ${
-                isUploading
+              className={`flex-1 sm:flex-initial px-5 py-2.5 rounded-xl font-bold text-xs tracking-wide shadow-md transition-all flex items-center justify-center gap-2 ${isUploading
                   ? 'bg-neutral-200 dark:bg-neutral-800 text-neutral-400 dark:text-neutral-500 cursor-not-allowed opacity-60 pointer-events-none'
                   : isStorageFull
-                  ? 'bg-neutral-300 dark:bg-neutral-800 text-neutral-500 cursor-not-allowed opacity-60'
-                  : currentQueuedList.length === 0
-                  ? 'bg-neutral-200 dark:bg-neutral-800 text-neutral-400 dark:text-neutral-500 cursor-not-allowed opacity-60'
-                  : 'bg-amber-400 hover:bg-amber-300 text-neutral-950 shadow-amber-500/20 active:scale-[0.99] cursor-pointer'
-              }`}
+                    ? 'bg-neutral-300 dark:bg-neutral-800 text-neutral-500 cursor-not-allowed opacity-60'
+                    : currentQueuedList.length === 0
+                      ? 'bg-neutral-200 dark:bg-neutral-800 text-neutral-400 dark:text-neutral-500 cursor-not-allowed opacity-60'
+                      : 'bg-amber-400 hover:bg-amber-300 text-neutral-950 shadow-amber-500/20 active:scale-[0.99] cursor-pointer'
+                }`}
             >
               {isUploading ? (
                 <>

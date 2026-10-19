@@ -711,16 +711,16 @@ export const PortfolioStudioPage: React.FC = () => {
       {activeTab === 'analytics' && (
         <div className="space-y-8 max-w-6xl mx-auto py-2">
           {/* Header Bar */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-3xl bg-[#111219] border border-white/10 shadow-lg">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-3xl bg-white dark:bg-[#111219] border border-neutral-200 dark:border-white/10 shadow-xs dark:shadow-lg">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-amber-400/10 border border-amber-400/20 text-amber-400 flex items-center justify-center shrink-0">
+              <div className="w-10 h-10 rounded-2xl bg-amber-400/10 border border-amber-400/20 text-amber-500 dark:text-amber-400 flex items-center justify-center shrink-0">
                 <BarChart3 className="w-5 h-5" />
               </div>
               <div>
-                <h2 className="text-sm font-bold text-white tracking-wide">
+                <h2 className="text-sm font-bold text-neutral-900 dark:text-white tracking-wide">
                   Visitor Analytics & Insights
                 </h2>
-                <p className="text-xs text-neutral-400">
+                <p className="text-xs text-neutral-500 dark:text-neutral-400">
                   Track portfolio views, engagement, and client inquiries
                 </p>
               </div>
@@ -728,7 +728,7 @@ export const PortfolioStudioPage: React.FC = () => {
 
             {/* Time Filter & Refresh CTA */}
             <div className="flex items-center gap-2">
-              <div className="flex items-center bg-black/40 rounded-2xl p-1 border border-white/10">
+              <div className="flex items-center bg-neutral-100 dark:bg-black/40 rounded-2xl p-1 border border-neutral-200 dark:border-white/10">
                 {(['7d', '30d', 'all'] as const).map((r) => (
                   <button
                     key={r}
@@ -736,7 +736,7 @@ export const PortfolioStudioPage: React.FC = () => {
                     className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                       timeRange === r
                         ? 'bg-amber-400 text-neutral-950 shadow-md shadow-amber-500/20'
-                        : 'text-neutral-400 hover:text-white'
+                        : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-950 dark:hover:text-white'
                     }`}
                   >
                     {r === '7d' ? '7 Days' : r === '30d' ? '30 Days' : 'All Time'}
@@ -747,7 +747,7 @@ export const PortfolioStudioPage: React.FC = () => {
               <button
                 type="button"
                 onClick={handleRefreshAll}
-                className="p-2.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-neutral-300 hover:text-white transition-all cursor-pointer"
+                className="p-2.5 rounded-2xl bg-neutral-100 hover:bg-neutral-200 dark:bg-white/5 dark:hover:bg-white/10 border border-neutral-200 dark:border-white/10 text-neutral-700 dark:text-neutral-300 hover:text-neutral-950 dark:hover:text-white transition-all cursor-pointer"
                 title="Refresh Live Metrics"
               >
                 <RefreshCw className={`w-4 h-4 ${isAnalyticsLoading ? 'animate-spin' : ''}`} />
@@ -760,31 +760,31 @@ export const PortfolioStudioPage: React.FC = () => {
             <div className="space-y-6">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
                 {[1, 2, 3, 4].map((i) => (
-                  <div key={i} className="h-36 rounded-3xl bg-white/[0.03] border border-white/10 animate-pulse p-6 space-y-4">
+                  <div key={i} className="h-36 rounded-3xl bg-neutral-100 dark:bg-white/[0.03] border border-neutral-200 dark:border-white/10 animate-pulse p-6 space-y-4">
                     <div className="flex justify-between items-center">
-                      <div className="w-24 h-3 rounded bg-white/10" />
-                      <div className="w-10 h-10 rounded-2xl bg-white/10" />
+                      <div className="w-24 h-3 rounded bg-neutral-200 dark:bg-white/10" />
+                      <div className="w-10 h-10 rounded-2xl bg-neutral-200 dark:bg-white/10" />
                     </div>
-                    <div className="w-32 h-8 rounded bg-white/10" />
+                    <div className="w-32 h-8 rounded bg-neutral-200 dark:bg-white/10" />
                   </div>
                 ))}
               </div>
-              <div className="h-64 rounded-3xl bg-white/[0.03] border border-white/10 animate-pulse" />
+              <div className="h-64 rounded-3xl bg-neutral-100 dark:bg-white/[0.03] border border-neutral-200 dark:border-white/10 animate-pulse" />
             </div>
           )}
 
           {/* ─── CASE 2: NORMAL USER FALLBACK (NO DATA OR NETWORK ERROR) ─── */}
           {!isAnalyticsLoading && (isAnalyticsError || !analyticsData) && (
             <div className="space-y-6">
-              <div className="relative p-8 sm:p-12 rounded-3xl bg-[#111219] border border-white/10 shadow-2xl text-center space-y-4">
-                <div className="w-14 h-14 rounded-2xl bg-amber-400/10 border border-amber-400/20 text-amber-400 flex items-center justify-center mx-auto shadow-lg shadow-amber-400/5">
+              <div className="relative p-8 sm:p-12 rounded-3xl bg-white dark:bg-[#111219] border border-neutral-200 dark:border-white/10 shadow-xs dark:shadow-2xl text-center space-y-4">
+                <div className="w-14 h-14 rounded-2xl bg-amber-400/10 border border-amber-400/20 text-amber-500 dark:text-amber-400 flex items-center justify-center mx-auto shadow-lg shadow-amber-400/5">
                   <BarChart3 className="w-7 h-7" />
                 </div>
                 <div className="max-w-md mx-auto space-y-2">
-                  <h3 className="text-base sm:text-lg font-bold text-white">
+                  <h3 className="text-base sm:text-lg font-bold text-neutral-900 dark:text-white font-serif">
                     {isAnalyticsError ? 'Unable to Load Analytics' : 'No Visitor Activity Recorded Yet'}
                   </h3>
-                  <p className="text-xs sm:text-sm text-neutral-400 leading-relaxed">
+                  <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed">
                     {isAnalyticsError
                       ? 'We could not retrieve your latest portfolio metrics at this time. Please check your internet connection or try refreshing.'
                       : 'Visitor statistics, page views, and inquiry conversions will appear here automatically once visitors browse your public portfolio.'}
@@ -803,7 +803,7 @@ export const PortfolioStudioPage: React.FC = () => {
                     href={publicUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold text-xs uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer border border-white/10"
+                    className="px-5 py-2.5 rounded-xl bg-neutral-100 hover:bg-neutral-200 dark:bg-white/10 dark:hover:bg-white/15 text-neutral-800 dark:text-white font-bold text-xs uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer border border-neutral-200 dark:border-white/10"
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
                     <span>View Public Portfolio</span>
@@ -813,15 +813,15 @@ export const PortfolioStudioPage: React.FC = () => {
 
               {/* Show real inquiries if available from /api/inquiries/ */}
               {Array.isArray(serverInquiries) && serverInquiries.length > 0 && (
-                <div className="rounded-3xl p-6 bg-[#111219] border border-white/10 shadow-2xl space-y-4">
+                <div className="rounded-3xl p-6 bg-white dark:bg-[#111219] border border-neutral-200 dark:border-white/10 shadow-xs dark:shadow-2xl space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <MessageSquare className="w-4 h-4 text-emerald-400" />
-                      <h3 className="text-sm font-bold text-white font-mono uppercase tracking-wider">
+                      <MessageSquare className="w-4 h-4 text-emerald-500 dark:text-emerald-400" />
+                      <h3 className="text-sm font-bold text-neutral-900 dark:text-white font-mono uppercase tracking-wider">
                         Real Inquiries from Server ({serverInquiries.length})
                       </h3>
                     </div>
-                    <span className="text-[11px] font-mono text-emerald-400 font-bold">
+                    <span className="text-[11px] font-mono text-emerald-600 dark:text-emerald-400 font-bold">
                       Connected to /api/inquiries/
                     </span>
                   </div>
@@ -830,15 +830,15 @@ export const PortfolioStudioPage: React.FC = () => {
                     {serverInquiries.map((inq: any, i: number) => (
                       <div
                         key={inq.id || i}
-                        className="p-3.5 rounded-2xl bg-white/[0.02] border border-white/5 flex items-center justify-between gap-3 text-xs"
+                        className="p-3.5 rounded-2xl bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200 dark:border-white/5 flex items-center justify-between gap-3 text-xs"
                       >
                         <div className="min-w-0 space-y-0.5">
-                          <p className="font-bold text-white truncate">{inq.client_name || inq.name || 'Client Lead'}</p>
-                          <p className="text-[11px] text-neutral-400 truncate">
+                          <p className="font-bold text-neutral-900 dark:text-white truncate">{inq.client_name || inq.name || 'Client Lead'}</p>
+                          <p className="text-[11px] text-neutral-500 dark:text-neutral-400 truncate">
                             {inq.event_type || inq.service || 'Inquiry'} • {inq.event_date || 'Date TBD'}
                           </p>
                         </div>
-                        <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                        <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase font-mono bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
                           {inq.status || 'New'}
                         </span>
                       </div>
@@ -855,64 +855,64 @@ export const PortfolioStudioPage: React.FC = () => {
               {/* 4 HERO KPI METRIC CARDS */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
                 {/* 1. Total Impressions & Views */}
-                <div className="group relative p-6 rounded-3xl bg-gradient-to-br from-[#121624] via-[#10121a] to-[#0c0d12] border border-sky-500/20 hover:border-sky-500/40 transition-all duration-300 shadow-xl overflow-hidden">
+                <div className="group relative p-6 rounded-3xl bg-white dark:bg-gradient-to-br dark:from-[#121624] dark:via-[#10121a] dark:to-[#0c0d12] border border-sky-500/20 hover:border-sky-500/40 transition-all duration-300 shadow-xl overflow-hidden">
                   <div className="relative z-10 space-y-4">
                     <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-mono uppercase tracking-wider font-bold text-sky-400">
+                      <span className="text-[11px] font-mono uppercase tracking-wider font-bold text-sky-600 dark:text-sky-400">
                         Total Impressions
                       </span>
-                      <div className="w-12 h-12 rounded-2xl bg-sky-500/15 border border-sky-500/30 text-sky-400 flex items-center justify-center shadow-lg shadow-sky-500/10">
+                      <div className="w-12 h-12 rounded-2xl bg-sky-500/10 dark:bg-sky-500/15 border border-sky-500/30 text-sky-600 dark:text-sky-400 flex items-center justify-center shadow-lg shadow-sky-500/10">
                         <Eye className="w-5 h-5" />
                       </div>
                     </div>
 
                     <div className="space-y-1">
-                      <p className="text-3xl sm:text-4xl font-black font-mono text-white tracking-tight">
+                      <p className="text-3xl sm:text-4xl font-black font-mono text-neutral-900 dark:text-white tracking-tight">
                         {analyticsData.totalViews.toLocaleString()}
                       </p>
-                      <p className="text-[11px] text-neutral-400 pt-1">Live recorded views</p>
+                      <p className="text-[11px] text-neutral-500 dark:text-neutral-400 pt-1">Live recorded views</p>
                     </div>
                   </div>
                 </div>
 
                 {/* 2. Unique Studio Visitors */}
-                <div className="group relative p-6 rounded-3xl bg-gradient-to-br from-[#161224] via-[#11101a] to-[#0c0d12] border border-purple-500/20 hover:border-purple-500/40 transition-all duration-300 shadow-xl overflow-hidden">
+                <div className="group relative p-6 rounded-3xl bg-white dark:bg-gradient-to-br dark:from-[#161224] dark:via-[#11101a] dark:to-[#0c0d12] border border-purple-500/20 hover:border-purple-500/40 transition-all duration-300 shadow-xl overflow-hidden">
                   <div className="relative z-10 space-y-4">
                     <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-mono uppercase tracking-wider font-bold text-purple-400">
+                      <span className="text-[11px] font-mono uppercase tracking-wider font-bold text-purple-600 dark:text-purple-400">
                         Unique Visitors
                       </span>
-                      <div className="w-12 h-12 rounded-2xl bg-purple-500/15 border border-purple-500/30 text-purple-400 flex items-center justify-center shadow-lg shadow-purple-500/10">
+                      <div className="w-12 h-12 rounded-2xl bg-purple-500/10 dark:bg-purple-500/15 border border-purple-500/30 text-purple-600 dark:text-purple-400 flex items-center justify-center shadow-lg shadow-purple-500/10">
                         <Users className="w-5 h-5" />
                       </div>
                     </div>
 
                     <div className="space-y-1">
-                      <p className="text-3xl sm:text-4xl font-black font-mono text-white tracking-tight">
+                      <p className="text-3xl sm:text-4xl font-black font-mono text-neutral-900 dark:text-white tracking-tight">
                         {analyticsData.uniqueVisitors.toLocaleString()}
                       </p>
-                      <p className="text-[11px] text-neutral-400 pt-1">Distinct client sessions</p>
+                      <p className="text-[11px] text-neutral-500 dark:text-neutral-400 pt-1">Distinct client sessions</p>
                     </div>
                   </div>
                 </div>
 
                 {/* 3. Inquiries & Conversion Rate */}
-                <div className="group relative p-6 rounded-3xl bg-gradient-to-br from-[#101e18] via-[#0f1513] to-[#0c0d12] border border-emerald-500/20 hover:border-emerald-500/40 transition-all duration-300 shadow-xl overflow-hidden">
+                <div className="group relative p-6 rounded-3xl bg-white dark:bg-gradient-to-br dark:from-[#101e18] dark:via-[#0f1513] dark:to-[#0c0d12] border border-emerald-500/20 hover:border-emerald-500/40 transition-all duration-300 shadow-xl overflow-hidden">
                   <div className="relative z-10 space-y-4">
                     <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-mono uppercase tracking-wider font-bold text-emerald-400">
+                      <span className="text-[11px] font-mono uppercase tracking-wider font-bold text-emerald-600 dark:text-emerald-400">
                         Inquiries & Leads
                       </span>
-                      <div className="w-12 h-12 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shadow-lg shadow-emerald-500/10">
+                      <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shadow-lg shadow-emerald-500/10">
                         <MessageSquare className="w-5 h-5" />
                       </div>
                     </div>
 
                     <div className="space-y-1">
-                      <p className="text-3xl sm:text-4xl font-black font-mono text-emerald-300 tracking-tight">
+                      <p className="text-3xl sm:text-4xl font-black font-mono text-emerald-700 dark:text-emerald-300 tracking-tight">
                         {analyticsData.inquiriesCount} Leads
                       </p>
-                      <p className="text-[11px] text-neutral-400 pt-1">
+                      <p className="text-[11px] text-neutral-500 dark:text-neutral-400 pt-1">
                         {analyticsData.conversionRate}% Booked / Won
                       </p>
                     </div>
@@ -920,22 +920,22 @@ export const PortfolioStudioPage: React.FC = () => {
                 </div>
 
                 {/* 4. Mobile vs Desktop Traffic */}
-                <div className="group relative p-6 rounded-3xl bg-gradient-to-br from-[#1e1910] via-[#15130f] to-[#0c0d12] border border-amber-500/20 hover:border-amber-500/40 transition-all duration-300 shadow-xl overflow-hidden">
+                <div className="group relative p-6 rounded-3xl bg-white dark:bg-gradient-to-br dark:from-[#1e1910] dark:via-[#15130f] dark:to-[#0c0d12] border border-amber-500/20 hover:border-amber-500/40 transition-all duration-300 shadow-xl overflow-hidden">
                   <div className="relative z-10 space-y-4">
                     <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-mono uppercase tracking-wider font-bold text-amber-400">
+                      <span className="text-[11px] font-mono uppercase tracking-wider font-bold text-amber-600 dark:text-amber-400">
                         Device Traffic
                       </span>
-                      <div className="w-12 h-12 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center justify-center shadow-lg shadow-amber-500/10">
+                      <div className="w-12 h-12 rounded-2xl bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 flex items-center justify-center shadow-lg shadow-amber-500/10">
                         <Smartphone className="w-5 h-5" />
                       </div>
                     </div>
 
                     <div className="space-y-1">
-                      <p className="text-3xl sm:text-4xl font-black font-mono text-amber-300 tracking-tight">
+                      <p className="text-3xl sm:text-4xl font-black font-mono text-amber-700 dark:text-amber-300 tracking-tight">
                         {analyticsData.viewsByDevice.mobile}% Mobile
                       </p>
-                      <p className="text-[11px] text-neutral-400 pt-1">
+                      <p className="text-[11px] text-neutral-500 dark:text-neutral-400 pt-1">
                         {analyticsData.viewsByDevice.desktop}% Desktop • {analyticsData.viewsByDevice.tablet}% Tablet
                       </p>
                     </div>
@@ -945,10 +945,10 @@ export const PortfolioStudioPage: React.FC = () => {
 
               {/* TRAFFIC VELOCITY GRAPH */}
               {analyticsData.chartPoints.length > 0 ? (
-                <div className="rounded-3xl p-6 sm:p-8 bg-[#111219] border border-white/10 shadow-2xl space-y-6">
+                <div className="rounded-3xl p-6 sm:p-8 bg-white dark:bg-[#111219] border border-neutral-200 dark:border-white/10 shadow-2xl space-y-6">
                   <div className="flex items-center gap-2">
-                    <BarChart3 className="w-4 h-4 text-amber-400" />
-                    <h3 className="text-base font-bold text-white tracking-wide">
+                    <BarChart3 className="w-4 h-4 text-amber-500 dark:text-amber-400" />
+                    <h3 className="text-base font-bold text-neutral-900 dark:text-white tracking-wide">
                       Live Traffic Activity Curve
                     </h3>
                   </div>
@@ -990,7 +990,7 @@ export const PortfolioStudioPage: React.FC = () => {
                       </svg>
                     </div>
 
-                    <div className="flex justify-between items-center pt-3 text-xs font-mono text-neutral-400 border-t border-white/5">
+                    <div className="flex justify-between items-center pt-3 text-xs font-mono text-neutral-500 dark:text-neutral-400 border-t border-neutral-200 dark:border-white/5">
                       {analyticsData.chartLabels.map((lbl, i) => (
                         <span key={i}>{lbl}</span>
                       ))}
@@ -998,19 +998,19 @@ export const PortfolioStudioPage: React.FC = () => {
                   </div>
                 </div>
               ) : (
-                <div className="rounded-3xl p-8 bg-[#111219] border border-white/10 text-center space-y-2">
-                  <p className="text-sm font-bold text-white">No Traffic Data for This Timeframe Yet</p>
-                  <p className="text-xs text-neutral-400">
+                <div className="rounded-3xl p-8 bg-white dark:bg-[#111219] border border-neutral-200 dark:border-white/10 text-center space-y-2">
+                  <p className="text-sm font-bold text-neutral-900 dark:text-white">No Traffic Data for This Timeframe Yet</p>
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400">
                     Visitor curves will render automatically as clients view your portfolio.
                   </p>
                 </div>
               )}
 
               {/* TOP PERFORMING WORKS */}
-              <div className="rounded-3xl p-6 sm:p-8 bg-[#111219] border border-white/10 shadow-2xl space-y-6">
+              <div className="rounded-3xl p-6 sm:p-8 bg-white dark:bg-[#111219] border border-neutral-200 dark:border-white/10 shadow-2xl space-y-6">
                 <div className="flex items-center gap-2">
-                  <Trophy className="w-4 h-4 text-amber-400" />
-                  <h3 className="text-base font-bold text-white tracking-wide">
+                  <Trophy className="w-4 h-4 text-amber-500 dark:text-amber-400" />
+                  <h3 className="text-base font-bold text-neutral-900 dark:text-white tracking-wide">
                     Live Top Visited Projects
                   </h3>
                 </div>
@@ -1020,26 +1020,26 @@ export const PortfolioStudioPage: React.FC = () => {
                     {analyticsData.topProjects.map((p, idx) => (
                       <div
                         key={p.id || idx}
-                        className="p-4 rounded-2xl bg-white/[0.02] border border-white/5 flex items-center gap-4"
+                        className="p-4 rounded-2xl bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200 dark:border-white/5 flex items-center gap-4"
                       >
-                        <span className="font-mono font-black text-amber-400 text-sm">#{idx + 1}</span>
+                        <span className="font-mono font-black text-amber-600 dark:text-amber-400 text-sm">#{idx + 1}</span>
                         {p.coverUrl && (
                           <img
                             src={p.coverUrl}
                             alt={p.title}
-                            className="w-16 h-16 rounded-xl object-cover border border-white/10 shrink-0"
+                            className="w-16 h-16 rounded-xl object-cover border border-neutral-200 dark:border-white/10 shrink-0"
                           />
                         )}
                         <div className="min-w-0 flex-1">
-                          <p className="text-xs font-bold text-white truncate">{p.title}</p>
-                          <p className="text-[11px] font-mono text-amber-400">{p.views} views</p>
+                          <p className="text-xs font-bold text-neutral-900 dark:text-white truncate">{p.title}</p>
+                          <p className="text-[11px] font-mono text-amber-600 dark:text-amber-400">{p.views} views</p>
                         </div>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="p-8 rounded-2xl bg-white/[0.02] border border-dashed border-white/10 text-center space-y-2">
-                    <p className="text-xs text-neutral-400">
+                  <div className="p-8 rounded-2xl bg-neutral-50 dark:bg-white/[0.02] border border-dashed border-neutral-200 dark:border-white/10 text-center space-y-2">
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400">
                       No project page visits recorded yet from client traffic.
                     </p>
                   </div>
@@ -1048,10 +1048,10 @@ export const PortfolioStudioPage: React.FC = () => {
 
               {/* RECENT VISITOR SESSIONS */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="rounded-3xl p-6 bg-[#111219] border border-white/10 shadow-2xl space-y-4">
+                <div className="rounded-3xl p-6 bg-white dark:bg-[#111219] border border-neutral-200 dark:border-white/10 shadow-2xl space-y-4">
                   <div className="flex items-center gap-2">
-                    <MapPin className="w-4 h-4 text-amber-400" />
-                    <h3 className="text-sm font-bold text-white font-mono uppercase tracking-wider">
+                    <MapPin className="w-4 h-4 text-amber-500 dark:text-amber-400" />
+                    <h3 className="text-sm font-bold text-neutral-900 dark:text-white font-mono uppercase tracking-wider">
                       Recent Visitor Sessions
                     </h3>
                   </div>
@@ -1061,25 +1061,25 @@ export const PortfolioStudioPage: React.FC = () => {
                       {analyticsData.recentVisitors.map((v: any, i: number) => (
                         <div
                           key={v.id || i}
-                          className="p-3 rounded-2xl bg-white/[0.02] border border-white/5 flex items-center justify-between text-xs"
+                          className="p-3 rounded-2xl bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200 dark:border-white/5 flex items-center justify-between text-xs"
                         >
-                          <span className="font-bold text-white">{v.city || 'Global'}, {v.country || 'Visitor'}</span>
-                          <span className="font-mono text-neutral-400">{v.device || 'Mobile'}</span>
+                          <span className="font-bold text-neutral-900 dark:text-white">{v.city || 'Global'}, {v.country || 'Visitor'}</span>
+                          <span className="font-mono text-neutral-500 dark:text-neutral-400">{v.device || 'Mobile'}</span>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <div className="p-6 rounded-2xl bg-white/[0.02] border border-dashed border-white/10 text-center">
-                      <p className="text-xs text-neutral-400">No recent visitor sessions logged yet.</p>
+                    <div className="p-6 rounded-2xl bg-neutral-50 dark:bg-white/[0.02] border border-dashed border-neutral-200 dark:border-white/10 text-center">
+                      <p className="text-xs text-neutral-500 dark:text-neutral-400">No recent visitor sessions logged yet.</p>
                     </div>
                   )}
                 </div>
 
                 {/* RECENT INQUIRIES */}
-                <div className="rounded-3xl p-6 bg-[#111219] border border-white/10 shadow-2xl space-y-4">
+                <div className="rounded-3xl p-6 bg-white dark:bg-[#111219] border border-neutral-200 dark:border-white/10 shadow-2xl space-y-4">
                   <div className="flex items-center gap-2">
-                    <MessageSquare className="w-4 h-4 text-emerald-400" />
-                    <h3 className="text-sm font-bold text-white font-mono uppercase tracking-wider">
+                    <MessageSquare className="w-4 h-4 text-emerald-500 dark:text-emerald-400" />
+                    <h3 className="text-sm font-bold text-neutral-900 dark:text-white font-mono uppercase tracking-wider">
                       Recent Inquiries
                     </h3>
                   </div>
@@ -1089,21 +1089,21 @@ export const PortfolioStudioPage: React.FC = () => {
                       {analyticsData.recentInquiries.map((inq: any, i: number) => (
                         <div
                           key={inq.id || i}
-                          className="p-3 rounded-2xl bg-white/[0.02] border border-white/5 flex items-center justify-between text-xs"
+                          className="p-3 rounded-2xl bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200 dark:border-white/5 flex items-center justify-between text-xs"
                         >
                           <div>
-                            <p className="font-bold text-white">{inq.client_name || inq.name || 'Client'}</p>
-                            <p className="text-[11px] text-neutral-400">{inq.event_type || 'Inquiry'}</p>
+                            <p className="font-bold text-neutral-900 dark:text-white">{inq.client_name || inq.name || 'Client'}</p>
+                            <p className="text-[11px] text-neutral-500 dark:text-neutral-400">{inq.event_type || 'Inquiry'}</p>
                           </div>
-                          <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase font-mono bg-emerald-500/20 text-emerald-300">
+                          <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase font-mono bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
                             {inq.status || 'New'}
                           </span>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <div className="p-6 rounded-2xl bg-white/[0.02] border border-dashed border-white/10 text-center">
-                      <p className="text-xs text-neutral-400">No client inquiries received yet.</p>
+                    <div className="p-6 rounded-2xl bg-neutral-50 dark:bg-white/[0.02] border border-dashed border-neutral-200 dark:border-white/10 text-center">
+                      <p className="text-xs text-neutral-500 dark:text-neutral-400">No client inquiries received yet.</p>
                     </div>
                   )}
                 </div>

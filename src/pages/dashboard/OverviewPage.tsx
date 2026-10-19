@@ -156,37 +156,37 @@ export const OverviewPage: React.FC = () => {
   return (
     <div className="flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-6 lg:p-8 space-y-7 transition-colors">
       {/* ─── 1. TOP HERO COMMAND BAR ─── */}
-      <div className="relative rounded-3xl p-6 sm:p-8 bg-gradient-to-br from-neutral-900 via-[#10121a] to-[#0c0d12] border border-neutral-800/90 text-white shadow-xl overflow-hidden">
+      <div className="relative rounded-3xl p-6 sm:p-8 bg-gradient-to-r from-[#faf8f5] via-[#f7f4ec] to-[#f2ebde] dark:bg-gradient-to-br dark:from-neutral-900 dark:via-[#10121a] dark:to-[#0c0d12] border border-neutral-200/90 dark:border-neutral-800/90 text-neutral-900 dark:text-white shadow-xs dark:shadow-xl overflow-hidden">
         {/* Subtle decorative background glows */}
-        <div className="absolute -right-16 -top-16 w-80 h-80 bg-amber-500/15 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -right-16 -top-16 w-80 h-80 bg-amber-500/10 dark:bg-amber-500/15 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute left-1/3 -bottom-20 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
 
         <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
           {/* Studio Welcome & Title */}
           <div className="space-y-2">
             <div className="flex items-center gap-2.5 flex-wrap">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-400/15 border border-amber-400/30 text-amber-300 font-mono text-[11px] uppercase tracking-wider font-semibold">
-                <Sparkles className="w-3 h-3 text-amber-400" />
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-300 font-mono text-[11px] uppercase tracking-wider font-semibold">
+                <Sparkles className="w-3 h-3 text-amber-500 dark:text-amber-400" />
                 <span>Atelier Command Hub</span>
               </span>
-              <span className="text-neutral-400 text-xs flex items-center gap-1">
-                <Calendar className="w-3.5 h-3.5 text-neutral-500" />
+              <span className="text-neutral-500 dark:text-neutral-400 text-xs flex items-center gap-1">
+                <Calendar className="w-3.5 h-3.5 text-neutral-400 dark:text-neutral-500" />
                 <span>{currentDateLabel}</span>
               </span>
             </div>
 
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-serif tracking-tight text-white">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-serif tracking-tight text-neutral-950 dark:text-white">
               Welcome back,{' '}
-              <span className="text-amber-400 italic font-normal">
+              <span className="text-amber-600 dark:text-amber-400 italic font-normal">
                 {photographer.fullName || user?.username || 'Artist'}
               </span>
             </h1>
 
-            <p className="text-xs sm:text-sm text-neutral-300 max-w-2xl leading-relaxed">
+            <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-300 max-w-2xl leading-relaxed">
               Here is your live studio overview. You have{' '}
-              <strong className="text-white font-semibold">{publishedGalleries} published galleries</strong>,{' '}
-              <strong className="text-amber-300 font-semibold">{inquiryStats.newLeads} new client inquiries</strong>, and{' '}
-              <strong className="text-white font-semibold">{(totalViews + 120).toLocaleString()} client impressions</strong> this month.
+              <strong className="text-neutral-900 dark:text-white font-semibold">{publishedGalleries} published galleries</strong>,{' '}
+              <strong className="text-amber-700 dark:text-amber-300 font-semibold">{inquiryStats.newLeads} new client inquiries</strong>, and{' '}
+              <strong className="text-neutral-900 dark:text-white font-semibold">{(totalViews + 120).toLocaleString()} client impressions</strong> this month.
             </p>
           </div>
 
@@ -196,16 +196,16 @@ export const OverviewPage: React.FC = () => {
               to={`/portfolio/${portfolioId}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-white text-xs font-semibold flex items-center gap-2 transition-all hover:scale-105 active:scale-95 shadow-sm"
+              className="px-4 py-2.5 rounded-xl bg-white/70 dark:bg-white/10 hover:bg-white dark:hover:bg-white/20 border border-neutral-300/80 dark:border-white/15 text-neutral-800 dark:text-white text-xs font-semibold flex items-center gap-2 transition-all hover:scale-105 active:scale-95 shadow-xs"
               title="Preview public portfolio page"
             >
-              <ExternalLink className="w-3.5 h-3.5 text-amber-400" />
+              <ExternalLink className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
               <span>Public Portfolio</span>
             </Link>
 
             <button
               onClick={handleCopyPortfolioLink}
-              className="p-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-neutral-300 hover:text-white transition-all active:scale-95"
+              className="p-2.5 rounded-xl bg-white/70 dark:bg-white/10 hover:bg-white dark:hover:bg-white/20 border border-neutral-300/80 dark:border-white/15 text-neutral-600 dark:text-neutral-300 hover:text-neutral-950 dark:hover:text-white transition-all active:scale-95 shadow-xs"
               title="Copy public portfolio link"
             >
               <Share2 className="w-4 h-4" />
@@ -213,7 +213,7 @@ export const OverviewPage: React.FC = () => {
 
             <button
               onClick={() => navigate('/dashboard/gallery')}
-              className="px-4 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 text-xs font-bold flex items-center gap-2 transition-all hover:scale-105 active:scale-95 shadow-md"
+              className="px-4 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 text-xs font-bold flex items-center gap-2 transition-all hover:scale-105 active:scale-95 shadow-md shadow-amber-500/15"
             >
               <Plus className="w-4 h-4 stroke-[2.5]" />
               <span>New Gallery</span>

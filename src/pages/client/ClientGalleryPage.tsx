@@ -264,7 +264,7 @@ const ClientGalleryContent: React.FC = () => {
 
   if (isGalleryLoading || (Boolean(rawQueryTemplate) && isAuthLoading)) {
     return (
-      <div className="min-h-screen bg-[#07080b] text-white pt-12">
+      <div className="min-h-screen bg-[#f8f9fa] dark:bg-[#07080b] text-neutral-900 dark:text-white pt-12 transition-colors">
         <GalleryDetailSkeleton />
       </div>
     );
@@ -947,9 +947,9 @@ const ClientGalleryContent: React.FC = () => {
   // Render password screen if locked
   if (isLocked) {
     return (
-      <div className="min-h-screen bg-[#090909] text-white flex flex-col items-center justify-center p-6">
-        <div className="max-w-md w-full p-8 rounded-3xl bg-neutral-900 border border-neutral-800 text-center space-y-6 shadow-2xl">
-          <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center mx-auto">
+      <div className="min-h-screen bg-[#f8f9fa] dark:bg-[#090909] text-neutral-900 dark:text-white flex flex-col items-center justify-center p-6 transition-colors">
+        <div className="max-w-md w-full p-8 rounded-3xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-center space-y-6 shadow-xl dark:shadow-2xl">
+          <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-500 dark:text-amber-400 flex items-center justify-center mx-auto">
             <Lock className="w-6 h-6" />
           </div>
 
@@ -957,8 +957,8 @@ const ClientGalleryContent: React.FC = () => {
             <span className="text-[10px] font-mono tracking-widest text-neutral-500 uppercase">
               {photographer.studioName || 'Atelier Photography'}
             </span>
-            <h2 className="text-2xl font-serif text-white mt-1">{gallery.title}</h2>
-            <p className="text-xs text-neutral-400 mt-2">
+            <h2 className="text-2xl font-serif text-neutral-950 dark:text-white mt-1">{gallery.title}</h2>
+            <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-2">
               This gallery is protected by private invitation. Enter the access PIN code to view.
             </p>
           </div>
@@ -970,14 +970,14 @@ const ClientGalleryContent: React.FC = () => {
               value={pinInput}
               disabled={isVerifyingPin || pinCooldown > 0}
               onChange={(e) => setPinInput(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl bg-neutral-950 border border-neutral-800 text-center text-sm tracking-widest text-white focus:outline-none focus:border-amber-400 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full px-4 py-3 rounded-xl bg-neutral-50 dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-800 text-center text-sm tracking-widest text-neutral-900 dark:text-white focus:outline-none focus:border-amber-400 disabled:opacity-50 disabled:cursor-not-allowed"
             />
             {pinCooldown > 0 ? (
-              <p className="text-xs text-amber-400 font-mono">
+              <p className="text-xs text-amber-600 dark:text-amber-400 font-mono">
                 Too many attempts. PIN input locked for {pinCooldown}s.
               </p>
             ) : pinError ? (
-              <p className="text-xs text-rose-400 font-mono">
+              <p className="text-xs text-rose-500 dark:text-rose-400 font-mono">
                 Incorrect code. Please enter the valid PIN sent by your photographer.
               </p>
             ) : null}
@@ -985,7 +985,7 @@ const ClientGalleryContent: React.FC = () => {
             <button
               type="submit"
               disabled={isVerifyingPin || pinCooldown > 0}
-              className="w-full py-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-sm shadow-amber-400/20 active:scale-[0.99]"
             >
               {isVerifyingPin ? (
                 <>
