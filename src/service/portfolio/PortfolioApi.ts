@@ -54,7 +54,15 @@ export const DeletePortfolioProjectApi = async (
 export const GetPublicPortfolioApi = async (
   slugOrId: string
 ): Promise<PortfolioConfig> => {
-  return CommonApi<PortfolioConfig>('GET', `/api/public/portfolio/${slugOrId}/`);
+  const clean = encodeURIComponent((slugOrId || '').trim().toLowerCase());
+  try {
+    return await CommonApi<PortfolioConfig>('GET', `/api/public/portfolios/${clean}/`);
+  } catch (err: any) {
+    if (err?.response?.status === 404) {
+      return CommonApi<PortfolioConfig>('GET', `/api/public/portfolio/${clean}/`);
+    }
+    throw err;
+  }
 };
 
 /**

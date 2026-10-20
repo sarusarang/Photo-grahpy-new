@@ -1,17 +1,105 @@
-export type PortfolioTemplateId = 'editorial-vogue' | 'darkroom-atelier' | string;
+// types/portfolio.ts
 
-export type SubdomainStatus = 'pending' | 'provisioning' | 'active' | 'failed' | null;
+export type SubdomainStatus = 'pending' | 'provisioning' | 'active' | 'failed';
 
-export interface SubdomainAvailability {
-  name: string;
+export interface SubdomainAvailabilityResponse {
+  subdomain: string;
   available: boolean;
-  reason: 'already_taken' | 'reserved' | 'invalid_format' | string | null;
-  error?: string | null;
-  is_current_owner: boolean;
-  status?: string;
+  url: string;
+  message: string;
+  name?: string;
+  reason?: 'already_taken' | 'reserved' | 'invalid_format' | null;
+  error?: string;
+  is_current_owner?: boolean;
   domain?: string;
-  url?: string;
+  live_url?: string;
 }
+
+export interface ClaimSubdomainResponse {
+  status: 'active' | 'pending';
+  subdomain: string;
+  domain: string;
+  url: string;
+  live_url: string;
+  direct_url: string;
+  message: string;
+}
+
+export interface PortfolioWorkPhoto {
+  id: number;
+  photoUrl: string;
+  photo_url?: string;
+  caption?: string;
+  order: number;
+}
+
+export interface PortfolioWork {
+  id: string | number;
+  title: string;
+  category: 'weddings' | 'editorial' | 'commercial' | 'pre-wedding' | 'cinematic' | 'portrait' | string;
+  coverUrl: string;
+  cover_url?: string;
+  year?: string;
+  location?: string;
+  description?: string;
+  clientName?: string;
+  client_name?: string;
+  order?: number;
+  mediaCount: number;
+  highlightMedia: string[];
+  photos?: PortfolioWorkPhoto[];
+  gallerySlug?: string;
+}
+
+export interface PortfolioProject extends PortfolioWork {
+  id: string;
+  order?: number;
+  gallerySlug?: string;
+}
+
+export interface PortfolioConfig {
+  id?: number;
+  photographerId?: number;
+  studioName: string;
+  artistName: string;
+  tagline: string;
+  bio: string;
+  aboutStory: string;
+  location: string;
+  avatarUrl: string;
+  bannerUrl: string;
+  contactEmail: string;
+  contactPhone: string;
+  instagramHandle: string;
+  youtubeHandle: string;
+  websiteUrl: string;
+  templateId: 'editorial-vogue' | 'darkroom-atelier' | 'cinematic-luxury' | 'minimal-zen' | string;
+  subdomain: string | null;
+  subdomainStatus?: SubdomainStatus | null;
+  subdomain_status?: SubdomainStatus | null;
+  customDomain?: string | null;
+  isPublished?: boolean;
+  isBookingOpen: boolean;
+  portfolioUrl?: string;
+  fullDomain?: string;
+  featuredWorks: PortfolioProject[];
+  accentColor?: string;
+  pricingStartingAt?: string;
+  philosophyQuote?: string;
+  philosophyAuthor?: string;
+  whatsappEnabled?: boolean;
+  whatsappNumber?: string;
+  whatsappPrefillMessage?: string;
+  whatsappButtonLabel?: string;
+}
+
+// -------------------------------------------------------------
+// Extended Application Types (Backward Compatibility)
+// -------------------------------------------------------------
+
+export type PortfolioTemplateId = 'editorial-vogue' | 'darkroom-atelier' | 'cinematic-luxury' | 'minimal-zen' | string;
+
+export type SubdomainAvailability = SubdomainAvailabilityResponse;
 
 export interface SubdomainStatusResponse {
   subdomain: string | null;
@@ -27,25 +115,7 @@ export interface SubdomainStatusResponse {
   retry_count?: number;
 }
 
-export interface FeaturedWork {
-  id: string;
-  title: string;
-  category: string;
-  coverUrl: string;
-  year?: string;
-  location?: string;
-  description?: string;
-  clientName?: string;
-  gallerySlug?: string;
-  mediaCount: number;
-  highlightMedia: string[];
-}
-
-export interface PortfolioProject extends FeaturedWork {
-  description?: string;
-  clientName?: string;
-  gallerySlug?: string;
-}
+export type FeaturedWork = PortfolioProject;
 
 export interface TenantPortfolioData {
   templateId: string;
@@ -68,7 +138,7 @@ export interface TenantPortfolioData {
   philosophyAuthor?: string;
   accentColor?: string;
   subdomain: string;
-  featuredWorks: FeaturedWork[];
+  featuredWorks: PortfolioProject[];
 
   // WhatsApp Integration
   whatsappEnabled?: boolean;
@@ -89,37 +159,6 @@ export interface ClientInquiryPayload {
   estimated_budget?: string;
   budget?: string;
   message: string;
-}
-
-export interface PortfolioConfig {
-  templateId: PortfolioTemplateId;
-  studioName: string;
-  artistName: string;
-  tagline: string;
-  bio: string;
-  aboutStory: string;
-  location: string;
-  avatarUrl: string;
-  bannerUrl: string;
-  contactEmail: string;
-  contactPhone: string;
-  instagramHandle: string;
-  youtubeHandle: string;
-  websiteUrl: string;
-  isBookingOpen: boolean;
-  pricingStartingAt: string;
-  philosophyQuote: string;
-  philosophyAuthor: string;
-  accentColor?: string;
-  subdomain?: string | null;
-  subdomainStatus?: SubdomainStatus;
-  subdomain_status?: SubdomainStatus;
-  customDomain?: string | null;
-  featuredWorks: PortfolioProject[];
-  whatsappEnabled?: boolean;
-  whatsappNumber?: string;
-  whatsappPrefillMessage?: string;
-  whatsappButtonLabel?: string;
 }
 
 export interface PortfolioAnalytics {

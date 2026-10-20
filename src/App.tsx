@@ -181,8 +181,10 @@ export default function App() {
             <Route path="settings" element={<SettingsPage />} />
           </Route>
 
-          {/* Public Photographer Portfolio Route (No Auth Required) */}
+          {/* Public Photographer Portfolio Route (No Auth Required - Path-Based e.g. exshare.ai/p/mrudul) */}
           <Route path="/portfolio/:photographerId" element={<PortfolioPage />} />
+          <Route path="/p/:photographerId" element={<PortfolioPage />} />
+          <Route path="/portfolios/:photographerId" element={<PortfolioPage />} />
 
           {/* Public Tenant Portfolio Route (Direct Preview & Development Testing) */}
           <Route path="/tenant-portfolio" element={<PublicTenantPortfolioPage />} />

@@ -73,6 +73,8 @@ export const DEFAULT_PORTFOLIO_CONFIG: PortfolioConfig = {
   philosophyQuote: '',
   philosophyAuthor: '',
   accentColor: '#F59E0B',
+  subdomain: null,
+  subdomainStatus: null,
   featuredWorks: [],
   whatsappEnabled: true,
   whatsappNumber: '',
@@ -123,6 +125,7 @@ export function normalizePortfolioConfig(
         description: w.description || '',
         clientName: w.clientName || w.client_name || '',
         gallerySlug: w.gallerySlug || w.gallery_slug || '',
+        order: typeof w.order === 'number' ? w.order : idx,
         mediaCount: w.mediaCount || w.media_count || (w.highlightMedia?.length || w.highlight_media?.length || 0),
         highlightMedia: Array.isArray(w.highlightMedia) ? w.highlightMedia : Array.isArray(w.highlight_media) ? w.highlight_media : (w.coverUrl || w.cover_url ? [w.coverUrl || w.cover_url] : []),
       }))

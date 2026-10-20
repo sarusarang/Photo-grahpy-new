@@ -22,6 +22,8 @@ import {
   Sparkles,
   ArrowLeft,
   Layers,
+  AlertCircle,
+  ArrowRight,
 } from 'lucide-react';
 
 export const PortfolioPage: React.FC = () => {
@@ -30,7 +32,7 @@ export const PortfolioPage: React.FC = () => {
   const { isAuthenticated, photographer } = useAuth();
   const { showToast } = useToast();
 
-  const { data: serverPortfolio, isLoading: isServerLoading } = usePublicPortfolio(photographerId || '');
+  const { data: serverPortfolio, isLoading: isServerLoading, error: serverError } = usePublicPortfolio(photographerId || '');
   const { mutateAsync: updatePortfolioApi } = useUpdatePortfolioConfig();
   const { mutateAsync: submitInquiryApi } = useSubmitPublicInquiry();
 
@@ -176,6 +178,27 @@ export const PortfolioPage: React.FC = () => {
       <div className="min-h-screen bg-[#070709] flex flex-col items-center justify-center text-white space-y-4">
         <div className="w-10 h-10 rounded-full border-2 border-amber-400 border-t-transparent animate-spin" />
         <span className="text-xs font-mono uppercase tracking-widest text-neutral-400">Loading Portfolio Experience...</span>
+      </div>
+    );
+  }
+
+  if (!isServerLoading && serverError && (serverError as any)?.response?.status === 404 && !isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-neutral-950 flex flex-col items-center justify-center text-center p-6 text-neutral-100">
+        <div className="w-16 h-16 rounded-3xl bg-neutral-900 border border-neutral-800 flex items-center justify-center mb-6 text-neutral-400 shadow-2xl">
+          <AlertCircle className="w-8 h-8 text-amber-400" />
+        </div>
+        <h1 className="text-3xl font-serif mb-2 text-white">Portfolio is private or does not exist</h1>
+        <p className="text-neutral-400 text-xs sm:text-sm max-w-md mb-8 leading-relaxed">
+          The requested portfolio for <span className="font-mono text-amber-300">"{photographerId}"</span> is private or does not exist.
+        </p>
+        <Link
+          to="/"
+          className="inline-flex items-center gap-2 px-6 py-3 bg-neutral-900 hover:bg-neutral-800 text-white rounded-xl text-xs font-semibold tracking-wider uppercase transition-all border border-neutral-800 hover:border-neutral-700 shadow-xl"
+        >
+          <span>Return Home</span>
+          <ArrowRight className="w-4 h-4 text-amber-400" />
+        </Link>
       </div>
     );
   }

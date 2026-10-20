@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { publicTenantService } from '../api/subdomainService';
+import { fetchTenantPortfolioSite } from '../services/portfolioApi';
 import type { TenantPortfolioData, PortfolioConfig, PortfolioProject } from '../types/portfolio';
 import { getPortfolioTemplate } from '../components/portfolio/templates/PortfolioTemplateRegistry';
 import { normalizePortfolioConfig } from '../services/portfolioService';
@@ -60,11 +61,10 @@ export const TenantPortfolioSite: React.FC<TenantPortfolioSiteProps> = ({ subdom
     setNotFound(false);
 
     // 1. Fetch showcase configuration from backend
-    publicTenantService
-      .getPortfolioShowcase()
+    fetchTenantPortfolioSite(targetSubdomain || undefined)
       .then((res) => {
         if (!isMounted) return;
-        setData(res);
+        setData(res as unknown as TenantPortfolioData);
         setNotFound(false);
       })
       .catch((err) => {
@@ -72,7 +72,18 @@ export const TenantPortfolioSite: React.FC<TenantPortfolioSiteProps> = ({ subdom
         if (err.response?.status === 404) {
           setNotFound(true);
         } else {
-          setNotFound(true);
+          // Attempt fallback through publicTenantService
+          publicTenantService
+            .getPortfolioShowcase()
+            .then((res) => {
+              if (!isMounted) return;
+              setData(res);
+              setNotFound(false);
+            })
+            .catch(() => {
+              if (!isMounted) return;
+              setNotFound(true);
+            });
         }
       })
       .finally(() => {
@@ -166,14 +177,14 @@ export const TenantPortfolioSite: React.FC<TenantPortfolioSiteProps> = ({ subdom
         <div className="w-16 h-16 rounded-3xl bg-neutral-900 border border-neutral-800 flex items-center justify-center mb-6 text-neutral-400 shadow-2xl">
           <AlertCircle className="w-8 h-8 text-amber-400" />
         </div>
-        <h1 className="text-3xl font-serif mb-2 text-white">Showcase Not Found</h1>
+        <h1 className="text-3xl font-serif mb-2 text-white">Portfolio is private or does not exist</h1>
         <p className="text-neutral-400 text-xs sm:text-sm max-w-md mb-8 leading-relaxed">
           {targetSubdomain ? (
             <>
-              The signature showcase for <span className="font-mono text-amber-300">"{targetSubdomain}"</span> is either currently unpublished or pending DNS configuration.
+              The signature showcase for <span className="font-mono text-amber-300">"{targetSubdomain}"</span> is private or does not exist.
             </>
           ) : (
-            'This photography showcase is either currently unpublished or the custom domain is pending DNS configuration.'
+            'This photography portfolio is private or does not exist.'
           )}
         </p>
         <a
