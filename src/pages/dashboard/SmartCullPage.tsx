@@ -698,7 +698,7 @@ export const SmartCullPage: React.FC = () => {
 
         {/* Restoring indicator */}
         {isRestoring && (
-          <div className="p-8 rounded-2xl bg-white dark:bg-white/[0.02] border border-neutral-200 dark:border-white/5 flex items-center justify-center gap-3 text-neutral-600 dark:text-neutral-400 text-sm shadow-xs">
+          <div className="p-8 rounded-2xl bg-white dark:bg-[#111218] border border-neutral-200 dark:border-white/10 flex items-center justify-center gap-3 text-neutral-600 dark:text-neutral-400 text-sm shadow-xs">
             <Loader2 className="w-5 h-5 animate-spin text-amber-500" />
             <span>Restoring active culling session from studio staging...</span>
           </div>
@@ -706,7 +706,7 @@ export const SmartCullPage: React.FC = () => {
 
         {/* Empty State */}
         {!isRestoring && totalPhotos === 0 && (
-          <div className="p-12 sm:p-16 rounded-3xl bg-white dark:bg-gradient-to-b dark:from-white/[0.03] dark:to-transparent border border-neutral-200/90 dark:border-white/10 text-center space-y-6 shadow-xs dark:shadow-2xl">
+          <div className="p-12 sm:p-16 rounded-3xl bg-white dark:bg-[#111218] border border-neutral-200/90 dark:border-white/10 text-center space-y-6 shadow-xs dark:shadow-2xl">
             <div className="w-20 h-20 mx-auto rounded-3xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-center text-amber-600 dark:text-amber-400 shadow-xl shadow-amber-500/5">
               <Sparkles className="w-10 h-10" />
             </div>
@@ -750,7 +750,7 @@ export const SmartCullPage: React.FC = () => {
 
             {/* Feature Highlights Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-10 text-left border-t border-neutral-200 dark:border-white/10 mt-8">
-              <div className="p-4 rounded-2xl bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200/90 dark:border-white/5 space-y-2">
+              <div className="p-4 rounded-2xl bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200/90 dark:border-white/10 space-y-2">
                 <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold text-sm">
                   1
                 </div>
@@ -760,7 +760,7 @@ export const SmartCullPage: React.FC = () => {
                 </p>
               </div>
 
-              <div className="p-4 rounded-2xl bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200/90 dark:border-white/5 space-y-2">
+              <div className="p-4 rounded-2xl bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200/90 dark:border-white/10 space-y-2">
                 <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold text-sm">
                   2
                 </div>
@@ -770,7 +770,7 @@ export const SmartCullPage: React.FC = () => {
                 </p>
               </div>
 
-              <div className="p-4 rounded-2xl bg-neutral-50 dark:bg-white/[0.02] border border-neutral-200/90 dark:border-white/5 space-y-2">
+              <div className="p-4 rounded-2xl bg-neutral-50 dark:bg-white/[0.03] border border-neutral-200/90 dark:border-white/10 space-y-2">
                 <div className="w-8 h-8 rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center font-bold text-sm">
                   3
                 </div>
@@ -789,7 +789,7 @@ export const SmartCullPage: React.FC = () => {
             {/* Session Stats Banner */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {/* Total Uploaded */}
-              <div className="p-5 rounded-2xl bg-white dark:bg-white/[0.03] border border-neutral-200 dark:border-white/10 hover:border-neutral-300 dark:hover:border-white/20 transition-all flex items-center justify-between gap-4 shadow-xs">
+              <div className="p-5 rounded-2xl bg-white dark:bg-[#111218] border border-neutral-200 dark:border-white/10 hover:border-neutral-300 dark:hover:border-white/20 transition-all flex items-center justify-between gap-4 shadow-xs">
                 <div className="space-y-1 min-w-0">
                   <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">Total Uploaded</p>
                   <p className="text-2xl sm:text-3xl font-black text-neutral-900 dark:text-white flex items-baseline gap-2">
@@ -803,7 +803,7 @@ export const SmartCullPage: React.FC = () => {
               </div>
 
               {/* Approved Keepers */}
-              <div className="p-5 rounded-2xl bg-emerald-50/70 dark:bg-emerald-500/5 border border-emerald-200 dark:border-emerald-500/20 hover:border-emerald-300 dark:hover:border-emerald-500/30 transition-all flex items-center justify-between gap-4 shadow-xs">
+              <div className="p-5 rounded-2xl bg-emerald-50/70 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 hover:border-emerald-300 dark:hover:border-emerald-500/30 transition-all flex items-center justify-between gap-4 shadow-xs">
                 <div className="space-y-1 min-w-0">
                   <p className="text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">Approved Keepers</p>
                   <p className="text-2xl sm:text-3xl font-black text-emerald-800 dark:text-emerald-300 flex items-baseline gap-2">
@@ -817,7 +817,7 @@ export const SmartCullPage: React.FC = () => {
               </div>
 
               {/* Duplicates Detected */}
-              <div className="p-5 rounded-2xl bg-rose-50/70 dark:bg-red-500/5 border border-rose-200 dark:border-red-500/20 hover:border-rose-300 dark:hover:border-red-500/30 transition-all flex items-center justify-between gap-4 shadow-xs">
+              <div className="p-5 rounded-2xl bg-rose-50/70 dark:bg-red-500/10 border border-rose-200 dark:border-red-500/20 hover:border-rose-300 dark:hover:border-red-500/30 transition-all flex items-center justify-between gap-4 shadow-xs">
                 <div className="space-y-1 min-w-0">
                   <p className="text-xs font-semibold uppercase tracking-wider text-rose-700 dark:text-red-400">Duplicates Detected</p>
                   <p className="text-2xl sm:text-3xl font-black text-rose-800 dark:text-red-300 flex items-baseline gap-2">
@@ -831,7 +831,7 @@ export const SmartCullPage: React.FC = () => {
               </div>
 
               {/* Cloud Storage Saved */}
-              <div className="p-5 rounded-2xl bg-amber-50/70 dark:bg-amber-500/5 border border-amber-200 dark:border-amber-500/20 hover:border-amber-300 dark:hover:border-amber-500/30 transition-all flex items-center justify-between gap-4 shadow-xs">
+              <div className="p-5 rounded-2xl bg-amber-50/70 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 hover:border-amber-300 dark:hover:border-amber-500/30 transition-all flex items-center justify-between gap-4 shadow-xs">
                 <div className="space-y-1 min-w-0">
                   <p className="text-xs font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-400">Cloud Storage Saved</p>
                   <p className="text-2xl sm:text-3xl font-black text-amber-800 dark:text-amber-300 flex items-baseline gap-1.5 flex-wrap">
@@ -848,7 +848,7 @@ export const SmartCullPage: React.FC = () => {
             </div>
 
             {/* Filter Tabs & Controls */}
-            <div className="flex flex-wrap items-center justify-between gap-4 p-2 rounded-2xl bg-white dark:bg-white/[0.02] border border-neutral-200 dark:border-white/10 shadow-xs">
+            <div className="flex flex-wrap items-center justify-between gap-4 p-2 rounded-2xl bg-white dark:bg-[#111218] border border-neutral-200 dark:border-white/10 shadow-xs">
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
@@ -919,7 +919,7 @@ export const SmartCullPage: React.FC = () => {
                   return (
                     <div
                       key={cluster.id}
-                      className="p-5 rounded-2xl bg-white dark:bg-white/[0.02] border border-neutral-200 dark:border-white/10 space-y-4 hover:border-neutral-300 dark:hover:border-white/20 transition-all shadow-xs"
+                      className="p-5 rounded-2xl bg-white dark:bg-[#111218] border border-neutral-200 dark:border-white/10 space-y-4 hover:border-neutral-300 dark:hover:border-white/20 transition-all shadow-xs"
                     >
                       <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-neutral-200 dark:border-white/5">
                         <div className="flex items-center gap-3">
