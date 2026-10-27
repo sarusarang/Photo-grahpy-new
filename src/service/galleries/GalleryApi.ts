@@ -1,6 +1,12 @@
 import { CommonApi } from '@/lib/CommonApi';
 import { getUploadBatchSize } from '@/utils/uploadConfig';
 import { executeBatchUpload } from '@/utils/batchUploadRunner';
+import {
+  uploadSingleMediaDirectToR2,
+  uploadBatchDirectToR2,
+  putFileToR2,
+  getSafeMimeType,
+} from './directR2Upload';
 import type { Gallery, GalleryTemplateId, MediaItem } from '@/types/atelier';
 import type {
   GalleryFilterParams,
@@ -27,6 +33,7 @@ import type {
 } from './type';
 
 export * from './type';
+export * from './directR2Upload';
 
 /**
  * 1. List Photographer Galleries (with optional filtering)
@@ -149,6 +156,7 @@ export type UploadMediaResponse = MediaItem;
 
 /**
  * 7. Upload Single Media Item (Photo or 4K Video)
+ * Direct-to-R2 (Method B Unified): Direct binary PUT to Cloudflare R2
  * Endpoint: POST /api/galleries/{gallery_id}/upload/
  */
 export const UploadGalleryMediaApi = async (
@@ -159,41 +167,14 @@ export const UploadGalleryMediaApi = async (
   onProgress?: (percent: number, loadedBytes?: number) => void,
   signal?: AbortSignal
 ): Promise<MediaItem> => {
-  const formData = new FormData();
-  const isVideo =
-    type === 'video' ||
-    file.type.startsWith('video/') ||
-    /\.(mp4|mov|webm|mkv|avi|m4v|3gp)$/i.test(file.name);
-  const mediaType: 'photo' | 'video' = isVideo ? 'video' : 'photo';
-
-  if (isVideo) {
-    formData.append('videos', file);
-  } else {
-    formData.append('photos', file);
-  }
-  if (sectionTitle) formData.append('section_title', sectionTitle);
-  formData.append('type', mediaType);
-
-  const res = await CommonApi<any>(
-    'POST',
-    `/api/galleries/${galleryId}/upload/`,
-    formData,
-    {
-      timeout: isVideo ? 600000 : 300000,
-      signal,
-      onUploadProgress: (progressEvent) => {
-        if (progressEvent.total && onProgress) {
-          const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-          onProgress(percent, progressEvent.loaded);
-        }
-      },
-    }
-  );
-
-  if (res?.media && Array.isArray(res.media) && res.media.length > 0) return res.media[0];
-  if (Array.isArray(res) && res.length > 0) return res[0];
-  if (res?.data) return res.data;
-  return res as MediaItem;
+  return uploadSingleMediaDirectToR2({
+    galleryId,
+    file,
+    sectionTitle,
+    mediaType: type,
+    onProgress,
+    signal,
+  });
 };
 
 /**
@@ -213,8 +194,8 @@ export const uploadMediaItem = async (
 };
 
 /**
- * 8. Batch Upload Multiple High-Res Photos or 4K Videos
- * Automatically batches large file sets into manageable chunks (e.g. 20 photos per batch)
+ * 8. Batch Upload Multiple High-Res Photos or 4K Videos Directly to Cloudflare R2
+ * Automatically streams files via parallel concurrency directly to R2 edge (bypassing backend server),
  * with automatic retry for rock-solid stability and zero HTTP payload size/timeout failures.
  * Endpoint: POST /api/galleries/{gallery_id}/upload/
  */
@@ -227,108 +208,15 @@ export const BulkUploadGalleryMediaApi = async (
   signal?: AbortSignal,
   pauseController?: import('@/utils/batchUploadRunner').BatchUploadPauseController
 ): Promise<BulkUploadGalleryMediaResponse> => {
-  if (!files || files.length === 0) {
-    return { message: 'No files to upload', total_uploaded: 0, media: [] };
-  }
-
-  const isVideoBatch = type === 'video' || files.some((f) => f.type.startsWith('video/'));
-  // Dynamic batch size from .env / .env.local (VITE_UPLOAD_BATCH_SIZE / VITE_VIDEO_UPLOAD_BATCH_SIZE)
-  const BATCH_SIZE = getUploadBatchSize(isVideoBatch);
-
-  const allMedia: MediaItem[] = [];
-  let totalUploaded = 0;
-  let lastStorageUsage: any = undefined;
-  let lastMessage: string | undefined = undefined;
-
-  await executeBatchUpload<
-    File,
-    BulkUploadGalleryMediaResponse
-  >({
-    items: files,
-    batchSize: BATCH_SIZE,
-    itemLabel: isVideoBatch ? 'video' : 'photo',
+  return uploadBatchDirectToR2({
+    galleryId,
+    files,
+    sectionTitle,
+    type,
+    onProgress,
     signal,
     pauseController,
-    onProgress,
-    uploadBatch: async (chunkFiles, onChunkProgress) => {
-      const formData = new FormData();
-      let hasVideo = false;
-      let hasPhoto = false;
-
-      chunkFiles.forEach((f) => {
-        const isVideo =
-          type === 'video' ||
-          f.type.startsWith('video/') ||
-          /\.(mp4|mov|webm|mkv|avi|m4v|3gp)$/i.test(f.name);
-
-        if (isVideo) {
-          formData.append('videos', f);
-          hasVideo = true;
-        } else {
-          formData.append('photos', f);
-          hasPhoto = true;
-        }
-      });
-
-      if (sectionTitle) formData.append('section_title', sectionTitle);
-      if (type) {
-        formData.append('type', type);
-      } else if (hasVideo && !hasPhoto) {
-        formData.append('type', 'video');
-      } else if (hasPhoto && !hasVideo) {
-        formData.append('type', 'photo');
-      }
-
-      const res = await CommonApi<any>(
-        'POST',
-        `/api/galleries/${galleryId}/upload/`,
-        formData,
-        {
-          timeout: 300000,
-          signal,
-          onUploadProgress: (progressEvent) => {
-            if (progressEvent.total && onChunkProgress) {
-              const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-              onChunkProgress(percent, progressEvent.loaded);
-            }
-          },
-        }
-      );
-
-      let mediaList: any[] = [];
-      if (Array.isArray(res)) {
-        mediaList = res;
-      } else if (res && Array.isArray(res.media)) {
-        mediaList = res.media;
-      } else if (res && Array.isArray(res.data)) {
-        mediaList = res.data;
-      } else if (res && res.id) {
-        mediaList = [res];
-      } else if (res && res.data && res.data.id) {
-        mediaList = [res.data];
-      }
-
-      return {
-        message: res?.message,
-        total_uploaded: res?.total_uploaded ?? mediaList.length,
-        media: mediaList,
-        storage_usage: res?.storage_usage,
-      };
-    },
-    onBatchSuccess: (chunkRes) => {
-      allMedia.push(...chunkRes.media);
-      totalUploaded += chunkRes.total_uploaded;
-      if (chunkRes.storage_usage) lastStorageUsage = chunkRes.storage_usage;
-      if (chunkRes.message) lastMessage = chunkRes.message;
-    },
   });
-
-  return {
-    message: lastMessage || 'All media uploaded successfully',
-    total_uploaded: totalUploaded,
-    media: allMedia,
-    storage_usage: lastStorageUsage,
-  };
 };
 
 /**

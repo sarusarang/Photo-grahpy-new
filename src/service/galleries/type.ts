@@ -151,3 +151,110 @@ export interface TrackGalleryFavoriteResponse {
 export interface TrackGalleryViewResponse {
   success: boolean;
 }
+
+// -------------------------------------------------------------
+// Direct-to-R2 Media Upload Types (Method B Unified & Method C)
+// -------------------------------------------------------------
+
+export interface DirectR2InitPayload {
+  action: 'init' | 'presign';
+  filename: string;
+  file_size: number;
+  mime_type: string;
+  media_type?: 'photo' | 'video';
+  section_title?: string;
+}
+
+export interface DirectR2InitResponse {
+  reservation_id: string;
+  storage_key: string;
+  filename: string;
+  original_filename: string;
+  media_type: 'photo' | 'video';
+  section_title?: string;
+  upload_url: string;
+  method: 'PUT';
+  headers?: Record<string, string>;
+  expires_in?: number;
+}
+
+export interface DirectR2ConfirmPayload {
+  action?: 'confirm';
+  storage_key: string;
+  reservation_id: string;
+  original_filename: string;
+  mime_type: string;
+  media_type?: 'photo' | 'video';
+  section_title?: string;
+  file_size?: number;
+}
+
+export interface DirectR2StorageUsage {
+  used_bytes: number;
+  limit_bytes: number;
+  used_gb: number;
+  limit_gb: number;
+  used_percentage: number;
+}
+
+export interface DirectR2ConfirmResponse {
+  message?: string;
+  total_uploaded?: number;
+  media?: any;
+  storage_usage?: DirectR2StorageUsage;
+}
+
+// -------------------------------------------------------------
+// Direct-to-R2 Bulk Batch Types (Enterprise 1800+ Photos Scale)
+// -------------------------------------------------------------
+
+export interface DirectR2BulkInitFileItem {
+  filename: string;
+  file_size: number;
+  mime_type: string;
+  media_type?: 'photo' | 'video';
+  section_title?: string;
+}
+
+export interface DirectR2BulkInitPayload {
+  action: 'bulk-init' | 'bulk_init';
+  files: DirectR2BulkInitFileItem[];
+}
+
+export interface DirectR2BulkInitItemResponse {
+  filename: string;
+  original_filename?: string;
+  reservation_id: string;
+  storage_key: string;
+  upload_url: string;
+  media_type?: 'photo' | 'video';
+  section_title?: string;
+  headers?: Record<string, string>;
+  expires_in?: number;
+}
+
+export interface DirectR2BulkInitResponse {
+  items: DirectR2BulkInitItemResponse[];
+}
+
+export interface DirectR2BulkConfirmItem {
+  reservation_id: string;
+  storage_key: string;
+  original_filename: string;
+  mime_type: string;
+  file_size?: number;
+  media_type?: 'photo' | 'video';
+  section_title?: string;
+}
+
+export interface DirectR2BulkConfirmPayload {
+  action: 'bulk-confirm' | 'bulk_confirm';
+  items: DirectR2BulkConfirmItem[];
+}
+
+export interface DirectR2BulkConfirmResponse {
+  message?: string;
+  total_uploaded?: number;
+  media: any[];
+  storage_usage?: DirectR2StorageUsage;
+}

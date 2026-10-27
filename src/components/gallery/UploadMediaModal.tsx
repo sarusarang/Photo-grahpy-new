@@ -10,6 +10,8 @@ import { normalizeServerMediaItem, normalizeServerGallery } from '@/utils/galler
 import {
   SetGalleryCoverImageApi,
   SetGalleryTemplateBannerApi,
+  uploadSingleMediaDirectToR2,
+  uploadChunkDirectToR2,
 } from '@/service/galleries/GalleryApi';
 import { PlanUpgradeModal } from '../billing/PlanUpgradeModal';
 import { useUploadGuard } from '@/hooks/useUploadGuard';
@@ -436,10 +438,14 @@ export const UploadMediaModal: React.FC<UploadMediaModalProps> = ({
 
     incomingValidFiles.forEach((file, index) => {
       let previewUrl = '';
-      try {
-        previewUrl = URL.createObjectURL(file);
-      } catch (e) {
-        console.warn('Could not generate object URL for preview:', e);
+      // Memory Optimization: Only generate blob previews for the first 48 files
+      // to keep browser RAM and file descriptors lightweight for 1,800+ photo batches.
+      if (index < 48) {
+        try {
+          previewUrl = URL.createObjectURL(file);
+        } catch (e) {
+          console.warn('Could not generate object URL for preview:', e);
+        }
       }
       const cleanTitle = file.name.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ').trim();
 
@@ -596,15 +602,15 @@ export const UploadMediaModal: React.FC<UploadMediaModalProps> = ({
         section: item.section || selectedSection,
       }));
 
-      // Dynamic high-throughput batch configuration from .env / .env.local
-      const batchSize = getUploadBatchSize(isVideo);
-      const maxBatchBytes = getMaxBatchBytes();
+      // Enterprise Direct-to-R2 pipeline:
+      // Batches metadata (e.g. 24-30 files per chunk) to eliminate thousands of backend requests,
+      // while streaming binary files in parallel (concurrency 4) straight to Cloudflare R2 edge!
       const concurrency = getUploadConcurrency();
+      const batchSize = getUploadBatchSize(isVideo);
 
       const pipelineResult = await runBatchUploadPipeline<QueuedFileItem, MediaItem[]>({
         items: itemsToUpload,
         batchSize,
-        maxBatchBytes,
         concurrency,
         itemLabel: mediaType,
         signal: controller.signal,
@@ -618,66 +624,28 @@ export const UploadMediaModal: React.FC<UploadMediaModalProps> = ({
           onUploadProgress?.(p, text);
         },
         uploadBatch: async (batchItems: QueuedFileItem[], onBatchProgress) => {
-          // Bundle all files of this batch into ONE multi-file FormData request!
-          // This avoids firing dozens of concurrent requests that trigger Django rate limiting (429)!
-          const formData = new FormData();
-          let hasVideo = false;
-          let hasPhoto = false;
-
-          batchItems.forEach((item) => {
-            if (!item.file) return;
-            const isVid =
-              item.type === 'video' ||
-              item.file.type.startsWith('video/') ||
-              /\.(mp4|mov|webm|mkv|avi|m4v|3gp)$/i.test(item.file.name);
-
-            if (isVid) {
-              formData.append('videos', item.file);
-              hasVideo = true;
-            } else {
-              formData.append('photos', item.file);
-              hasPhoto = true;
-            }
-          });
+          const validFiles = batchItems.map((b) => b.file).filter((f): f is File => Boolean(f));
+          if (validFiles.length === 0) {
+            throw new Error('Batch contains no valid binary files');
+          }
 
           const section = selectedSection || batchItems[0]?.section || 'HIGHLIGHTS';
-          formData.append('section_title', section);
-          if (hasVideo && !hasPhoto) {
-            formData.append('type', 'video');
-          } else {
-            formData.append('type', 'photo');
-          }
+          const singleMediaType = batchItems[0]?.type || (isVideo ? 'video' : 'photo');
 
-          const res = await CommonApi<any>(
-            'POST',
-            `/api/galleries/${galleryId}/upload/`,
-            formData,
-            {
-              timeout: isVideo ? 600000 : 300000,
-              signal: controller.signal,
-              onUploadProgress: (progressEvent) => {
-                if (progressEvent.total && onBatchProgress) {
-                  const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-                  onBatchProgress(percent, progressEvent.loaded);
-                }
-              },
-            }
-          );
-
-          let mediaList: MediaItem[] = [];
-          if (Array.isArray(res)) {
-            mediaList = res;
-          } else if (res && Array.isArray(res.media)) {
-            mediaList = res.media;
-          } else if (res && Array.isArray(res.data)) {
-            mediaList = res.data;
-          } else if (res && res.id) {
-            mediaList = [res];
-          } else if (res && res.data && res.data.id) {
-            mediaList = [res.data];
-          }
-
-          return mediaList;
+          // High-throughput Direct-to-R2 chunk upload:
+          // 1. Bulk Init (or auto-fallback to single init)
+          // 2. Parallel PUTs straight to Cloudflare R2 edge
+          // 3. Bulk Confirm (1 DB bulk_create)
+          return uploadChunkDirectToR2({
+            galleryId,
+            files: validFiles,
+            sectionTitle: section,
+            mediaType: singleMediaType,
+            concurrency,
+            signal: controller.signal,
+            pauseController: pauseCtrl,
+            onProgress: onBatchProgress,
+          });
         },
         onBatchSuccess: (batchResults, batchItems) => {
           // 🛠️ MEMORY SAFETY CHECK: Clean up URL.revokeObjectURL immediately for every file in the completed batch
